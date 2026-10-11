@@ -6,7 +6,7 @@ assert (root / "backend/server.mjs").is_file()
 (root / "backend/knowledge/wikipedia.mjs").write_text("""const API_URL = 'https://en.wikipedia.org/w/api.php';
 const MAX_QUERY_LENGTH = 200;
 function stripHtml(value = '') {
-  return String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;|&#39;/g, "'").replace(/\\\\s+/g, ' ').trim();
+  return String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;|&#39;/g, "'").replace(/\\s+/g, ' ').trim();
 }
 export async function searchWikipedia(query, options = {}) {
   const q = String(query ?? '').trim();
