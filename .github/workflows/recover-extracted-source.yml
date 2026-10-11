@@ -1,0 +1,56 @@
+name: Recover and publish extracted source tree
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "New branch to receive the extracted source tree"
+        required: true
+        default: "recovery/extracted-source-2026-10-11"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recover-extracted-source
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository and archive parts
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: false
+
+      - name: Reconstruct and verify the master archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          for part in AI-Syed-Jalal-Master.part00 AI-Syed-Jalal-Master.part01 AI-Syed-Jalal-Master.part02 AI-Syed-Jalal-Master.part03 AI-Syed-Jalal-Master.part04 AI-Syed-Jalal-Master.part05 AI-Syed-Jalal-Master.part06 AI-Syed-Jalal-Master.part07 AI-Syed-Jalal-Master.part08; do
+            test -s "$part" || { echo "Missing archive part: $part"; exit 1; }
+          done
+          cat AI-Syed-Jalal-Master.part00 AI-Syed-Jalal-Master.part01 AI-Syed-Jalal-Master.part02 AI-Syed-Jalal-Master.part03 AI-Syed-Jalal-Master.part04 AI-Syed-Jalal-Master.part05 AI-Syed-Jalal-Master.part06 AI-Syed-Jalal-Master.part07 AI-Syed-Jalal-Master.part08 > /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+          unzip -tq /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+          mkdir -p source
+          unzip -q /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip -d source
+          test -f source/AI-Syed-Jalal-FINAL-RECOVERED/backend/package.json
+          echo "Extracted source files: $(find source/AI-Syed-Jalal-FINAL-RECOVERED -type f | wc -l)"
+          du -sh source/AI-Syed-Jalal-FINAL-RECOVERED
+
+      - name: Commit source tree to a separate branch
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$TARGET_BRANCH"
+          git add source/AI-Syed-Jalal-FINAL-RECOVERED
+          git commit -m "Recover extracted AI-Syed-Jalal source tree"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "$TARGET_BRANCH"
