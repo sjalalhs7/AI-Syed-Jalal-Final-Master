@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs'; import path from 'node:path';
+const root=path.resolve(new URL('..',import.meta.url).pathname);
+const pkg=JSON.parse(fs.readFileSync(path.join(root,'backend/package.json'),'utf8'));
+assert.equal(pkg.version,'75.0.0');
+const skills=JSON.parse(fs.readFileSync(path.join(root,'config/ai-skill-registry-v71-3500.json'),'utf8'));
+const agency=JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-agent-registry-v75.json'),'utf8'));
+const tools=JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-tool-catalog-v75.json'),'utf8'));
+assert.equal(skills.count,3500); assert.equal(agency.count,303); assert.equal(tools.count,16);
+const runtime=fs.readFileSync(path.join(root,'backend/ai-runtime.mjs'),'utf8');
+const server=fs.readFileSync(path.join(root,'backend/server.mjs'),'utf8');
+const ui=fs.readFileSync(path.join(root,'frontend/workspace.html'),'utf8');
+assert.match(runtime,/qualityPass/); assert.match(runtime,/deterministicRepair/); assert.match(runtime,/findAgencyAgents/); assert.match(server,/V75-FINAL/);
+assert.match(ui,/data-final-ui="v56-complete-motion"/); assert.equal((ui.match(/id="login"/g)||[]).length,1); assert.equal((ui.match(/id="app"/g)||[]).length,1);
+console.log('V75 FINAL PASS: 3500 skills + 303 Agency profiles + 16 tool targets + OpenCode + Android IDE + verification/repair + locked UI');

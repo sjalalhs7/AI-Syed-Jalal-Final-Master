@@ -1,0 +1,13 @@
+{
+  "project": "AI Syed Jalal",
+  "version": "V120",
+  "release": "FULL-CONSOLIDATED",
+  "status": "staging",
+  "base_foundation": "V76 deployment-ready",
+  "source_baseline": "V100 + V101 + V120",
+  "master_source": "AI-Syed-Jalal-FULL-CONSOLIDATED-MASTER.zip",
+  "next_version": "V121",
+  "primary_entry": "frontend/index.html",
+  "full_workspace": "frontend/workspace.html",
+  "preserve_historical_backend_contract": true
+}

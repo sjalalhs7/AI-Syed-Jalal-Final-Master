@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const root=path.resolve(new URL('..',import.meta.url).pathname);
+const reg=JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-agent-registry-v75.json'),'utf8'));
+const tools=JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-tool-catalog-v75.json'),'utf8'));
+assert.equal(reg.count,303); assert.equal(reg.agents.length,303); assert.equal(tools.count,16); assert.equal(Object.keys(tools.tools).length,16);
+assert.ok(fs.existsSync(path.join(root,'.opencode/agents/alsyed-jalal-power-orchestrator.md')));
+assert.ok(fs.existsSync(path.join(root,'integrations/android-ide/android-agent-workspace.json')));
+const runtime=fs.readFileSync(path.join(root,'backend/ai-runtime.mjs'),'utf8');
+assert.match(runtime,/search_agency_agents/); assert.match(runtime,/agencyRegistry/); assert.match(runtime,/qualityPass/);
+console.log('V75 AGENCY PASS: 303 specialist profiles + 16 tool targets + OpenCode + Android IDE contract integrated');

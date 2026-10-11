@@ -1,0 +1,484 @@
+{
+ "version": "V124",
+ "source": "Transcribed from requirement images shared by the owner (Go roadmap by @fixitech7 / XSYMPAN; programming skills map by @world.in.coderss). Topic lists only, no artwork.",
+ "roadmaps": [
+  {
+   "id": "go",
+   "title": "Go (Golang) Roadmap",
+   "subtitle": "From beginner to job-ready backend developer",
+   "path": [
+    "Learn Basics",
+    "Build Foundation",
+    "Explore Core",
+    "Build Real Projects",
+    "Advanced Topics",
+    "Get Hired"
+   ],
+   "stages": [
+    {
+     "n": 1,
+     "title": "Introduction to Go",
+     "duration": "1–2 weeks",
+     "topics": [
+      "What is Go?",
+      "Why use Go?",
+      "Go vs other languages (Java, Python, Node.js)",
+      "Install Go (1.22+)",
+      "Set up VS Code",
+      "Your first Go program",
+      "Go project structure",
+      "Go tooling (go run, go build, go mod)"
+     ],
+     "goal": "Set up the environment and run your first Go app."
+    },
+    {
+     "n": 2,
+     "title": "Go Basics",
+     "duration": "2–3 weeks",
+     "topics": [
+      "Syntax and structure",
+      "Variables and constants",
+      "Data types",
+      "Operators",
+      "Control statements (if, switch, loops)",
+      "Functions",
+      "Packages and modules",
+      "Error handling",
+      "Input/Output",
+      "Defer, Panic, Recover"
+     ],
+     "goal": "Write clean and efficient Go code."
+    },
+    {
+     "n": 3,
+     "title": "Data Structures",
+     "duration": "1–2 weeks",
+     "topics": [
+      "Arrays and Slices",
+      "Maps",
+      "Structs",
+      "Pointers",
+      "Methods and Receivers",
+      "Interfaces",
+      "Type Embedding",
+      "Generics (Go 1.18+)"
+     ],
+     "goal": "Master Go's core data structures."
+    },
+    {
+     "n": 4,
+     "title": "Concurrency",
+     "duration": "2–3 weeks",
+     "topics": [
+      "Goroutines",
+      "Channels",
+      "Channel patterns",
+      "Select statement",
+      "WaitGroup",
+      "Mutex (sync package)",
+      "Context package",
+      "Worker pools",
+      "Concurrency best practices"
+     ],
+     "goal": "Build concurrent and scalable applications."
+    },
+    {
+     "n": 5,
+     "title": "Working with the Standard Library",
+     "duration": "1–2 weeks",
+     "topics": [
+      "fmt, log, time",
+      "os and io packages",
+      "bufio",
+      "encoding (JSON, XML)",
+      "net (HTTP, TCP)",
+      "filepath and os package",
+      "Testing (testing package)",
+      "Benchmarking",
+      "Profiling (pprof)"
+     ],
+     "goal": "Use the Go standard library effectively."
+    },
+    {
+     "n": 6,
+     "title": "Web Development",
+     "duration": "3–4 weeks",
+     "topics": [
+      "HTTP basics (net/http)",
+      "Routing (http.ServeMux)",
+      "Middleware",
+      "Request & Response",
+      "JSON handling",
+      "File upload/download",
+      "Building REST APIs",
+      "Input validation",
+      "Error handling"
+     ],
+     "goal": "Build RESTful web services with Go."
+    },
+    {
+     "n": 7,
+     "title": "Databases",
+     "duration": "2–3 weeks",
+     "topics": [
+      "SQL with Go (PostgreSQL, MySQL, SQLite)",
+      "Using database/sql",
+      "Connection pooling",
+      "CRUD operations",
+      "Transactions",
+      "ORM (GORM)",
+      "Migrations (golang-migrate)",
+      "Working with NoSQL (MongoDB)"
+     ],
+     "goal": "Integrate Go apps with databases."
+    },
+    {
+     "n": 8,
+     "title": "Building Applications",
+     "duration": "3–4 weeks",
+     "topics": [
+      "Project structure (Clean Architecture)",
+      "Environment configuration",
+      "Logging (zap, logrus)",
+      "Dependency injection",
+      "Configuration management",
+      "API versioning",
+      "Graceful shutdown",
+      "Unit & integration testing",
+      "Documentation (Swagger/OpenAPI)"
+     ],
+     "goal": "Build production-ready applications."
+    },
+    {
+     "n": 9,
+     "title": "Advanced Topics",
+     "duration": "3–4 weeks",
+     "topics": [
+      "Advanced concurrency patterns",
+      "Caching (Redis)",
+      "Message queues (RabbitMQ, Kafka, NATS)",
+      "Microservices with Go",
+      "gRPC (Protocol Buffers)",
+      "GraphQL (gqlgen)",
+      "WebSockets",
+      "Rate limiting",
+      "Circuit breaker",
+      "Observability (Prometheus, Grafana)"
+     ],
+     "goal": "Build scalable and high-performance systems."
+    },
+    {
+     "n": 10,
+     "title": "DevOps & Deployment",
+     "duration": "2–3 weeks",
+     "topics": [
+      "Dockerize Go applications",
+      "Multi-stage Docker builds",
+      "Docker Compose",
+      "Kubernetes basics",
+      "CI/CD with GitHub Actions",
+      "Environment management",
+      "Monitoring & logging",
+      "Cloud deployment (AWS, GCP, Azure)"
+     ],
+     "goal": "Deploy and maintain Go applications."
+    },
+    {
+     "n": 11,
+     "title": "Real-World Projects",
+     "duration": "4–6 weeks",
+     "topics": [
+      "REST API (CRUD)",
+      "URL Shortener",
+      "Blogging Platform",
+      "Chat Application (WebSockets)",
+      "E-commerce Backend",
+      "Task Management System",
+      "Microservices (User, Product, Order)",
+      "File Storage Service",
+      "gRPC Service"
+     ],
+     "goal": "Build and deploy multiple real-world projects."
+    },
+    {
+     "n": 12,
+     "title": "Ecosystem & Tools",
+     "duration": "1–2 weeks",
+     "topics": [
+      "Go Modules",
+      "Go CLI tools",
+      "gofmt, go vet, golangci-lint",
+      "Delve (debugger)",
+      "Air (hot reload)",
+      "Swagger (API docs)",
+      "Protobuf (gRPC)",
+      "Makefile",
+      "Task runners"
+     ],
+     "goal": "Use Go tools to improve productivity."
+    },
+    {
+     "n": 13,
+     "title": "System Design with Go",
+     "duration": "3–4 weeks",
+     "topics": [
+      "Design scalable APIs",
+      "Microservices architecture",
+      "Load balancing",
+      "Caching strategies",
+      "Database design",
+      "Message-driven architecture",
+      "Event sourcing",
+      "High availability & fault tolerance",
+      "Real-world case studies"
+     ],
+     "goal": "Design and build scalable systems."
+    },
+    {
+     "n": 14,
+     "title": "Job Preparation",
+     "duration": "2–4 weeks",
+     "topics": [
+      "Go coding interview questions",
+      "System design concepts",
+      "Build a portfolio (GitHub)",
+      "Contribute to open source",
+      "Resume building",
+      "Mock interviews",
+      "Behavioral questions"
+     ],
+     "goal": "Get job-ready and crack interviews."
+    },
+    {
+     "n": 15,
+     "title": "Keep Learning",
+     "duration": "ongoing",
+     "topics": [
+      "Explore new Go releases",
+      "Read Go blogs and docs",
+      "Contribute to open source",
+      "Learn cloud-native tools",
+      "Explore advanced topics (eBPF, WASM, edge computing)",
+      "Join the Go community and conferences"
+     ],
+     "goal": "Stay updated and grow your career."
+    }
+   ],
+   "projects": [
+    {
+     "n": 1,
+     "title": "Basic CLI tool",
+     "note": "e.g., To-Do list"
+    },
+    {
+     "n": 2,
+     "title": "REST API",
+     "note": "CRUD"
+    },
+    {
+     "n": 3,
+     "title": "Blog platform",
+     "note": "with database"
+    },
+    {
+     "n": 4,
+     "title": "URL shortener",
+     "note": "with Redis"
+    },
+    {
+     "n": 5,
+     "title": "Chat app",
+     "note": "WebSockets"
+    },
+    {
+     "n": 6,
+     "title": "Microservices",
+     "note": "gRPC + Kafka"
+    },
+    {
+     "n": 7,
+     "title": "Deploy to cloud",
+     "note": "AWS/GCP"
+    }
+   ],
+   "tools": [
+    {
+     "name": "Gin",
+     "role": "Web framework"
+    },
+    {
+     "name": "GORM",
+     "role": "ORM"
+    },
+    {
+     "name": "Redis",
+     "role": "Cache"
+    },
+    {
+     "name": "PostgreSQL",
+     "role": "Database"
+    },
+    {
+     "name": "Docker",
+     "role": "Container"
+    },
+    {
+     "name": "Kubernetes",
+     "role": "Orchestration"
+    },
+    {
+     "name": "gRPC",
+     "role": "Remote calls"
+    },
+    {
+     "name": "Swagger",
+     "role": "API docs"
+    },
+    {
+     "name": "Prometheus",
+     "role": "Monitoring"
+    },
+    {
+     "name": "Grafana",
+     "role": "Visualization"
+    }
+   ],
+   "careers": [
+    "Backend Developer (Go)",
+    "Cloud/DevOps Engineer (Go)",
+    "Microservices Engineer",
+    "Platform/Infrastructure Engineer",
+    "SRE (Site Reliability Engineer)",
+    "Software Engineer (Go)",
+    "Open Source Contributor"
+   ],
+   "why": [
+    "Simple and easy to learn",
+    "High performance",
+    "Built for concurrency",
+    "Great for cloud-native and microservices",
+    "Strong community and ecosystem",
+    "Used by top companies",
+    "Excellent career opportunities"
+   ]
+  },
+  {
+   "id": "skills",
+   "title": "Programming Skills You Must Learn",
+   "subtitle": "Coding & programming map",
+   "path": [
+    "Programming Fundamentals",
+    "Core Development Skills"
+   ],
+   "stages": [
+    {
+     "n": 1,
+     "title": "Language",
+     "group": "Programming Fundamentals",
+     "topics": [
+      "Python",
+      "TypeScript",
+      "Java",
+      "C++"
+     ],
+     "goal": "Pick a first language and become fluent."
+    },
+    {
+     "n": 2,
+     "title": "Fundamentals",
+     "group": "Programming Fundamentals",
+     "topics": [
+      "Variables & data types",
+      "Conditions & loops",
+      "Functions",
+      "Recursion",
+      "Error handling"
+     ],
+     "goal": "Write correct basic programs."
+    },
+    {
+     "n": 3,
+     "title": "Programming Concepts",
+     "group": "Programming Fundamentals",
+     "topics": [
+      "OOP",
+      "Memory & references",
+      "File handling",
+      "Modules & packages"
+     ],
+     "goal": "Structure larger programs."
+    },
+    {
+     "n": 4,
+     "title": "DSA",
+     "group": "Core Development Skills",
+     "topics": [
+      "Arrays & strings",
+      "Linked lists",
+      "Stack & queue",
+      "Hashing",
+      "Trees & graphs",
+      "Sorting & searching",
+      "Dynamic programming"
+     ],
+     "goal": "Solve problems efficiently."
+    },
+    {
+     "n": 5,
+     "title": "Tools",
+     "group": "Core Development Skills",
+     "topics": [
+      "Git",
+      "GitHub",
+      "AI coding tools",
+      "Debugging",
+      "IDE / code editor"
+     ],
+     "goal": "Work like a professional developer."
+    },
+    {
+     "n": 6,
+     "title": "Data & Backend",
+     "group": "Core Development Skills",
+     "topics": [
+      "SQL",
+      "Databases",
+      "APIs",
+      "HTTP / JSON",
+      "Caching / Redis"
+     ],
+     "goal": "Build backend services."
+    },
+    {
+     "n": 7,
+     "title": "AI Development",
+     "group": "Core Development Skills",
+     "topics": [
+      "LLMs & AI APIs",
+      "AI agents",
+      "RAG & vector databases",
+      "AI coding tools"
+     ],
+     "goal": "Build AI-powered features."
+    },
+    {
+     "n": 8,
+     "title": "Projects",
+     "group": "Core Development Skills",
+     "topics": [
+      "Beginner projects",
+      "Real-world projects",
+      "AI-powered projects",
+      "Open source",
+      "Portfolio"
+     ],
+     "goal": "Prove skills with shipped work."
+    }
+   ],
+   "projects": [],
+   "tools": [],
+   "careers": [],
+   "why": []
+  }
+ ]
+}

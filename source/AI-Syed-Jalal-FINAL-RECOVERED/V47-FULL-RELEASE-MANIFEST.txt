@@ -1,0 +1,28 @@
+AI-SYED JALAL AI — V47 NEXT-GENERATION FULL RELEASE
+
+Base: V46 NEXT GENERATION
+Release: next-generation-enterprise-control-release
+
+New backend:
+- backend/ai-runtime-v47.mjs
+- /api/admin/system-snapshot
+- /api/admin/data-integrity
+- server-side backup integritySha256 metadata
+
+New frontend:
+- V47 Operations Center
+- Live system snapshot
+- Data distribution
+- Data integrity action
+- V47 branding/cache revision
+
+Preserved:
+- Original V25 source lineage
+- Homepage/login/logo/branding
+- Region/Sector data workflow
+- Import/export
+- A4 Police Verification print flow
+- Authentication, roles, audit, sessions
+- AI Command Center and 120 executable profiles
+- AI provider routing, circuit protection and bounded concurrency
+- Backup/restore

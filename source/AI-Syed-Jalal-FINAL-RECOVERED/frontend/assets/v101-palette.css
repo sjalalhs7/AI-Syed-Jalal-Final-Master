@@ -1,0 +1,21 @@
+/* AI-Syed Jalal V101 presentation palette — controlled four-color system. */
+:root{
+  --v101-coral:#FF6F61;
+  --v101-deep-blue:#0B1F3A;
+  --v101-emerald:#18B981;
+  --v101-gold:#F4C95D;
+}
+/* Shared accent enforcement for pages using the V100 presentation layer. */
+body{background-color:var(--v101-deep-blue)}
+.btn.primary,.btn.green,.btn.gold{border-color:transparent}
+.btn.primary{background:linear-gradient(135deg,var(--v101-coral),var(--v101-gold));color:#07111d}
+.btn.green{background:color-mix(in srgb,var(--v101-emerald) 12%,transparent);border-color:color-mix(in srgb,var(--v101-emerald) 45%,transparent);color:var(--v101-emerald)}
+.btn.gold{background:color-mix(in srgb,var(--v101-gold) 12%,transparent);border-color:color-mix(in srgb,var(--v101-gold) 45%,transparent);color:var(--v101-gold)}
+.eyebrow,.icon{color:var(--v101-coral)}
+.progress i,.bar i,.meter i{background:linear-gradient(90deg,var(--v101-coral),var(--v101-gold),var(--v101-emerald))}
+.nav button.active{box-shadow:inset 3px 0 var(--v101-coral)}
+.status,.state{color:var(--v101-emerald)}
+[data-v101-accent="coral"]{color:var(--v101-coral)!important}
+[data-v101-accent="emerald"]{color:var(--v101-emerald)!important}
+[data-v101-accent="gold"]{color:var(--v101-gold)!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

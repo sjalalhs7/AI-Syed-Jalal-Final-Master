@@ -1,0 +1,81 @@
+<?php
+
+/**
+ * prior auth form
+ *
+ * @package   OpenEMR
+ * @link      https://www.open-emr.org
+ * @author    Brady Miller <brady.g.miller@gmail.com>
+ * @copyright Copyright (c) 2019 Brady Miller <brady.g.miller@gmail.com>
+ * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
+ */
+
+require_once("FormPriorAuth.class.php");
+
+use OpenEMR\Common\Csrf\CsrfUtils;
+use OpenEMR\Common\Forms\EncounterFormAccess;
+use OpenEMR\Common\Forms\FormActionBarSettings;
+use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Core\OEGlobalsBag;
+
+class C_FormPriorAuth extends Controller
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $session = SessionWrapperFactory::getInstance()->getActiveSession();
+        $returnurl = 'encounter_top.php';
+        $this->template_dir = __DIR__ . "/templates/prior_auth/";
+        $this->assign("FORM_ACTION", OEGlobalsBag::getInstance()->getWebRoot());
+        $this->assign("DONT_SAVE_LINK", FormActionBarSettings::EXIT_URL);
+        $this->assign("STYLE", OEGlobalsBag::getInstance()->get('style'));
+        $this->assign("CSRF_TOKEN_FORM", CsrfUtils::collectCsrfToken(session: $session));
+    }
+
+    public function default_action(): string
+    {
+        $prior_auth = new FormPriorAuth();
+        $this->assign("prior_auth", $prior_auth);
+        return $this->fetch($this->template_dir . $this->template_mod . "_new.html");
+    }
+
+    public function view_action(int|false|null $form_id): string
+    {
+        $formId = is_int($form_id) && $form_id >= 0 ? $form_id : 0;
+        EncounterFormAccess::assertFormBelongsToSessionPatient($formId, 'prior_auth');
+
+        $prior_auth = $formId > 0 ? new FormPriorAuth($formId) : new FormPriorAuth();
+
+        $this->assign("VIEW", true);
+        $this->assign("prior_auth", $prior_auth);
+        return $this->fetch($this->template_dir . $this->template_mod . "_new.html");
+    }
+
+    public function default_action_process()
+    {
+        if ($_POST['process'] != "true") {
+            return;
+        }
+
+        // Empty-string POST id is the new-form case; missing/invalid → 0.
+        $postId = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $formId = is_int($postId) ? $postId : 0;
+        EncounterFormAccess::assertFormBelongsToSessionPatient($formId, 'prior_auth');
+
+        $this->form = $formId > 0 ? new FormPriorAuth($formId) : new FormPriorAuth();
+        parent::populate_object($this->form);
+        EncounterFormAccess::applySessionPidToForm($this->form);
+
+        $this->form->persist();
+        if (OEGlobalsBag::getInstance()->get('encounter') == "") {
+            OEGlobalsBag::getInstance()->set('encounter', date("Ymd"));
+        }
+
+        if ($formId === 0) {
+            $session = SessionWrapperFactory::getInstance()->getActiveSession();
+            addForm(OEGlobalsBag::getInstance()->get('encounter'), "Prior Authorization", $this->form->id, "prior_auth", OEGlobalsBag::getInstance()->get('pid'), $session->get('userauthorized'));
+            $_POST['process'] = "";
+        }
+        return;
+    }
+}

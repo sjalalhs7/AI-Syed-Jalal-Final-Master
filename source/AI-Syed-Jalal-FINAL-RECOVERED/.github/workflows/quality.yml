@@ -1,0 +1,70 @@
+name: V49 Quality Gate
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v49-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --omit=dev --no-audit --no-fund
+      - name: Syntax checks
+        run: |
+          node --check backend/server.mjs
+          node --check backend/ai-runtime.mjs
+          node --check scripts/verify-production.mjs
+          for f in tests/*.mjs; do node --check "$f"; done
+      - name: Frontend syntax check
+        run: node --check frontend/index.html.js
+      - name: V49 repository hygiene
+        run: node tests/v49-final-release.mjs
+      - name: Security regression
+        run: node tests/v48-security-hardening.mjs
+      - name: Lineage regression
+        run: node tests/lineage-audit.mjs
+      - name: Print regression
+        run: node tests/print-regression.mjs
+      - name: Quality gate
+        run: node tests/quality-gate.mjs
+      - name: PostgreSQL migration and seed
+        working-directory: backend
+        run: |
+          npm run migrate
+          npm run seed
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      - name: Production configuration verification
+        run: node scripts/verify-production.mjs
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          CORS_ORIGIN: https://example.github.io
+          SESSION_TTL_HOURS: 8

@@ -1,0 +1,19 @@
+AL-SYED JALAL AI V46 — NEXT GENERATION
+Release: next-generation-resilience-release
+Baseline: V45 FINAL STABILITY COMPLETION
+
+Core preserved:
+- Existing homepage/login/logo/branding
+- PostgreSQL central API + authentication/roles
+- 10k+ record architecture and bulk import
+- A4 Police Verification print controls
+- AI fusion/orchestration/command-control runtime
+- Audit, sessions, backup/restore, operations center
+
+V46 upgrades:
+- /api/admin/diagnostics
+- Schema integrity check
+- AI runtime health visibility
+- DB pool diagnostics
+- Backup SHA-256 sidecar manifest
+- V46 release metadata

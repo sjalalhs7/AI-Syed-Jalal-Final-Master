@@ -1,0 +1,8 @@
+Al-Syed Jalal AI V35 — Enterprise Operations & Deployment
+Frontend: Mission Command Center / working hash navigation / responsive mobile
+Backend: Node HTTP API + PostgreSQL + sessions + roles + audit
+Operations: system health, permissions matrix, audit paging, backup/restore scripts
+Security: restricted CORS, security headers, login throttling, session revocation
+Deployment: GitHub Pages frontend + separate HTTPS API + PostgreSQL
+Backup: pg_dump custom format + restore script
+Lineage: V30-V34 documentation retained; original V25 source archive preserved in master package

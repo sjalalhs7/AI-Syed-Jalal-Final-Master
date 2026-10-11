@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070b14"><title>Dashboard — Alsyed Jalal AI</title>
+<link rel="icon" href="assets/app-mark.svg"><link rel="stylesheet" href="assets/v101-palette.css">
+<style>
+:root{--bg:#070b14;--card:#0d1424;--line:#1f3a2f;--o:#ff8b00;--g:#ffd15a;--e:#18e07a;--t:#f4f7fb;--m:#9fb0c6}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#16301f 0,transparent 40%),var(--bg);color:var(--t);font-family:Inter,system-ui,sans-serif;display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+aside{border-right:1px solid #ffffff12;padding:16px;background:#0a101c;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;font-weight:900;margin-bottom:18px}.brand img{width:38px}
+nav a{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:11px;color:#c5d0e0;font-size:14px;cursor:pointer;margin-bottom:2px}
+nav a:hover{background:#ffffff0c}nav a.on{background:linear-gradient(135deg,#1c8a52,#18e07a33);color:#fff}
+.soon{font-size:9px;border:1px solid #ffd15a55;color:var(--g);border-radius:99px;padding:1px 6px}
+.me{margin-top:18px;border:1px solid #ffffff14;border-radius:12px;padding:10px;font-size:13px}.me small{color:var(--m);display:block}
+main{padding:22px;min-width:0}h1{margin:0 0 4px;font-size:26px}.sub{color:var(--m);margin:0 0 18px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}.k b{font-size:26px;color:var(--g);display:block}.k span{font-size:12px;color:var(--m)}
+.bar{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap}input,select,textarea{background:#05090f;border:1px solid #ffffff1c;border-radius:11px;padding:11px;color:#fff;font:inherit}
+textarea{width:100%;min-height:90px;resize:vertical}.bar input{flex:1;min-width:160px}
+.btn{border:0;border-radius:11px;padding:11px 16px;font-weight:800;cursor:pointer;color:#1a1204;background:linear-gradient(135deg,var(--g),var(--o))}.btn:disabled{opacity:.5}.btn.s{background:#ffffff12;color:#fff}
+.agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;max-height:340px;overflow:auto;padding:2px}
+.ag{background:#0a1220;border:1px solid #ffffff14;border-radius:13px;padding:12px;cursor:pointer;font-size:13px}.ag:hover,.ag.sel{border-color:var(--o)}.ag small{display:block;color:var(--m);margin-top:3px;text-transform:capitalize}
+.out{white-space:pre-wrap;background:#05090f;border:1px solid #ffffff14;border-radius:12px;padding:14px;margin-top:12px;min-height:60px;font-size:14px;line-height:1.6}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.err{color:#ff8a80}.ok{color:var(--e)}h3{margin:0 0 10px}
+@media(max-width:860px){body{grid-template-columns:1fr}aside{position:static;height:auto}.grid2{grid-template-columns:1fr}}
+</style></head><body>
+<aside><div class="brand"><img src="assets/alsyed-jalal-logo.svg" alt=""><span>Alsyed Jalal AI</span></div>
+<nav id="nav">
+<a class="on" data-v="home">Home</a><a data-v="agents">AI Agents</a><a data-v="run">Run Agent</a>
+<a data-v="lib">Library</a><a data-v="sec">Security &amp; Audit</a><a href="roadmaps.html">Learning Roadmaps</a><a href="workspace.html">Records Workspace</a>
+<a class="dim" data-soon>Agent Factory <i class="soon">SOON</i></a><a data-soon>Automation <i class="soon">SOON</i></a><a data-soon>Marketplace <i class="soon">SOON</i></a>
+<a data-soon>Memory &amp; Knowledge <i class="soon">SOON</i></a><a data-soon>Voice Assistant <i class="soon">SOON</i></a></nav>
+<div class="me"><b id="uname">…</b><small id="urole"></small><a id="out" style="cursor:pointer;color:#ff8a80;font-size:12px">Log out</a></div></aside>
+<main>
+<section id="v-home"><h1 id="hi">Welcome</h1><p class="sub">What would you like to do today?</p>
+<div class="row" id="stats"></div>
+<div class="grid2"><div class="card"><h3>Quick run</h3><textarea id="q" placeholder="Ask an agent anything…"></textarea><div class="bar" style="margin-top:8px"><button class="btn" id="qgo">Run with Mission Planner</button><button class="btn s" data-go="run">Choose agent</button></div><div class="out" id="qout" hidden></div></div>
+<div class="card"><h3>AI providers</h3><div id="prov" class="sub">Loading…</div></div></div></section>
+
+<section id="v-agents" hidden><h1>AI Agents</h1><p class="sub">Executable catalog roles from the backend.</p><div class="bar"><input id="s" placeholder="Search agents…"><select id="g"><option value="">All groups</option></select></div><div class="agents" id="list"></div></section>
+
+<section id="v-run" hidden><h1>Run Agent</h1><p class="sub" id="sel">Pick an agent in AI Agents, or use the default.</p>
+<div class="card"><div class="bar"><select id="prv"></select></div><textarea id="p" placeholder="Describe the task…"></textarea><div class="bar" style="margin-top:8px"><button class="btn" id="go">Run</button></div><div class="out" id="res" hidden></div></div></section>
+
+<section id="v-lib" hidden><h1>Library</h1><p class="sub">Imported open-source skills and app templates (see THIRD_PARTY_NOTICES.md).</p>
+<div class="bar"><input id="ls" placeholder="Search skills and templates…"><select id="lt"><option value="skills">Superpowers skills</option><option value="tpl">App templates</option><option value="src">Upstream status</option></select></div><div class="agents" id="lib"></div></section>
+<section id="v-sec" hidden><h1>Security &amp; Audit</h1><p class="sub">Admin/Manager only.</p><div class="card"><div class="bar"><button class="btn s" id="diag">System diagnostics</button><button class="btn s" id="aud">Recent audit events</button></div><div class="out" id="secout">Choose an action.</div></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),base=(localStorage.getItem('aj-v31-api')||location.origin).replace(/\/$/,'');
+let lib=null,csrf='',agents=[],inv=null,cur=null;
+async function api(path,o={}){const m=(o.method||'GET').toUpperCase();
+ if(m!=='GET'&&!csrf){const c=await fetch(base+'/api/csrf',{credentials:'include'});if(c.ok)csrf=(await c.json()).token||''}
+ const r=await fetch(base+path,{...o,credentials:'include',headers:{'Content-Type':'application/json',...(m!=='GET'&&csrf?{'X-CSRF-Token':csrf}:{})}});
+ const d=await r.json().catch(()=>({}));if(r.status===401){location.href='./';throw new Error('Signed out')}if(!r.ok)throw new Error(d.error||'HTTP '+r.status);return d}
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function view(v){['home','agents','run','lib','sec'].forEach(x=>$('#v-'+x).hidden=x!==v);document.querySelectorAll('nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v===v))}
+document.querySelectorAll('nav a[data-v]').forEach(a=>a.onclick=()=>view(a.dataset.v));
+document.querySelectorAll('[data-soon]').forEach(a=>a.onclick=()=>alert('Not built yet — planned for a later stage.'));
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>view(b.dataset.go));
+function draw(){const q=$('#s').value.toLowerCase(),g=$('#g').value;$('#list').innerHTML=agents.filter(a=>(!g||a.group===g)&&(!q||(a.name+a.group).toLowerCase().includes(q))).map(a=>`<div class="ag${cur?.id===a.id?' sel':''}" data-id="${esc(a.id)}"><b>${esc(a.name)}</b><small>${esc(a.group)}</small></div>`).join('')||'<p class="sub">No match.</p>';
+ document.querySelectorAll('.ag').forEach(e=>e.onclick=()=>{cur=agents.find(a=>a.id===e.dataset.id);$('#sel').textContent='Selected: '+cur.name+' ('+cur.group+')';draw();view('run')})}
+async function run(agentId,prompt,provider,out,btn){if(!prompt.trim()){out.hidden=false;out.textContent='Enter a prompt first.';return}
+ btn.disabled=true;out.hidden=false;out.className='out';out.textContent='Running…';
+ try{const r=await api('/api/ai/run',{method:'POST',body:JSON.stringify({agentId,provider,prompt})});out.textContent=r.output||'(empty response)'}
+ catch(e){out.className='out err';out.textContent=e.message}btn.disabled=false}
+$('#qgo').onclick=()=>run(agents[0]?.id,$('#q').value,$('#prv').value||'deepseek',$('#qout'),$('#qgo'));
+$('#go').onclick=()=>run((cur||agents[0])?.id,$('#p').value,$('#prv').value,$('#res'),$('#go'));
+function drawLib(){if(!lib)return;const q=$('#ls').value.toLowerCase(),t=$('#lt').value;let h='';
+ if(t==='skills')h=lib.superpowers_skills.filter(x=>(x.name+x.description).toLowerCase().includes(q)).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small style="text-transform:none">${esc(x.description.slice(0,110))}</small></div>`).join('');
+ else if(t==='tpl')h=lib.templates.filter(x=>(x.name+x.category+x.description).toLowerCase().includes(q)).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small>${esc(x.category.replace(/_/g,' '))}</small></div>`).join('');
+ else h=Object.entries(lib.sources).map(([k,v])=>`<div class="ag"><b>${esc(k)}</b><small style="text-transform:none">${esc(v.license)} · ${esc(v.status)}</small></div>`).join('');
+ $('#lib').innerHTML=h||'<p class="sub">No match.</p>'}
+$('#ls').oninput=drawLib;$('#lt').onchange=drawLib;
+$('#s').oninput=draw;$('#g').onchange=draw;
+$('#diag').onclick=async()=>{try{$('#secout').textContent=JSON.stringify(await api('/api/admin/diagnostics'),null,2)}catch(e){$('#secout').textContent=e.message}};
+$('#aud').onclick=async()=>{try{const d=await api('/api/admin/audit?limit=20');$('#secout').textContent=d.events.map(e=>`${new Date(e.time).toLocaleString()}  ${e.user}  ${e.action}  ${e.detail||''}`).join('\n')||'No events.'}catch(e){$('#secout').textContent=e.message}};
+$('#out').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST',body:'{}'})}catch{}location.href='./'};
+(async()=>{try{const me=(await api('/api/me')).user;$('#uname').textContent=me.username;$('#urole').textContent=me.role;$('#hi').textContent='Hello, '+me.username;
+ inv=await api('/api/ai/capabilities');agents=inv.agents||[];
+ [...new Set(agents.map(a=>a.group))].sort().forEach(g=>$('#g').insertAdjacentHTML('beforeend',`<option>${esc(g)}</option>`));
+ $('#stats').innerHTML=[[agents.length,'Executable agents'],[inv.agencyLayer?.profiles,'Specialist profiles'],[inv.skillRegistry?.totalSkills,'Skills'],[(inv.providers||[]).filter(p=>p.configured).length+' / '+(inv.providers||[]).length,'Providers configured']].map(([n,l])=>`<div class="card k"><b>${esc(n)}</b><span>${l}</span></div>`).join('');
+ $('#prov').innerHTML=(inv.providers||[]).map(p=>`<div>${p.configured?'<span class="ok">●</span>':'○'} ${esc(p.label)} <small>${esc(p.model)}</small></div>`).join('');
+ $('#prv').innerHTML=(inv.providers||[]).map(p=>`<option value="${esc(p.id)}"${p.configured?'':' disabled'}>${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');
+ const first=(inv.providers||[]).find(p=>p.configured);if(first)$('#prv').value=first.id;draw();lib=await api('/api/library');drawLib()}catch(e){if(e.message!=='Signed out')document.body.insertAdjacentHTML('afterbegin','<p class="err" style="grid-column:1/-1;padding:12px">'+esc(e.message)+'</p>')}})();
+</script><script type="module" src="components/AIWidget/AIWidget.js"></script></body></html>

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const root=process.cwd();
+const html=await fs.readFile(path.join(root,'frontend/index.html'),'utf8');
+const server=await fs.readFile(path.join(root,'backend/server.mjs'),'utf8');
+assert.match(html,/AL-SYED JALAL AI · V45/);
+assert.match(html,/id="loginForm"/);
+assert.match(html,/id="view-ai-command"/);
+assert.match(html,/id="printScale"/);
+assert.match(html,/id="printMargin"/);
+assert.match(server,/version:'V45'/);
+assert.match(server,/\/api\/admin\/ai\/health/);
+assert.match(server,/\/api\/ai\/runs/);
+console.log('V45 final release gate: PASS');

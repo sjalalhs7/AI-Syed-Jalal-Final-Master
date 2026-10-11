@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root=new URL('..',import.meta.url);
+const server=fs.readFileSync(new URL('backend/server.mjs',root),'utf8');
+const js=fs.readFileSync(new URL('frontend/index.html.js',root),'utf8');
+assert.match(server,/const VERSION='V52'/);
+assert.match(server,/const metrics=\{requests:0,errors:0,rateLimited:0,dbErrors:0\}/);
+assert.match(server,/pool\.on\('error',\(\)=>\{metrics\.dbErrors\+\+\}\)/);
+assert.match(server,/REQUEST_TIMEOUT_MS/);
+assert.match(server,/HEADERS_TIMEOUT_MS/);
+assert.match(server,/KEEP_ALIVE_TIMEOUT_MS/);
+assert.equal((server.match(/async function shutdown/g)||[]).length,1,'duplicate shutdown function');
+assert.equal((server.match(/process\.on\('SIGTERM'/g)||[]).length,1,'duplicate SIGTERM handler');
+assert.equal((server.match(/process\.on\('SIGINT'/g)||[]).length,1,'duplicate SIGINT handler');
+assert.match(js,/delete unsigned\.integritySha256/);
+assert.match(js,/serverSha&&serverSha!==sha/);
+assert.match(js,/Backup integrity verified/);
+console.log('V52 hardening validation: PASS');

@@ -1,0 +1,22 @@
+AL-SYED JALAL AI — V45 FINAL STABILITY & COMPLETION
+========================================================
+V45 is the final cumulative production release over V25-V44.
+Homepage, login, logo and existing branding are intentionally preserved.
+
+FINAL RELEASE GATES
+- PC/laptop data-entry workflow retained
+- Region / Sector / Add / Edit / Delete / Search retained
+- Import / Export / bulk import retained
+- 10K+ record performance architecture retained
+- A4 Police Verification print with scale/margin controls retained
+- PostgreSQL auth, roles, audit, backup/restore and disaster recovery retained
+- AI Command Center with agent/provider/capability visibility
+- AI 24-hour operational overview, provider health and run history
+- AI concurrency guard and provider circuit breaker
+- Truthful capability language: profiles are configurations, not model instances
+- Final browser/API/runtime quality gates
+
+IMPORTANT
+- Real shared multi-PC operation requires a deployed HTTPS API + PostgreSQL database.
+- Live provider execution requires valid provider credentials.
+- Local demo mode remains available for the static frontend.

@@ -1,0 +1,728 @@
+{
+  "version": "4.2",
+  "purpose": "Unified executable agent profile catalog for Al-Syed Jalal AI V42",
+  "runtime_agents": 120,
+  "catalog_roles": 120,
+  "roles": [
+    {
+      "id": "planning-01",
+      "name": "Mission Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-02",
+      "name": "Task Decomposer",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-03",
+      "name": "Workflow Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-04",
+      "name": "Priority Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-05",
+      "name": "Dependency Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-06",
+      "name": "Schedule Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-07",
+      "name": "Resource Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-08",
+      "name": "Scenario Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-09",
+      "name": "Objective Mapper",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "planning-10",
+      "name": "Decision Planner",
+      "group": "planning",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-01",
+      "name": "Data Intake",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-02",
+      "name": "Data Cleaner",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-03",
+      "name": "Data Normalizer",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-04",
+      "name": "Data Validator",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-05",
+      "name": "Data Mapper",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-06",
+      "name": "Duplicate Detector",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-07",
+      "name": "Record Merger",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-08",
+      "name": "Schema Guard",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-09",
+      "name": "Import Planner",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "data-10",
+      "name": "Export Planner",
+      "group": "data",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-01",
+      "name": "Policy Checker",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-02",
+      "name": "Compliance Reviewer",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-03",
+      "name": "Evidence Checker",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-04",
+      "name": "Retention Monitor",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-05",
+      "name": "Consent Checker",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-06",
+      "name": "Access Reviewer",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-07",
+      "name": "Control Tester",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-08",
+      "name": "Exception Reviewer",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-09",
+      "name": "Governance Monitor",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "compliance-10",
+      "name": "Compliance Reporter",
+      "group": "compliance",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-01",
+      "name": "Threat Monitor",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-02",
+      "name": "Session Guard",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-03",
+      "name": "Auth Monitor",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-04",
+      "name": "Rate Limit Guard",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-05",
+      "name": "Anomaly Detector",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-06",
+      "name": "Audit Guard",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-07",
+      "name": "Credential Monitor",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-08",
+      "name": "Permission Guard",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-09",
+      "name": "Security Reporter",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "security-10",
+      "name": "Incident Triage",
+      "group": "security",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-01",
+      "name": "Document Builder",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-02",
+      "name": "Template Resolver",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-03",
+      "name": "PDF Formatter",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-04",
+      "name": "A4 Layout Agent",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-05",
+      "name": "Print QA Agent",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-06",
+      "name": "Document Validator",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-07",
+      "name": "Attachment Manager",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-08",
+      "name": "Archive Agent",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-09",
+      "name": "Metadata Agent",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "documents-10",
+      "name": "Document Exporter",
+      "group": "documents",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-01",
+      "name": "Metrics Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-02",
+      "name": "Trend Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-03",
+      "name": "KPI Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-04",
+      "name": "Performance Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-05",
+      "name": "Capacity Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-06",
+      "name": "Query Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-07",
+      "name": "Data Quality Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-08",
+      "name": "Operational Analyst",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-09",
+      "name": "Report Builder",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "analytics-10",
+      "name": "Insight Summarizer",
+      "group": "analytics",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-01",
+      "name": "Operations Coordinator",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-02",
+      "name": "Queue Manager",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-03",
+      "name": "Job Monitor",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-04",
+      "name": "Health Monitor",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-05",
+      "name": "Release Monitor",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-06",
+      "name": "Backup Monitor",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-07",
+      "name": "Restore Coordinator",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-08",
+      "name": "Deployment Guard",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-09",
+      "name": "Rollback Coordinator",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "operations-10",
+      "name": "Service Watcher",
+      "group": "operations",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-01",
+      "name": "Notification Router",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-02",
+      "name": "Alert Composer",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-03",
+      "name": "Status Reporter",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-04",
+      "name": "Summary Writer",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-05",
+      "name": "Escalation Router",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-06",
+      "name": "Approval Notifier",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-07",
+      "name": "Operator Assistant",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-08",
+      "name": "Briefing Agent",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-09",
+      "name": "Handoff Agent",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "communication-10",
+      "name": "Message Validator",
+      "group": "communication",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-01",
+      "name": "Quality Gate",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-02",
+      "name": "Regression Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-03",
+      "name": "E2E Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-04",
+      "name": "Load Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-05",
+      "name": "Import Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-06",
+      "name": "Export Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-07",
+      "name": "Print Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-08",
+      "name": "API Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-09",
+      "name": "Schema Tester",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "quality-10",
+      "name": "Release Auditor",
+      "group": "quality",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-01",
+      "name": "Approval Coordinator",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-02",
+      "name": "Review Queue Manager",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-03",
+      "name": "Risk Gate",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-04",
+      "name": "Human Handoff",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-05",
+      "name": "Escalation Reviewer",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-06",
+      "name": "Approval Evidence",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-07",
+      "name": "Decision Logger",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-08",
+      "name": "Override Monitor",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-09",
+      "name": "Review Summarizer",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "human_approval-10",
+      "name": "Approval Reporter",
+      "group": "human_approval",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-01",
+      "name": "Backup Verifier",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-02",
+      "name": "Restore Tester",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-03",
+      "name": "Recovery Planner",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-04",
+      "name": "Disaster Drill Agent",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-05",
+      "name": "Integrity Checker",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-06",
+      "name": "Snapshot Auditor",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-07",
+      "name": "Recovery Monitor",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-08",
+      "name": "Continuity Planner",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-09",
+      "name": "Failover Observer",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "recovery-10",
+      "name": "Recovery Reporter",
+      "group": "recovery",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-01",
+      "name": "Knowledge Indexer",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-02",
+      "name": "Search Planner",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-03",
+      "name": "Context Builder",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-04",
+      "name": "Reference Resolver",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-05",
+      "name": "Source Tracker",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-06",
+      "name": "Knowledge Summarizer",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-07",
+      "name": "Fact Checker",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-08",
+      "name": "Context Auditor",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-09",
+      "name": "Retrieval Router",
+      "group": "knowledge",
+      "status": "executable-profile"
+    },
+    {
+      "id": "knowledge-10",
+      "name": "Knowledge Reporter",
+      "group": "knowledge",
+      "status": "executable-profile"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const root=process.cwd();
+const html=await fs.readFile(path.join(root,'frontend/index.html'),'utf8');
+const js=await fs.readFile(path.join(root,'frontend/index.html.js'),'utf8');
+assert.match(html,/lang="en"/);
+assert.match(html,/name="viewport"/);
+assert.match(html,/id="view-data"/);
+assert.match(html,/id="view-documents"/);
+assert.match(html,/id="view-operations"/);
+assert.match(js,/function nav\(/);
+assert.match(js,/openDB\(/);
+assert.match(js,/import/);
+assert.match(js,/export/);
+console.log('V40 quality gate: PASS');

@@ -1,0 +1,5 @@
+AL-SYED JALAL AI — V40 MANIFEST
+Release: V40 Performance & Disaster Recovery
+Core: V35/V38/V39 lineage retained
+Added: bulk import, performance indexes, EXPLAIN/ANALYZE admin endpoint, 10k/50k/100k benchmark, disaster-recovery drill, A4 print controls, print regression gate
+Status: release candidate package; external production benchmark/deployment still requires real infrastructure

@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const root=process.cwd();
+const html=await fs.readFile(path.join(root,'frontend/index.html'),'utf8');
+const js=await fs.readFile(path.join(root,'frontend/index.html.js'),'utf8');
+const must=['loginForm','loginApiUrl','username','password','demoBtn','logoutBtn','themeBtn','view-home','view-data','view-documents','view-operations','view-ai-command','sideNav','mobileNav','statRecords','operatorName'];
+for(const x of must) if(!html.includes(x)) throw new Error(`missing ${x}`);
+if(!html.includes('assets/alsyed-jalal-logo.svg')) throw new Error('professional logo asset not wired');
+if(!html.includes('Professional AI Workspace · V50')) throw new Error('V50 branding missing');
+if(!html.includes('Design by: Syed Jalal Hussain Shah')) throw new Error('footer credit missing');
+if((js.match(/if\(view==='ai-command'\)renderAICommand\(\);/g)||[]).length!==1) throw new Error('duplicate AI navigation render wiring remains');
+const aiListeners=(js.match(/\$\('#aiRunBtn'\)\?\.addEventListener\('click'/g)||[]).length;
+if(aiListeners>1) throw new Error(`duplicate AI run listeners: ${aiListeners}`);
+if(/localStorage\.setItem\('aj-v31-token'/.test(js)) throw new Error('live token must not be persisted in localStorage');
+console.log('V50 professional UI test: PASS');
