@@ -54,9 +54,9 @@ if "name: 'search_wikipedia'" not in runtime:
     assert marker in runtime
     runtime = runtime.replace(marker, marker + "\n" + tool, 1)
 if "name === 'search_wikipedia'" not in runtime:
-    marker = "function inventory() {"
-    assert marker in runtime
-    runtime = runtime.replace(marker, "async function executeTool(name, args) {\n  if (name === 'search_wikipedia') return await searchWikipedia(args?.query, { limit: args?.limit });\n}\n\n" + marker, 1)
+    marker = "async function executeTool(name, args, db) {"
+    assert marker in runtime, "Cannot locate existing AI tool execution function"
+    runtime = runtime.replace(marker, marker + "\n  if (name === 'search_wikipedia') return await searchWikipedia(args?.query, { limit: args?.limit });", 1)
 rp.write_text(runtime, encoding="utf-8")
 regp = root / "config/v120-feature-registry.json"
 reg = json.loads(regp.read_text())
