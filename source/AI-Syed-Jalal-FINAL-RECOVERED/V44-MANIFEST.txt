@@ -1,0 +1,22 @@
+AL-SYED JALAL AI — V44 AI COMMAND & OBSERVABILITY PRO
+=====================================================
+V44 is cumulative over V25-V43. Original V25 source archive is retained.
+
+NEW V44 CAPABILITIES
+- AI Command Control Plane
+- AI 24-hour operational overview endpoint
+- AI topology/agent graph endpoint
+- Provider configuration health endpoint
+- Bounded AI concurrency
+- Provider circuit-breaker protection
+- Runtime agent inventory with health state
+- Persistent AI run history retained from V43
+- Tool-call / provider traces retained from V43
+- DeepSeek / OpenAI-compatible / OmniRoute adapters retained
+- 120+ executable specialist profiles retained
+- 12 skill packs retained
+- Security, audit, PostgreSQL, backup/restore, performance and print systems retained
+
+IMPORTANT
+- Agent profiles are executable configurations, not 120 independent model instances.
+- Live provider execution requires real credentials and a running backend.

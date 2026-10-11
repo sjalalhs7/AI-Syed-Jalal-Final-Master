@@ -1,0 +1,32 @@
+{
+  "version": "120.1-recovery",
+  "status": "reconciled-source-regression-ready-live-e2e-pending",
+  "features": {
+    "uiUxProMax": "implemented",
+    "supervisor": "implemented-bounded-api-ui-added-live-provider-unverified",
+    "autogpt": "implemented-bounded-api-ui-added-live-provider-unverified",
+    "omniroute": "implemented-structurally-live-unverified",
+    "ossu": "roadmap-page-and-data-present-browser-e2e-unverified",
+    "localLlm": "contract-only",
+    "copilot": "integration-ready",
+    "superpowers": "reference-layer",
+    "voiceWakeWord": "environment-dependent",
+    "screenWebcamAwareness": "environment-dependent",
+    "desktopAssistant": "environment-dependent",
+    "googleAiStudioGemini": "provider-adapter-present-live-unverified",
+    "googleSearchGrounding": "optional-configuration-live-unverified",
+    "wikipediaKnowledgeAgent": "not-yet-dedicated-integration",
+    "healthMedicineAgent": "role-reference-only-safety-gates-required",
+    "professionalVoiceAssistant": "environment-dependent-not-e2e-verified"
+  },
+  "truthBoundary": [
+    "Live PostgreSQL requires an external database and E2E evidence",
+    "Live provider calls require server-side credentials and real E2E evidence",
+    "Google Search grounding requires configuration and citation verification",
+    "Wikipedia dedicated adapter is not yet implemented/verified",
+    "Medical agent requires dedicated safety/citation tests before live claim",
+    "Voice assistant requires browser/device permissions and physical-device E2E",
+    "Physical browser/device/desktop testing requires corresponding runtime",
+    "Exact missing historical V25 source cannot be reconstructed without the original artifact"
+  ]
+}

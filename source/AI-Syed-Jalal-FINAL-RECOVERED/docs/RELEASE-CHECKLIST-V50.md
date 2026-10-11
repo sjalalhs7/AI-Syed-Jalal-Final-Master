@@ -1,0 +1,23 @@
+# V50 Release Checklist
+
+- [x] Preserve existing functional route IDs
+- [x] Professional login redesign
+- [x] Professional homepage redesign
+- [x] Header/sidebar redesign
+- [x] Responsive mobile refinements
+- [x] Footer credit refinement
+- [x] Remove duplicate AI navigation/render wiring
+- [x] Remove duplicate AI run listener wiring
+- [x] Consolidate active AI runtime to prevent circular import recursion
+- [x] Backend metadata updated to V50
+- [x] Frontend syntax check
+- [x] Backend syntax check
+- [x] Security hardening test
+- [x] Print regression test
+- [x] Lineage audit
+- [x] AI command-control inventory test
+- [x] V50 professional UI test
+- [ ] Live PostgreSQL production smoke
+- [ ] Real provider execution with deployed credentials
+- [ ] Multi-PC deployment test
+- [ ] Physical printer/browser matrix

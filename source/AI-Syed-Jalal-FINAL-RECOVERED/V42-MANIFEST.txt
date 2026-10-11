@@ -1,0 +1,31 @@
+AL-SYED JALAL AI V42 — UNIFIED AI FUSION MANIFEST
+=================================================
+Lineage: V25 → V41 preserved
+New layer: V42 Unified AI Fusion
+
+EXECUTABLE AGENT PROFILES: 120
+CATALOG ROLES: 120
+LEGACY EXPLICIT RUNTIME ROLES: 3
+PROVIDER ADAPTERS: 3 (DeepSeek, OpenAI-compatible, OmniRoute)
+SKILL PACKS: 12
+AI TOOLS: 4 built-in safe tools
+ORCHESTRATION: manager-style runtime, bounded tool loop, audit trace, human approval boundary
+
+DeepSeek:
+- OpenAI-compatible base URL
+- configurable model
+- tool calling
+- optional thinking mode
+
+OpenAI-compatible:
+- configurable base URL
+- configurable model
+
+OmniRoute:
+- configurable gateway URL/key/model
+- OpenAI-compatible /chat/completions target
+
+IMPORTANT:
+120 profiles are executable configurations, not 120 independent model providers.
+Live provider execution requires credentials and network access.
+MCP/A2A are integration targets and are not falsely claimed as connected until configured.

@@ -1,0 +1,6 @@
+Al-Syed Jalal AI V35 COMPLETE ENTERPRISE OPERATIONS
+Frontend: Mission Command Center + Enterprise Operations Center + User Management
+Backend: Node.js + PostgreSQL API
+Database: PostgreSQL 18 compatible schema
+Deployment: GitHub Pages frontend + separate API/database
+Baseline: Original V25 production archive preserved alongside this package

@@ -1,0 +1,18 @@
+:host { all: initial; }
+.ajw { position: fixed; right: 18px; bottom: 18px; z-index: 2147483000; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.panel { display: none; width: 340px; max-width: calc(100vw - 36px); background: #0b1220; color: #fff; border: 1px solid #ffd15a33; border-radius: 16px; box-shadow: 0 14px 34px #000a; overflow: hidden; }
+.open .panel { display: block; }
+.open .toggle { display: none; }
+.header { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg,#ff8b00,#18b86a); color: #10150a; font-weight: 800; font-size: 13px; }
+button { font: inherit; }
+.close { background: none; border: 0; font-size: 16px; cursor: pointer; color: #10150a; }
+.messages { height: 280px; overflow: auto; padding: 12px 14px; }
+.message { margin-bottom: 10px; display: flex; }
+.message span { max-width: 84%; white-space: pre-wrap; padding: 9px 12px; border-radius: 13px; font-size: 13px; line-height: 1.4; background: #ffffff14; }
+.user { justify-content: flex-end; }
+.user span { background: #ff8b00; color: #1a1204; }
+.form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #ffffff14; }
+input { min-width: 0; flex: 1; background: #111a2b; border: 1px solid #ffffff1f; border-radius: 11px; padding: 10px; color: #fff; font: inherit; font-size: 13px; }
+.send { background: #18e07a; border: 0; border-radius: 11px; padding: 10px 14px; font-weight: 800; color: #04170d; cursor: pointer; }
+.toggle { width: 56px; height: 56px; border-radius: 50%; border: 0; cursor: pointer; background: linear-gradient(135deg,#ffd15a,#ff8b00); font-size: 24px; box-shadow: 0 8px 24px #000a; }
+@media (max-width: 480px) { .ajw { right: 12px; bottom: 12px; } .panel { width: min(340px, calc(100vw - 24px)); } }

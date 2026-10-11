@@ -1,0 +1,17 @@
+# AI-Syed Jalal
+
+AI-Syed Jalal is a professional AI workspace for chat, research, coding, data analysis, documents, AI agents and multi-model workflows.
+
+Primary site: https://sjalalhs7.github.io/employee-register/
+
+Core capabilities:
+- AI chat and multi-model workflows
+- Research and analysis
+- Code and development workflows
+- Data management and analysis
+- Document generation and printing
+- AI agents and orchestration
+- Provider/API integrations
+- Operations, security and audit controls
+
+The public website is a static frontend hosted on GitHub Pages. Shared multi-PC authentication and central database features require the separately deployed backend/API.

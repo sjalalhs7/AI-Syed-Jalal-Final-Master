@@ -1,0 +1,26 @@
+AI-Syed Jalal AI — V38 RELIABILITY & PRODUCTION QUALITY GATE
+
+Baseline: V37 Reliability Production Release
+Active production tree: V35-PRODUCTION/ (lineage-preserving directory name)
+
+V38 additions:
+- Repeatable static quality gate
+- API health/readiness smoke tests in CI
+- Request-ID correlation persisted in audit events
+- Public API version endpoint
+- Admin runtime/pool health detail endpoint
+- Database migration journal and repeatable migration runner
+- Additional large-data composite/partial indexes
+- Browser end-to-end navigation test with Playwright
+- Lightweight API load smoke test
+- Protected V38 GitHub Pages deployment workflow
+- Deployment and quality-gate documentation
+- Existing V37 enterprise/security/backup/restore/permissions architecture retained
+- Original V25 production source preserved
+
+Validation performed in build environment:
+- Backend syntax check
+- Frontend syntax check
+- Static quality gate
+- Migration script syntax check
+- ZIP integrity check

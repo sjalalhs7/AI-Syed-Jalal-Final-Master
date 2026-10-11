@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root=new URL('..',import.meta.url);
+const html=fs.readFileSync(new URL('frontend/index.html',root),'utf8');
+const js=fs.readFileSync(new URL('frontend/index.html.js',root),'utf8');
+const server=fs.readFileSync(new URL('backend/server.mjs',root),'utf8');
+const pkg=JSON.parse(fs.readFileSync(new URL('backend/package.json',root),'utf8'));
+for(const x of ['loginForm','view-home','assets/alsyed-jalal-logo.svg','login-logo-stage','home-orb','v51-particles','prefers-reduced-motion','V52']) assert.ok(html.includes(x),`missing ${x}`);
+assert.equal((html.match(/id="ai24Runs"/g)||[]).length,1,'AI stats duplicate markup remains');
+assert.equal((html.match(/id="aiRefreshBtn"/g)||[]).length,1,'AI refresh button duplicate markup remains');
+assert.equal((js.match(/\$\('#aiRefreshBtn'\)\?\.addEventListener\('click',renderAICommand\);/g)||[]).length,1,'AI refresh listener duplicate remains');
+assert.equal((js.match(/\$\('#aiRunBtn'\)\?\.addEventListener\('click'/g)||[]).length,1,'AI run listener duplicate remains');
+assert.doesNotMatch(js,/localStorage\.setItem\('aj-v31-token'/,'live token persistence regression');
+assert.match(server,/version:VERSION/);
+assert.match(server,/professional-3d-motion-zero-known-defect-hardening-release/);
+assert.equal(pkg.version,'52.0.0');
+console.log('V51 final release validation: PASS');

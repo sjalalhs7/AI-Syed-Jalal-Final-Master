@@ -1,0 +1,13 @@
+{$PUBLIC_ORIGIN}
+encode gzip zstd
+root * /srv/frontend
+@api path /api/*
+reverse_proxy @api api:8787
+header {
+  X-Content-Type-Options nosniff
+  X-Frame-Options DENY
+  Referrer-Policy no-referrer
+  Permissions-Policy "camera=(), microphone=(), geolocation=()"
+}
+try_files {path} /index.html
+file_server
