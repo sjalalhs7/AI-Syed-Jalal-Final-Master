@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { getAgentInventory, runAgent } from './ai-runtime.mjs';
 import { runSupervisor, runAutoGPT } from './agent-systems/index.mjs';
+import { searchWikipedia } from './knowledge/wikipedia.mjs';
 const {Pool}=pg;
 const VERSION='V75-FINAL', RELEASE='final-integrated-power-agent';
 const PORT=Number(process.env.PORT||8787),HOST=process.env.HOST||'0.0.0.0';
@@ -162,6 +163,13 @@ const server=http.createServer(async(req,res)=>{
   if(u.pathname==='/api/admin/ai/health'&&req.method==='GET'){if(!isAdmin(me.role))return send(res,403,{error:'Admin role required'},req);const inv=getAgentInventory();return send(res,200,{ok:true,active:inv.runtime.active,maxConcurrent:inv.runtime.maxConcurrent,providers:inv.runtime.providers,checkedAt:new Date().toISOString()},req)}
   if(u.pathname==='/api/admin/ai/provider-health'&&req.method==='GET'){if(!isAdmin(me.role))return send(res,403,{error:'Admin role required'},req);const inv=getAgentInventory();return send(res,200,{providers:inv.providers.map(p=>({id:p.id,label:p.label,configured:p.configured,model:p.model,baseUrl:p.baseUrl,status:p.configured?'configured':'missing-credentials'})),checkedAt:new Date().toISOString()},req)}
   if(u.pathname==='/api/ai/runs'&&req.method==='GET'){const limit=Math.min(200,Math.max(1,Number(u.searchParams.get('limit')||50)));const c=await pool.connect();try{const q=await c.query('SELECT id,agent_id AS "agentId",provider,model,status,prompt,output,tool_calls AS "toolCalls",trace,created_at AS "createdAt" FROM ai_runs WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2',[me.id,limit]);return send(res,200,{runs:q.rows},req)}finally{c.release()}}
+  if(u.pathname==='/api/knowledge/wikipedia'&&req.method==='GET'){
+    const query=String(u.searchParams.get('q')||'').trim();
+    if(query.length<2)return send(res,400,{error:'Query must contain at least 2 characters.'},req);
+    if(query.length>200)return send(res,413,{error:'Query must be 200 characters or fewer.'},req);
+    try{return send(res,200,await searchWikipedia(query),req)}
+    catch(e){return send(res,502,{error:'Wikipedia search is temporarily unavailable. Please retry later.',source:'Wikipedia',retrievedAt:new Date().toISOString()},req)}
+  }
   if(u.pathname==='/api/ai/capabilities'&&req.method==='GET'){return send(res,200,getAgentInventory(),req)}
   if(u.pathname==='/api/library'&&req.method==='GET'){return send(res,200,UPSTREAM,req)}
   if(u.pathname==='/api/ai/integrations'&&req.method==='GET'){return send(res,200,{ok:true,version:VERSION,integrations:{opencode:{status:'contract-ready',path:'.opencode/agents'},androidIde:{status:'contract-ready',path:'integrations/android-ide/android-agent-workspace.json'},agency:{status:'integrated',profiles:303,toolTargets:16}},verification:'V73 critic + deterministic repair preserved'},req)}

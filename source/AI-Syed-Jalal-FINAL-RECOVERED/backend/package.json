@@ -21,10 +21,12 @@
     "v75-final": "node ../tests/v75-final.mjs",
     "v75-agency": "node ../tests/v75-agency-integration.mjs",
     "audit:current": "node ../tests/v76-grand-audit.mjs",
-    "test:release": "npm run audit:current && npm run v71-skills && npm run v73-quality && npm run v73-final && npm run v75-final && npm run v75-agency",
+    "test:release": "npm run audit:current && npm run v71-skills && npm run v73-quality && npm run v73-final && npm run v75-final && npm run v75-agency && npm run wikipedia-adapter && npm run capability-contracts",
     "e2e:runtime": "node ../tests/runtime-e2e.mjs",
     "e2e:ai": "node ../tests/ai-live-e2e.mjs",
-    "e2e:browser": "node ../tests/browser-e2e.mjs"
+    "e2e:browser": "node ../tests/browser-e2e.mjs",
+    "wikipedia-adapter": "node ../tests/wikipedia-adapter.mjs",
+    "capability-contracts": "node ../tests/agent-capability-contracts.mjs"
   },
   "engines": {
     "node": ">=20"
