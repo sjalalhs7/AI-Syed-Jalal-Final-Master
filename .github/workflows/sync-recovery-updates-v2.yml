@@ -1,0 +1,44 @@
+name: Sync verified recovery updates
+"on":
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main and preserve sync script
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Switch to extracted source branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/sync-recovery-updates.py /tmp/sync-recovery-updates.py
+          git fetch origin recovery/extracted-source-2026-10-11
+          git checkout recovery/extracted-source-2026-10-11
+      - name: Apply and test update
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/sync-recovery-updates.py
+          ROOT="source/AI-Syed-Jalal-FINAL-RECOVERED"
+          node --check "$ROOT/backend/knowledge/wikipedia.mjs"
+          node --check "$ROOT/backend/server.mjs"
+          node --check "$ROOT/backend/ai-runtime.mjs"
+          node "$ROOT/tests/wikipedia-adapter.mjs"
+          node "$ROOT/tests/agent-capability-contracts.mjs"
+      - name: Commit and push source updates
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add source/AI-Syed-Jalal-FINAL-RECOVERED
+          git commit -m "Sync verified Wikipedia knowledge adapter updates"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin recovery/extracted-source-2026-10-11
