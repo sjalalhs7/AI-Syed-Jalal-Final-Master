@@ -1,0 +1,8 @@
+import assert from 'node:assert/strict';
+import { searchWikipedia } from '../backend/knowledge/wikipedia.mjs';
+let requested;
+const fakeFetch = async (url, options) => ({ ok: true, status: 200, async json() { requested = { url: new URL(url), options }; return { query: { search: [{ pageid: 42, title: 'Artificial intelligence', snippet: 'A <span class="searchmatch">field</span> of study &amp; research.' }, { pageid: 7, title: 'Machine learning', snippet: 'A branch of AI.' }] } }; } });
+const result = await searchWikipedia(' artificial intelligence ', { fetchImpl: fakeFetch, limit: 2 });
+assert.equal(result.source, 'Wikipedia'); assert.equal(result.query, 'artificial intelligence'); assert.equal(result.results.length, 2); assert.equal(result.results[0].pageId, 42); assert.equal(result.results[0].snippet, 'A field of study & research.'); assert.equal(result.results[0].url, 'https://en.wikipedia.org/wiki/Artificial_intelligence'); assert.match(result.attribution, /Wikipedia contributors/); assert.ok(Number.isFinite(Date.parse(result.retrievedAt))); assert.equal(requested.url.searchParams.get('srsearch'), 'artificial intelligence'); assert.equal(requested.url.searchParams.get('srlimit'), '2'); assert.match(requested.options.headers['User-Agent'], /AI-Syed-Jalal/);
+await assert.rejects(() => searchWikipedia('x', { fetchImpl: fakeFetch }), /at least 2/); await assert.rejects(() => searchWikipedia('x'.repeat(201), { fetchImpl: fakeFetch }), /200 characters/); await assert.rejects(() => searchWikipedia('network test', { fetchImpl: async () => ({ ok: false, status: 503 }) }), /HTTP 503/);
+console.log('WIKIPEDIA ADAPTER PASS');

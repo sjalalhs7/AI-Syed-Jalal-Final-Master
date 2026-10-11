@@ -15,7 +15,7 @@
     "desktopAssistant": "environment-dependent",
     "googleAiStudioGemini": "provider-adapter-present-live-unverified",
     "googleSearchGrounding": "optional-configuration-live-unverified",
-    "wikipediaKnowledgeAgent": "not-yet-dedicated-integration",
+    "wikipediaKnowledgeAgent": "dedicated-search-adapter-and-ai-tool-added-live-unverified",
     "healthMedicineAgent": "role-reference-only-safety-gates-required",
     "professionalVoiceAssistant": "environment-dependent-not-e2e-verified"
   },
@@ -27,6 +27,7 @@
     "Medical agent requires dedicated safety/citation tests before live claim",
     "Voice assistant requires browser/device permissions and physical-device E2E",
     "Physical browser/device/desktop testing requires corresponding runtime",
-    "Exact missing historical V25 source cannot be reconstructed without the original artifact"
+    "Exact missing historical V25 source cannot be reconstructed without the original artifact",
+    "Wikipedia adapter has deterministic mocked tests; live Wikimedia connectivity requires deployment E2E."
   ]
 }

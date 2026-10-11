@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { criticOutput, deterministicRepair } from './ai-quality.mjs';
+import { searchWikipedia } from './knowledge/wikipedia.mjs';
 
 const catalogUrl = new URL('../config/ai-agent-catalog-v42.json', import.meta.url);
 const skillUrl = new URL('../config/ai-skill-registry-v71-3500.json', import.meta.url);
@@ -38,6 +39,8 @@ const providers = {
 };
 
 const tools = [
+  { type: 'function', function: { name: 'search_wikipedia', description: 'Search English Wikipedia for background knowledge; not a primary source for current or medical claims.', parameters: { type: 'object', properties: { query: { type: 'string', minLength: 2, maxLength: 200 }, limit: { type: 'integer', minimum: 1, maximum: 5 } }, required: ['query'], additionalProperties: false } } },
+
   { type: 'function', function: { name: 'search_ai_skills', description: 'Search the 3,500-skill expert capability registry and return matching skill specifications.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Skill, domain or capability search terms.' }, limit: { type: 'integer', minimum: 1, maximum: 50 } }, required: ['query'], additionalProperties: false } } },
   { type: 'function', function: { name: 'search_agency_agents', description: 'Search imported Agency specialist capability profiles. These profiles are references; execution still requires a configured runtime.', parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 25 } }, required: ['query'], additionalProperties: false } } },
   { type: 'function', function: { name: 'get_current_time', description: 'Get the current server time in ISO-8601.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
@@ -148,6 +151,7 @@ function systemPrompt(agent, prompt='') {
 }
 
 async function executeTool(name, args, db) {
+  if (name === 'search_wikipedia') return await searchWikipedia(args?.query, { limit: args?.limit });
   if (name === 'get_current_time') return { now: new Date().toISOString() };
   if (name === 'list_ai_capabilities') return inventory();
   if (name === 'search_ai_skills') return { totalSkills: skillRegistry.count, results: findSkills(args?.query, Math.min(50, Math.max(1, Number(args?.limit || 20)))) };
