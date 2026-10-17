@@ -1,0 +1,25 @@
+AI-Syed Jalal V52 FINAL ENGINEERING MANIFEST
+===========================================
+Active release: V52
+Release: professional-3d-motion-zero-known-defect-hardening-release
+Baseline: V51
+
+Preserved:
+- Original V25 source archive / lineage
+- Homepage, logo and login identity
+- 3D motion and reduced-motion support
+- Data Vault / Regions / Sectors / import-export architecture
+- A4 Police Verification print controls
+- AI runtime, 120 executable profiles, provider adapters and command center
+- Security/session architecture
+
+Hardened in V52:
+- Central active version constants
+- Node request/header/keep-alive timeouts
+- PostgreSQL pool error telemetry
+- Graceful shutdown and client-error handling
+- Enterprise backup SHA-256 verification in the UI
+- V52 release and hardening regression tests
+
+Honest deployment boundary:
+- No claim of live production PostgreSQL/provider/printer/multi-PC execution unless performed in the target environment.

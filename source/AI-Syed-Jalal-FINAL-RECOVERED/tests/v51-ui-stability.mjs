@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root=new URL('..',import.meta.url);
+const html=fs.readFileSync(new URL('frontend/index.html',root),'utf8');
+const js=fs.readFileSync(new URL('frontend/index.html.js',root),'utf8');
+const required=['loginForm','username','password','demoBtn','logoutBtn','themeBtn','view-home','view-data','view-documents','view-operations','view-ai-command','sideNav','mobileNav','statRecords','operatorName'];
+for(const x of required) assert.ok(html.includes(x),`missing UI contract: ${x}`);
+assert.ok(html.includes('3D MOTION · ACTIVE'),'3D status missing');
+assert.ok(html.includes('v51LogoFloat'),'3D logo animation missing');
+assert.ok(html.includes('v51RingA') && html.includes('v51RingB'),'3D orbital motion missing');
+assert.ok(html.includes('v51Sheen'),'surface motion missing');
+assert.ok(html.includes('prefers-reduced-motion'),'accessibility motion fallback missing');
+assert.ok(js.includes('initV52Motion'),'pointer motion controller missing');
+assert.ok(js.includes("credentials:'include'"),'live session cookie credentials missing');
+console.log('V51 UI stability validation: PASS');

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070b14"><title>Learning Roadmaps — Alsyed Jalal AI</title>
+<link rel="icon" href="assets/app-mark.svg"><link rel="stylesheet" href="assets/v101-palette.css">
+<style>
+:root{--bg:#070b14;--card:#0d1424;--line:#1f3a2f;--o:#ff8b00;--g:#ffd15a;--e:#18e07a;--t:#f4f7fb;--m:#9fb0c6}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#16301f 0,transparent 40%),var(--bg);color:var(--t);font-family:Inter,system-ui,sans-serif;padding:18px;max-width:1200px;margin-inline:auto}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;gap:10px;align-items:center;font-weight:900}.brand img{width:36px}
+a.back{color:var(--g);text-decoration:none;font-size:14px}
+h1{margin:6px 0 2px;font-size:26px}.sub{color:var(--m);margin:0 0 14px}
+.tabs,.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+button,input{font:inherit}
+.tab{background:#ffffff12;color:#fff;border:1px solid #ffffff1c;border-radius:99px;padding:8px 14px;cursor:pointer}
+.tab.on{background:linear-gradient(135deg,var(--g),var(--o));color:#1a1204;font-weight:800;border-color:transparent}
+.bar input{flex:1;min-width:160px;background:#05090f;border:1px solid #ffffff1c;border-radius:11px;padding:10px;color:#fff}
+.btn{border:0;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer;background:#ffffff12;color:#fff}
+.meter{height:10px;background:#ffffff14;border-radius:99px;overflow:hidden;margin:6px 0 16px}.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--e),var(--g));transition:width .3s}
+.path{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--g)}.path span:not(:last-child)::after{content:" →";color:var(--m)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.card h3{margin:0 0 2px;font-size:16px}.card .d{color:var(--m);font-size:12px;margin-bottom:8px}
+.n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--e);color:#04210f;font-weight:900;margin-right:8px;font-size:13px}
+label.t{display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:14px;cursor:pointer}
+label.t input{margin-top:3px;accent-color:#18e07a}label.t.done span{color:var(--m);text-decoration:line-through}
+.goal{margin-top:8px;padding:8px;border-radius:10px;background:#18e07a14;color:#bff5d6;font-size:13px}
+.sp{height:6px;background:#ffffff14;border-radius:99px;overflow:hidden;margin:6px 0}.sp i{display:block;height:100%;background:var(--e);width:0}
+h2{margin:22px 0 10px;font-size:18px;color:var(--g)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{background:#0a1220;border:1px solid #ffffff14;border-radius:12px;padding:8px 12px;font-size:13px}.chip small{display:block;color:var(--m)}
+ul.l{margin:0;padding-left:18px;line-height:1.7}
+.hidden{display:none!important}.err{color:#ff8a80}
+</style></head><body>
+<header><div class="brand"><img src="assets/app-mark.svg" alt=""><span>Alsyed Jalal AI</span></div><a class="back" href="dashboard.html">← Dashboard</a></header>
+<h1>Learning Roadmaps</h1><p class="sub">Tick topics as you learn. Progress is saved on this device only.</p>
+<div class="tabs" id="tabs"></div>
+<div class="bar"><input id="q" type="search" placeholder="Search topics…" aria-label="Search topics"><button class="btn" id="reset">Reset progress</button></div>
+<div id="overall"></div>
+<div class="path" id="path"></div>
+<div class="grid" id="stages"></div>
+<div id="extra"></div>
+<p id="msg" class="err" hidden></p>
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const KEY='aj-roadmap-progress-v124';
+let data=null,cur=0,prog={};
+try{prog=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){prog={}}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(prog))}catch(e){}};
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
+const id=(r,s,i)=>r.id+':'+s.n+':'+i;
+function pct(r,stage){const list=stage?[stage]:r.stages;let t=0,d=0;list.forEach(s=>s.topics.forEach((_,i)=>{t++;if(prog[id(r,s,i)])d++}));return t?Math.round(d*100/t):0}
+function render(){
+  const r=data.roadmaps[cur],q=$('#q').value.trim().toLowerCase();
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===cur));
+  const o=$('#overall');o.replaceChildren(el('b',null,r.title+' — '+pct(r)+'% complete'),(()=>{const m=el('div','meter');const i=el('i');i.style.width=pct(r)+'%';m.appendChild(i);return m})());
+  const p=$('#path');p.replaceChildren(...r.path.map(x=>el('span',null,x)));
+  const g=$('#stages');g.replaceChildren();
+  r.stages.forEach(s=>{
+    const topics=s.topics.map((t,i)=>({t,i})).filter(x=>!q||x.t.toLowerCase().includes(q)||s.title.toLowerCase().includes(q));
+    if(!topics.length)return;
+    const c=el('div','card');const h=el('h3');h.append(el('span','n',String(s.n)),s.title);c.appendChild(h);
+    c.appendChild(el('div','d',[s.duration,s.group].filter(Boolean).join(' · ')));
+    const sp=el('div','sp'),si=el('i');si.style.width=pct(r,s)+'%';sp.appendChild(si);c.appendChild(sp);
+    topics.forEach(({t,i})=>{const l=el('label','t'+(prog[id(r,s,i)]?' done':''));const cb=el('input');cb.type='checkbox';cb.checked=!!prog[id(r,s,i)];
+      cb.onchange=()=>{if(cb.checked)prog[id(r,s,i)]=1;else delete prog[id(r,s,i)];save();render()};
+      l.append(cb,el('span',null,t));c.appendChild(l)});
+    if(s.goal)c.appendChild(el('div','goal','Goal: '+s.goal));
+    g.appendChild(c)});
+  const x=$('#extra');x.replaceChildren();
+  const chips=(title,arr,f)=>{if(!arr||!arr.length)return;x.appendChild(el('h2',null,title));const w=el('div','chips');arr.forEach(a=>w.appendChild(f(a)));x.appendChild(w)};
+  chips('Project roadmap',r.projects,a=>{const c=el('div','chip',a.n+'. '+a.title);c.appendChild(el('small',null,a.note));return c});
+  chips('Popular tools & libraries',r.tools,a=>{const c=el('div','chip',a.name);c.appendChild(el('small',null,a.role));return c});
+  if(r.careers&&r.careers.length){x.appendChild(el('h2',null,'Career opportunities'));const u=el('ul','l');r.careers.forEach(a=>u.appendChild(el('li',null,a)));x.appendChild(u)}
+  if(r.why&&r.why.length){x.appendChild(el('h2',null,'Why choose this path?'));const u=el('ul','l');r.why.forEach(a=>u.appendChild(el('li',null,a)));x.appendChild(u)}
+}
+$('#q').oninput=render;
+$('#reset').onclick=()=>{if(confirm('Reset all roadmap progress on this device?')){prog={};save();render()}};
+fetch('assets/roadmaps.json').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(d=>{
+  data=d;const t=$('#tabs');d.roadmaps.forEach((r,i)=>{const b=el('button','tab',r.title);b.onclick=()=>{cur=i;render()};t.appendChild(b)});render();
+}).catch(e=>{const m=$('#msg');m.hidden=false;m.textContent='Could not load roadmaps: '+e.message});
+})();
+</script></body></html>

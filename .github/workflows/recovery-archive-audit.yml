@@ -1,0 +1,104 @@
+name: Recovery Archive and Release Audit
+
+on:
+  push:
+    branches:
+      - recovery/extracted-source-2026-10-11
+    paths:
+      - ".github/workflows/recovery-archive-audit.yml"
+      - "MASTER-RECOVERY-AND-INTEGRATION-LEDGER.md"
+      - "AI-Syed-Jalal-Master.part**"
+      - "source/AI-Syed-Jalal-FINAL-RECOVERED/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-integrity:
+    name: Rebuild and verify original master archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+
+      - name: Reassemble the nine uploaded parts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat AI-Syed-Jalal-Master.part00 AI-Syed-Jalal-Master.part01 AI-Syed-Jalal-Master.part02 AI-Syed-Jalal-Master.part03 AI-Syed-Jalal-Master.part04 AI-Syed-Jalal-Master.part05 AI-Syed-Jalal-Master.part06 AI-Syed-Jalal-Master.part07 AI-Syed-Jalal-Master.part08 > /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+          echo "Computed SHA-256:"
+          sha256sum /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+          echo "Expected SHA-256: 21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c"
+          echo "21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c  /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip" | sha256sum --check
+          unzip -tq /tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+          python3 - <<'PY'
+          import zipfile
+          p = "/tmp/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip"
+          with zipfile.ZipFile(p) as z:
+              entries = z.infolist()
+              files = [x for x in entries if not x.is_dir()]
+              total = sum(x.file_size for x in files)
+              print(f"Archive entries: {len(entries)}")
+              print(f"Files: {len(files)}")
+              print(f"Uncompressed file bytes: {total}")
+              assert len(entries) == 12156, f"Unexpected entry count: {len(entries)}"
+              assert len(files) == 9990, f"Unexpected file count: {len(files)}"
+              assert total == 299780270, f"Unexpected uncompressed bytes: {total}"
+              names = [x.filename.replace("\\", "/") for x in files]
+              # The archive checksum identifies the 2026-10-11 snapshot.
+              # Wikipedia adapter was an additive source update after that archive
+              # snapshot, so it is verified by the checked-in source regression tests,
+              # not incorrectly required inside this older ZIP.
+              required = [
+                  "backend/agent-systems/supervisor.mjs",
+                  "backend/agent-systems/autogpt.mjs",
+                  "frontend/components/AIWidget/AIWidget.js",
+                  "frontend/components/AIWidget/AIWidget.css",
+                  "integrations/V122-INTEGRATION-MANIFEST.json",
+                  "integrations/V122-MERGE-NOTES.md",
+              ]
+              for suffix in required:
+                  found = [n for n in names if n.endswith(suffix)]
+                  print(("FOUND " if found else "MISSING ") + suffix + (f" -> {found[:2]}" if found else ""))
+                  assert found, f"Required recovery path missing: {suffix}"
+          PY
+
+  deterministic-release-tests:
+    name: Deterministic release and agent regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend test dependency
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED/backend
+        run: npm install --no-audit --no-fund
+
+      - name: Run release regression suite
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED/backend
+        run: npm run test:release
+
+      - name: Run agent systems regression
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+        run: node tests/v120/agent-systems.mjs
+
+      - name: Run UI agent systems regression
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+        run: node tests/v120/ui-agent-systems.mjs
+
+      - name: Run roadmap regression
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+        run: node tests/v124-roadmaps.mjs
+
+      - name: Run source and upstream audits
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+        run: |
+          node tests/final-source-audit.mjs
+          node tests/v121-upstream.mjs
+          node tests/v101-palette.mjs

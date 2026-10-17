@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const server=fs.readFileSync(new URL('../backend/server.mjs',import.meta.url),'utf8');
+const html=fs.readFileSync(new URL('../frontend/index.html',import.meta.url),'utf8');
+assert.match(server,/HttpOnly/);
+assert.match(server,/SESSION_COOKIE/);
+assert.match(server,/credentials/i);
+assert.match(server,/Request body too large/);
+assert.match(server,/PGSSL_REJECT_UNAUTHORIZED/);
+assert.equal((html.match(/function\s+renderAICommand\s*\(/g)||[]).length,1);
+assert.doesNotMatch(html,/localStorage\.setItem\(['"]aj-v31-token/);
+assert.doesNotMatch(html,/localStorage\.getItem\(['"]aj-v31-token/);
+assert.match(html,/DEMO MODE — LOCAL DATA ONLY/);
+console.log('V48 security hardening test: PASS');

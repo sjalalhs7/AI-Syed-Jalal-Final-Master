@@ -1,0 +1,13 @@
+AI-Syed Jalal AI — V37 RELIABILITY & PRODUCTION RELEASE ENGINEERING
+
+Baseline: V36 Reliability Production
+Active production tree: V35-PRODUCTION/ (lineage-preserving directory name)
+
+V37 additions:
+- GitHub Actions CI validation
+- Protected/concurrent Pages deployment workflow
+- API health/readiness smoke test
+- Docker API healthcheck
+- Release checklist and deployment documentation
+- Existing V36 telemetry, rate limiting, PostgreSQL pool controls, backup/restore, audit, sessions, users and permissions retained
+- Original V25 production source preserved

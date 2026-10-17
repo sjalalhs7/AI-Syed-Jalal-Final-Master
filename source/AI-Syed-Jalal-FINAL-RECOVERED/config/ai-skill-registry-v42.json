@@ -1,0 +1,17 @@
+{
+  "version": "42.0",
+  "skill_packs": [
+    {"id":"ux-ui-pro-max","name":"UX/UI Pro Max","capabilities":["responsive UI","accessibility","interaction design","visual hierarchy","design-system consistency"]},
+    {"id":"superpowers-planning","name":"Superpowers Planning","capabilities":["task decomposition","implementation plans","parallel specialist planning","review checkpoints"]},
+    {"id":"superpowers-engineering","name":"Superpowers Engineering","capabilities":["TDD","debugging","refactoring","code review","regression prevention"]},
+    {"id":"omniroute-orchestration","name":"OmniRoute Orchestration","capabilities":["provider routing","fallback routing","MCP","A2A","OpenAI-compatible gateway"]},
+    {"id":"sjalalai-core","name":"SjalalAI Core","capabilities":["mission orchestration","memory-aware workflows","human approval","auditability"]},
+    {"id":"deepseek-reasoning","name":"DeepSeek Reasoning","capabilities":["thinking mode","tool calls","JSON output","long-context workflows"]},
+    {"id":"data-vault","name":"Data Vault","capabilities":["record search","statistics","validation","import/export workflows"]},
+    {"id":"security-guardrails","name":"Security Guardrails","capabilities":["input validation","output validation","tool validation","approval gates"]},
+    {"id":"document-studio","name":"Document Studio","capabilities":["A4 layout","print controls","document preparation","verification packs"]},
+    {"id":"analytics","name":"Analytics","capabilities":["operational analysis","performance reasoning","trend summaries","quality checks"]},
+    {"id":"recovery","name":"Recovery & Resilience","capabilities":["backup verification","restore drills","failure analysis","rollback planning"]},
+    {"id":"knowledge","name":"Knowledge Operations","capabilities":["summarization","classification","retrieval planning","structured knowledge extraction"]}
+  ]
+}

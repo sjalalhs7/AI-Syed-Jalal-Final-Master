@@ -1,0 +1,22 @@
+AI-Syed Jalal AI — V39 Production Integration & Release Candidate
+
+Baseline: V38 Quality Gate Production
+Release: V39
+
+Added:
+- Real PostgreSQL service in CI
+- Database migration + seed integration gate
+- Authenticated release integration test
+- Health/readiness/version/request-ID verification
+- CRUD regression check
+- Admin telemetry regression check
+- V39 GitHub Pages deployment workflow with environment + concurrency
+- Production Docker Compose
+- Corrected container healthcheck
+- Backup verification drill
+- V39 deployment/release documentation
+
+Preserved:
+- V25 original source archive
+- V30-V38 architecture and documentation lineage
+- Security, audit, sessions, permissions, backup/restore, telemetry
