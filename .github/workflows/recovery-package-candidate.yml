@@ -1,0 +1,55 @@
+name: Build Recovery Package Candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - recovery/extracted-source-2026-10-11
+    paths:
+      - ".github/workflows/recovery-package-candidate.yml"
+      - "source/AI-Syed-Jalal-FINAL-RECOVERED/**"
+      - "MASTER-RECOVERY-AND-INTEGRATION-LEDGER.md"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Archive current recovered source with manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact recovery branch
+        uses: actions/checkout@v4
+
+      - name: Create candidate archive and SHA-256 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git rev-parse HEAD > dist/SOURCE-COMMIT.txt
+          git branch --show-current > dist/SOURCE-BRANCH.txt
+          cp MASTER-RECOVERY-AND-INTEGRATION-LEDGER.md dist/
+          zip -qr dist/AI-Syed-Jalal-Recovery-Candidate.zip source/AI-Syed-Jalal-FINAL-RECOVERED
+          sha256sum dist/AI-Syed-Jalal-Recovery-Candidate.zip > dist/SHA256SUMS.txt
+          find source/AI-Syed-Jalal-FINAL-RECOVERED -type f | sort > dist/SOURCE-FILE-MANIFEST.txt
+          echo "Candidate archive:"
+          ls -lh dist/AI-Syed-Jalal-Recovery-Candidate.zip
+          echo "Archive fingerprint:"
+          cat dist/SHA256SUMS.txt
+          echo "Source file count:"
+          wc -l dist/SOURCE-FILE-MANIFEST.txt
+          echo "NOTICE: This is a recoverable source candidate, not a production-ready final release."
+
+      - name: Upload recovery candidate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Syed-Jalal-Recovery-Candidate
+          path: |
+            dist/AI-Syed-Jalal-Recovery-Candidate.zip
+            dist/SHA256SUMS.txt
+            dist/SOURCE-COMMIT.txt
+            dist/SOURCE-BRANCH.txt
+            dist/SOURCE-FILE-MANIFEST.txt
+            dist/MASTER-RECOVERY-AND-INTEGRATION-LEDGER.md
+          if-no-files-found: error
+          retention-days: 90
