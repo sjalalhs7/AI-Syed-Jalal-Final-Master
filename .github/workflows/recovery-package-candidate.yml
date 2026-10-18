@@ -40,6 +40,22 @@ jobs:
           wc -l dist/SOURCE-FILE-MANIFEST.txt
           echo "NOTICE: This is a recoverable source candidate, not a production-ready final release."
 
+      - name: Validate ZIP integrity and manifest consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="dist/AI-Syed-Jalal-Recovery-Candidate.zip"
+          unzip -tq "$archive"
+          manifest_count="$(wc -l < dist/SOURCE-FILE-MANIFEST.txt | tr -d ' ')"
+          archive_file_count="$(unzip -Z1 "$archive" | grep -vc '/$' || true)"
+          if [ "$manifest_count" -ne "$archive_file_count" ]; then
+            echo "ERROR: manifest has $manifest_count files, archive lists $archive_file_count files"
+            exit 1
+          fi
+          sha256sum --check dist/SHA256SUMS.txt
+          echo "PASS: ZIP integrity, file-count match, and SHA-256 check."
+          echo "Source files: $manifest_count"
+
       - name: Upload recovery candidate artifacts
         uses: actions/upload-artifact@v4
         with:
