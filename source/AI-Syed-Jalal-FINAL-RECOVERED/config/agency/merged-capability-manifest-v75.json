@@ -1,0 +1,34 @@
+{
+  "version": "V75.0.0",
+  "base_skill_registry": 3500,
+  "base_domains": 35,
+  "existing_executable_specialists": 120,
+  "imported_agency_prompt_profiles": 303,
+  "imported_tool_targets": 16,
+  "total_capability_profiles": 3803,
+  "provider_adapters": [
+    "gemini",
+    "deepseek",
+    "openai-compatible",
+    "omniroute"
+  ],
+  "workflow": [
+    "request",
+    "plan",
+    "skill-route",
+    "agency-profile-match",
+    "provider-execution",
+    "tool-approval",
+    "verify",
+    "critic",
+    "repair",
+    "delivery-gate",
+    "audit-trace"
+  ],
+  "integrations": {
+    "OpenCode": true,
+    "Android IDE workspace contract": true,
+    "Agency tool catalog": 16
+  },
+  "ui_locked": "Approved emerald/gold/green/purple/orange 3D identity; preserved in V75"
+}

@@ -1,0 +1,14 @@
+AL-SYED JALAL AI V43 — AI ORCHESTRATION PRO
+
+Lineage: V25 -> V43 cumulative
+V25 original source: preserved
+Executable specialist agent profiles: 120
+Skill packs: 12
+Provider adapters: DeepSeek / OpenAI-compatible / OmniRoute
+New V43: provider fallback routing, orchestration trace, persistent AI run history, AI run history API
+Database migration: 002_v43_ai_runs.sql
+Tests: ai-orchestration-pro.mjs
+
+Truth condition:
+120 profiles are executable configurations, not 120 simultaneously running independent AI models.
+Real model execution requires configured provider credentials.

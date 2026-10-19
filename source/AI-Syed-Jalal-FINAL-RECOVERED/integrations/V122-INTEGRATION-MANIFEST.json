@@ -1,0 +1,19 @@
+{
+  "version": "122.0.0",
+  "base": "AI-Syed-Jalal-V121-FIXED-current",
+  "policy": "preserve-base-and-namespace-conflicts",
+  "upstream": {
+    "AgentScope": "integrations/upstream/AgentScope",
+    "MedicalGPT": "integrations/upstream/MedicalGPT",
+    "Awesome-LLM-Apps": "integrations/upstream/Awesome-LLM-Apps",
+    "OpenEMR": "integrations/upstream/OpenEMR",
+    "Superpowers": "integrations/upstream/Superpowers"
+  },
+  "runtime_boundaries": {
+    "node": "V121 backend",
+    "python": "external AI services/modules",
+    "php": "OpenEMR isolated service boundary",
+    "frontend": "V121 static frontend + reusable AIWidget web component"
+  },
+  "overwrite_policy": "No upstream file overwrites an existing V121 path. Same-name files remain isolated under integrations/upstream."
+}

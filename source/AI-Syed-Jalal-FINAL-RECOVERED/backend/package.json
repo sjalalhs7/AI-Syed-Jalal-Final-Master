@@ -1,0 +1,37 @@
+{
+  "name": "al-syed-jalal-ai-api",
+  "version": "75.0.0",
+  "private": true,
+  "description": "Al-Syed Jalal AI V75 Final Integrated Power Agent",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "migrate": "node scripts/migrate.mjs",
+    "seed": "node scripts/seed.mjs",
+    "smoke": "node tests/smoke.mjs",
+    "quality": "node ../tests/quality-gate.mjs",
+    "load-smoke": "node ../tests/load-smoke.mjs",
+    "performance": "node ../tests/performance-benchmark.mjs",
+    "ai-fusion": "node ../tests/ai-fusion.mjs",
+    "ai-control": "node ../tests/ai-command-control.mjs",
+    "v71-skills": "node ../tests/v71-3500-skills.mjs",
+    "v73-quality": "node ../tests/v73-quality.mjs",
+    "v73-final": "node ../tests/v73-final-master.mjs",
+    "v75-final": "node ../tests/v75-final.mjs",
+    "v75-agency": "node ../tests/v75-agency-integration.mjs",
+    "audit:current": "node ../tests/v76-grand-audit.mjs",
+    "test:release": "npm run audit:current && npm run v71-skills && npm run v73-quality && npm run v73-final && npm run v75-final && npm run v75-agency && npm run wikipedia-adapter && npm run capability-contracts",
+    "e2e:runtime": "node ../tests/runtime-e2e.mjs",
+    "e2e:ai": "node ../tests/ai-live-e2e.mjs",
+    "e2e:browser": "node ../tests/browser-e2e.mjs",
+    "wikipedia-adapter": "node ../tests/wikipedia-adapter.mjs",
+    "capability-contracts": "node ../tests/agent-capability-contracts.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}

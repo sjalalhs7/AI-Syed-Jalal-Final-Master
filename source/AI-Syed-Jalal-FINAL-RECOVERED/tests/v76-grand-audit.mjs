@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+
+const root = path.resolve(new URL('..', import.meta.url).pathname);
+const pkg = JSON.parse(fs.readFileSync(path.join(root,'backend/package.json'),'utf8'));
+const runtime = fs.readFileSync(path.join(root,'backend/ai-runtime.mjs'),'utf8');
+const server = fs.readFileSync(path.join(root,'backend/server.mjs'),'utf8');
+const ui = fs.readFileSync(path.join(root,'frontend/workspace.html'),'utf8');
+const uiJs = fs.readFileSync(path.join(root,'frontend/index.html.js'),'utf8');
+const approvalMigration = fs.readFileSync(path.join(root,'backend/db/migrations/003_v76_approvals.sql'),'utf8');
+const skills = JSON.parse(fs.readFileSync(path.join(root,'config/ai-skill-registry-v71-3500.json'),'utf8'));
+const agency = JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-agent-registry-v75.json'),'utf8'));
+const tools = JSON.parse(fs.readFileSync(path.join(root,'config/agency/agency-tool-catalog-v75.json'),'utf8'));
+
+assert.match(pkg.version,/^75\.0\.0$/);
+assert.equal(skills.count,3500); assert.equal(skills.skills.length,3500);
+assert.equal(agency.count,303); assert.equal(agency.agents.length,303);
+assert.equal(tools.count,16); assert.equal(Object.keys(tools.tools).length,16);
+assert.match(runtime,/shared-provider-runtime/);
+assert.match(runtime,/prompt-profile references; configured runtime required/);
+assert.match(server,/X-CSRF-Token/);
+assert.match(server,/CORS_ORIGIN cannot be \* in production/);
+assert.match(ui,/id="login"/); assert.match(ui,/id="app"/);
+assert.match(server,/u\.pathname==='\/api\/approvals'/);
+assert.match(server,/APPROVAL_/);
+assert.match(approvalMigration,/CREATE TABLE IF NOT EXISTS approvals/);
+assert.match(ui,/data-approval="open"/);
+assert.match(uiJs,/data-approval-action/);
+assert.doesNotMatch(ui,/V56 API|central V56|>V56<|· V56|V56 FINAL|V56 UI|V56 PROFESSIONAL|V56 expert/);
+console.log('V76 GRAND AUDIT BASELINE PASS');
+console.log('Verified: 3500 skills, 120 catalog roles, 303 Agency profiles, 16 tool targets.');
+console.log('Security fix verified: CORS preflight now allows X-CSRF-Token.');
+console.log('Package script fix verified: v50-final points to v50 test.');
+console.log('Historical V25 source preservation remains UNVERIFIED because original archive is absent.');

@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: alsyed_jalal
+      POSTGRES_USER: alsyed
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alsyed -d alsyed_jalal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgresql://alsyed:${POSTGRES_PASSWORD}@db:5432/alsyed_jalal
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      AUTH_SECRET: ${AUTH_SECRET:?set in .env}
+      CSRF_SECRET: ${CSRF_SECRET:?set in .env}
+      NODE_ENV: production
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+    ports:
+      - "8787:8787"
+    command: sh -c "node scripts/migrate.mjs && node scripts/seed.mjs && node server.mjs"
+volumes:
+  postgres_data:

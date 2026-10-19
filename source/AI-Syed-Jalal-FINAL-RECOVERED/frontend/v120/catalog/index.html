@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="AI-Syed Jalal project ideas catalog — beginner, intermediate and advanced builds.">
+<title>AI-Syed Jalal — Project Ideas</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="#top" aria-label="AI-Syed Jalal home"><span class="brand-mark">SJ</span><span>AI-Syed Jalal</span></a><nav><a href="#ideas">Ideas</a><a href="#tiers">Tiers</a><a href="#about">About</a></nav></header>
+<main id="top">
+<section class="hero"><div><p class="eyebrow">PROJECT IDEAS CATALOG</p><h1>Build the next level,<br><span>one mission at a time.</span></h1><p class="lede">A clean catalog for exploring beginner, intermediate and advanced AI project ideas.</p><div class="hero-actions"><a class="btn primary" href="#ideas">Explore ideas</a><a class="btn ghost" href="#about">How it works</a></div></div><div class="hero-orb" aria-hidden="true"><div class="orb-core"></div><i></i><i></i><i></i></div></section>
+<section id="tiers" class="tier-strip"><button class="tier active" data-tier="all"><b>All</b><small>Every idea</small></button><button class="tier" data-tier="beginner"><b>Beginner</b><small>Start here</small></button><button class="tier" data-tier="intermediate"><b>Intermediate</b><small>Level up</small></button><button class="tier" data-tier="advanced"><b>Advanced</b><small>Go deep</small></button></section>
+<section id="ideas" class="catalog"><div class="catalog-head"><div><p class="eyebrow">BROWSE</p><h2>Project ideas</h2></div><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search ideas, skills, tools…" autocomplete="off"></label></div><div id="count" class="result-count" aria-live="polite"></div><div id="grid" class="grid"></div><div id="empty" class="empty" hidden>No matching projects. Try another search or tier.</div></section>
+<section id="about" class="about"><p class="eyebrow">SOURCE OF TRUTH</p><h2>Simple by design.</h2><p>Project descriptions are intended to come from the existing AI-Syed Jalal project records. This catalog is a lightweight presentation layer; it does not replace the production system.</p></section>
+</main>
+<dialog id="detail"><article><button class="close" id="close" aria-label="Close">×</button><p id="dTier" class="pill"></p><h2 id="dTitle"></h2><p id="dGoal" class="detail-goal"></p><h3>User stories</h3><ul id="dStories"></ul><h3>Bonus features</h3><ul id="dBonus"></ul><h3>Helpful resources</h3><ul id="dResources"></ul></article></dialog>
+<script type="module" src="app.js"></script>
+<script type="module" src="../../components/AIWidget/AIWidget.js"></script></body></html>
