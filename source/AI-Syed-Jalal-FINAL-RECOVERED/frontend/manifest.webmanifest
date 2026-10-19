@@ -1,16 +1,27 @@
 {
-  "id":"./",
-  "name":"AI-Syed Jalal — Professional AI Workspace",
-  "short_name":"AI-Syed Jalal",
-  "description":"Professional AI workspace for chat, research, coding, data analysis, documents and AI agents.",
-  "lang":"en",
-  "dir":"ltr",
-  "start_url":"./",
-  "scope":"./",
-  "display":"standalone",
-  "orientation":"any",
-  "background_color":"#06101d",
-  "theme_color":"#07101f",
-  "categories":["business","productivity","utilities"],
-  "icons":[{"src":"assets/app-mark.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "id": "./",
+  "name": "AI-Syed Jalal — Professional AI Workspace",
+  "short_name": "AI-Syed Jalal",
+  "description": "Professional AI workspace for chat, research, coding, data analysis, documents and AI agents.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#06101d",
+  "theme_color": "#07101f",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "assets/app-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
