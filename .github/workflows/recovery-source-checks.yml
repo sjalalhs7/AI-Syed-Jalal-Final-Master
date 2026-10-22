@@ -33,12 +33,13 @@ jobs:
           root="source/AI-Syed-Jalal-FINAL-RECOVERED"
           test -f "$root/frontend/index.html"
           test -f "$root/frontend/functions/api/[[path]].js"
+          test -f "$root/frontend/tests/api-proxy.test.mjs"
           test -f "$root/backend/server.mjs"
           test -f "$root/backend/package.json"
           test -f "$root/backend/tests/smoke.mjs"
           test -f "$root/backend/db/schema.sql"
           test -f "$root/README.md"
-          test -f "$root/assets/web-logo.svg" || test -f "$root/frontend/assets/web-logo.svg"
+          test -f "$root/frontend/assets/web-logo.svg"
           echo "Critical frontend, API proxy, backend, smoke-test, database schema and README files are present."
 
       - name: Validate backend package metadata
@@ -58,6 +59,9 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module --check < 'source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/functions/api/[[path]].js'
+
+      - name: Test Pages API proxy behavior
+        run: node --test source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/tests/api-proxy.test.mjs
 
       - name: Ensure all four approved theme names remain in the visual library
         shell: bash
