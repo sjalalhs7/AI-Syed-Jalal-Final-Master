@@ -43,3 +43,19 @@ Do not copy archive files wholesale, replace the production branch, or deploy an
 - `docs/recovery/FINAL-HANDOFF.md`
 
 The application should be marked **DONE** only after the source reconciliation, eight-image mapping, preview checks, and release verification are evidenced and signed off.
+
+
+## Update — 2026-10-22: Visual showcase added
+
+- Added `frontend/visual-styles.html`, a responsive, accessible CSS preview for Glassmorphism, Watermorphism, Firemorphism, and Rainbowmorphism.
+- Added a homepage navigation link to the showcase. The approved login form, logo assets, and existing homepage layout were not redesigned.
+- Static source review confirms the homepage references the existing logo, palette, AI widget asset, and AIWidget component files in the repository.
+
+## Remaining release blockers
+
+- The exact eight approved final Library images have not yet been unambiguously identified and mapped; the repository contains 11 visual-history records, which are not automatically the same as the approved final eight.
+- V122/V125 source reconciliation remains incomplete; V125 is not a superset of V122. Do not merge archives wholesale.
+- Cloudflare API access returned HTTP 403 authentication errors during this session, so live Pages configuration/deployment could not be verified or updated.
+- The new visual page has been committed to the recovery branch, but a real browser preview/visual comparison and end-to-end login/backend tests remain outstanding.
+
+**Current release status: PARTIAL — review branch updated; production release not certified.**
