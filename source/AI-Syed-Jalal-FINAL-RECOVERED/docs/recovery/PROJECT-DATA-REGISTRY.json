@@ -32,20 +32,31 @@
       "verification_scope": "Deployment operation only; does not verify visual correctness or full app functionality."
     },
     "production_branch": "recovery/extracted-source-2026-10-11",
-    "latest_preview_deployment": {
-      "id": "95c78fcb-09f5-4783-8497-9980858e5964",
-      "url": "https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev",
-      "branch": "recovery/data-upgrade-2026-10-22",
-      "commit": "4358c8584bdc05c79a0ac519a70a846b30f248c9",
-      "result": "success",
-      "completed_at": "2026-10-22T10:12:12.586958Z",
-      "verification_scope": "Cloudflare preview build/deploy succeeded; browser-rendered behavior and application functionality not certified."
-    },
     "production_config_observation": {
       "uses_functions": false,
       "production_env_vars_present": false,
       "note": "Pages hosts static frontend only in the recorded configuration; the recovered Node/PostgreSQL backend is a separate service and has not been deployed/verified."
-    }
+    },
+    "recorded_preview_deployments": [
+      {
+        "id": "95c78fcb-09f5-4783-8497-9980858e5964",
+        "url": "https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev",
+        "branch": "recovery/data-upgrade-2026-10-22",
+        "commit": "4358c8584bdc05c79a0ac519a70a846b30f248c9",
+        "result": "success",
+        "completed_at": "2026-10-22T10:12:12.586958Z",
+        "scope": "Preview build/deploy only; browser and application behavior not certified."
+      },
+      {
+        "id": "770a6ff9-f609-4644-a59e-57b82ee483e4",
+        "url": "https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev",
+        "branch": "recovery/data-upgrade-2026-10-22",
+        "commit": "f61e5aaab6f3faf2be09d2bbe9cc09b3d87be6fc",
+        "result": "success",
+        "completed_at": "2026-10-22T10:14:29.649554Z",
+        "scope": "Preview build/deploy only; browser and application behavior not certified."
+      }
+    ]
   },
   "approved_visual_baseline": {
     "homepage": {
@@ -133,5 +144,12 @@
     "Do not treat a successful Pages deployment as proof of app correctness.",
     "Do not expose secrets in frontend code.",
     "Do not request re-upload of approved images as the first recovery step."
-  ]
+  ],
+  "verification_evidence": {
+    "frontend_static_regression": "PASS; 0 failures; run against current recovery branch files",
+    "backend_node_syntax": "PASS; node --check passed for server.mjs, ai-runtime.mjs, scripts/migrate.mjs, scripts/seed.mjs, and tests/smoke.mjs",
+    "compose_provider_env_coverage": "PASS; 13 of 13 provider variables present in docker-compose.yml and .env.production.example",
+    "compose_yaml_parse": "PASS; YAML parsed with services db and api",
+    "runtime_integration": "NOT VERIFIED; database, real login, real AI providers, and browser E2E not run"
+  }
 }

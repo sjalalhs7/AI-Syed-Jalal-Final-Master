@@ -71,8 +71,15 @@ The application should be marked **DONE** only after the source reconciliation, 
 
 ## Update — preview deployment and backend configuration (2026-10-22)
 
-- Cloudflare project settings were read successfully using the active account connection. The recovery branch preview deployment completed successfully at `https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev` for commit `4358c8584bdc05c79a0ac519a70a846b30f248c9`.
+- Cloudflare project settings were read successfully using the active account connection. The recovery branch preview deployment completed successfully at `https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev` for commit `f61e5aaab6f3faf2be09d2bbe9cc09b3d87be6fc`.
 - The production branch remains `recovery/extracted-source-2026-10-11`; the production deployment still points to `94476eed2451fea1c527a59592eb46683a4a85f5`. No production promotion or overwrite was performed.
 - Cloudflare Pages is configured for static files (`uses_functions: false`, no production environment variables reported). The Node/PostgreSQL API is present in `backend/` but must be deployed and configured separately; successful Pages deployment is not backend verification.
 - Fixed `backend/docker-compose.yml` to pass through the provider API keys, base URLs, model names and Gemini Search toggle that the existing AI runtime reads. Updated `.env.production.example` to use the known HTTPS frontend origin and secure session cookies while keeping all secrets blank/placeholders.
 - Still required before release: set real secrets privately, deploy the backend/database, validate API health/readiness and login, perform real AI/provider fallback tests, and inspect the preview in a real browser. Do not commit secrets or promote the preview to production yet.
+
+
+## Update — configuration checks (2026-10-22)
+
+- Re-ran the frontend static regression validator: PASS, 0 failures.
+- Parsed `backend/docker-compose.yml` successfully and verified all 13 provider/runtime variables are represented in both Compose and `.env.production.example`.
+- `node --check` passed for `server.mjs`, `ai-runtime.mjs`, migration, seed, and smoke-test files under Node 20.20.2. These are syntax/configuration checks only; the API was not started and no database or AI provider was contacted.
