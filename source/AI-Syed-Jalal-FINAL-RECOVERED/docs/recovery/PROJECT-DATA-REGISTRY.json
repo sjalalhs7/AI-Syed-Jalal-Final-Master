@@ -30,6 +30,21 @@
       "result": "success",
       "completed_at": "2026-10-19T15:06:35Z",
       "verification_scope": "Deployment operation only; does not verify visual correctness or full app functionality."
+    },
+    "production_branch": "recovery/extracted-source-2026-10-11",
+    "latest_preview_deployment": {
+      "id": "95c78fcb-09f5-4783-8497-9980858e5964",
+      "url": "https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev",
+      "branch": "recovery/data-upgrade-2026-10-22",
+      "commit": "4358c8584bdc05c79a0ac519a70a846b30f248c9",
+      "result": "success",
+      "completed_at": "2026-10-22T10:12:12.586958Z",
+      "verification_scope": "Cloudflare preview build/deploy succeeded; browser-rendered behavior and application functionality not certified."
+    },
+    "production_config_observation": {
+      "uses_functions": false,
+      "production_env_vars_present": false,
+      "note": "Pages hosts static frontend only in the recorded configuration; the recovered Node/PostgreSQL backend is a separate service and has not been deployed/verified."
     }
   },
   "approved_visual_baseline": {
@@ -89,12 +104,12 @@
   ],
   "integration_status": {
     "frontend_static_deployment": "deployment record verified",
-    "backend_service": "not verified",
+    "backend_service": "backend source and Docker Compose are present in the repository; separate production deployment and database connectivity not verified",
     "api_base_url": "must be derived from source/config; not to be guessed",
     "login_and_session": "end-to-end verification pending",
     "dashboard_authorization": "verification pending",
     "database_and_persistence": "not verified",
-    "ai_provider_or_omniroute_fallback": "not verified",
+    "ai_provider_or_omniroute_fallback": "provider runtime exists; Docker Compose now forwards provider settings, but real provider keys/endpoints and fallback requests are not verified",
     "agent_tool_actions": "real execution not verified"
   },
   "release_gates": [
