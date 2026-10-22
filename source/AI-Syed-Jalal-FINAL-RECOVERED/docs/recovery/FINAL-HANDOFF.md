@@ -118,3 +118,11 @@ The application should be marked **DONE** only after the source reconciliation, 
 - Added a searchable Project Portfolio and Integrations page, exposed Dashboard/Projects/Integrations/Roadmaps links in desktop and mobile homepage navigation, and added project inventory access within the dashboard.
 - Recovered a small crowned-SJ emblem crop from the saved visual board and applied it consistently to the active pages instead of the generic A mark. This is a raster recovery from the board, **not the original standalone vector master**; exact vector/logo master recovery and pixel-level visual sign-off remain open.
 - Static validation passes, and the preview serves the updated homepage, dashboard, portfolio and visual library. The frontend is still not the complete final product: backend endpoints return 404 on Pages, live integrations remain unverified, and the original visual board still requires full-size pixel comparison.
+
+
+## Update — homepage command-center redesign (2026-10-22)
+
+- Reworked the homepage hero to use the saved reference tagline “Your AI Partner for a Smarter Tomorrow”, source-accurate capability counts, and a responsive command-center preview with sidebar, project workspace and provider-status cues.
+- Added a visible featured-project section for the agent catalog, Supervisor/AutoGPT, OmniRoute, roadmaps, knowledge search and integration center.
+- The preview explicitly labels the dashboard visual as a preview rather than live telemetry; provider and backend status is not misrepresented as operational.
+- Latest checked preview for this UI commit: `https://ff92d5df.ai-syed-jalal-live.pages.dev` (commit `6598f27e86bcc532207c8a1b3f38feac98bcabfb`). Homepage, dashboard, projects, visual styles, visual library and crowned SJ asset returned HTTP 200. The two backend health routes still return HTTP 404.
