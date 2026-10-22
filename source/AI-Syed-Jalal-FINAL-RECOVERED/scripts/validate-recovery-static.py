@@ -11,7 +11,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1] / "frontend"
-REQUIRED_FILES = ("index.html", "visual-styles.html", "visual-library.html", "workspace.html", "components/AIWidget/AIWidget.js", "components/AIWidget/AIWidget.css", "config/api.js")
+REQUIRED_FILES = ("index.html", "dashboard.html", "projects.html", "visual-styles.html", "visual-library.html", "workspace.html", "components/AIWidget/AIWidget.js", "components/AIWidget/AIWidget.css", "config/api.js")
 MODES = ("Glassmorphism", "Watermorphism", "Firemorphism", "Rainbowmorphism")
 EXPECTED_IMAGES = (
     "1000121180.jpg",
@@ -60,6 +60,24 @@ def main():
         check("/api/auth/login" in home, "existing login API request is preserved")
         check('href="visual-styles.html"' in home and 'href="visual-library.html"' in home,
               "homepage links to both additive visual pages")
+        check('href="dashboard.html"' in home and 'href="projects.html"' in home,
+              "homepage navigation exposes the dashboard and project portfolio")
+        check('aria-label="Main navigation"' in home and '.nav nav{display:flex;order:3' in home,
+              "homepage navigation remains available on mobile layouts")
+    if "projects.html" in docs:
+        portfolio = docs["projects.html"]
+        check("AI Agent Catalog" in portfolio and "3,500 Skills" in portfolio and "OmniRoute" in portfolio,
+              "project portfolio lists core source-backed project modules")
+        check("PostgreSQL + Node API" in portfolio and "HTTP 404" in portfolio,
+              "portfolio explicitly discloses the backend deployment blocker")
+        check("function applyFilter()" in portfolio and "addEventListener('input',applyFilter)" in portfolio,
+              "portfolio project search/filter controls are wired")
+    if "dashboard.html" in docs:
+        dashboard = docs["dashboard.html"]
+        check('href="projects.html"' in dashboard and 'href="visual-library.html"' in dashboard,
+              "dashboard sidebar links to projects and visual library")
+        check('id="v-projects"' in dashboard and "Projects &amp; Integrations" in dashboard,
+              "dashboard includes a project portfolio view")
         check('src="components/AIWidget/AIWidget.js"' in home, "homepage mounts the recovered V122 AI widget")
         check('src="assets/ai-widget.js"' not in home, "homepage does not load a duplicate legacy widget")
     if "components/AIWidget/AIWidget.js" in docs:
