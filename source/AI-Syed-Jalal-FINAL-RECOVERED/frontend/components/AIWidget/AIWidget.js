@@ -1,5 +1,4 @@
 import { API } from '../../config/api.js';
-import './AIWidget.css';
 
 class AIWidget extends HTMLElement {
   constructor() {
@@ -19,6 +18,10 @@ class AIWidget extends HTMLElement {
         <button class="toggle" type="button" aria-label="Open chat">💬</button>
       </div>`;
     const root = this.shadowRoot;
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = new URL('./AIWidget.css', import.meta.url).href;
+    root.prepend(stylesheet);
     this.messages = root.querySelector('.messages');
     this.input = root.querySelector('input');
     root.querySelector('.toggle').addEventListener('click', () => { root.querySelector('.ajw').classList.add('open'); this.input.focus(); });

@@ -11,7 +11,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1] / "frontend"
-REQUIRED_FILES = ("index.html", "visual-styles.html", "visual-library.html", "workspace.html")
+REQUIRED_FILES = ("index.html", "visual-styles.html", "visual-library.html", "workspace.html", "components/AIWidget/AIWidget.js", "components/AIWidget/AIWidget.css", "config/api.js")
 MODES = ("Glassmorphism", "Watermorphism", "Firemorphism", "Rainbowmorphism")
 EXPECTED_IMAGES = (
     "1000121180.jpg",
@@ -60,6 +60,18 @@ def main():
         check("/api/auth/login" in home, "existing login API request is preserved")
         check('href="visual-styles.html"' in home and 'href="visual-library.html"' in home,
               "homepage links to both additive visual pages")
+        check('src="components/AIWidget/AIWidget.js"' in home, "homepage mounts the recovered V122 AI widget")
+        check('src="assets/ai-widget.js"' not in home, "homepage does not load a duplicate legacy widget")
+    if "components/AIWidget/AIWidget.js" in docs:
+        widget_js = docs["components/AIWidget/AIWidget.js"]
+        check("import './AIWidget.css'" not in widget_js, "widget avoids a browser-incompatible native CSS module import")
+        check("new URL('./AIWidget.css', import.meta.url).href" in widget_js and "root.prepend(stylesheet)" in widget_js,
+              "widget loads its CSS into shadow DOM using a browser-native stylesheet link")
+    if "config/api.js" in docs:
+        api_config = docs["config/api.js"]
+        check("aj-v31-api" in api_config and "aj-v122-api" in api_config,
+              "AI widget accepts both current login API storage and legacy API storage")
+        check("function getStoredApiBase()" in api_config, "AI widget reads the API base dynamically after login configuration")
     if "visual-styles.html" in docs:
         styles = docs["visual-styles.html"]
         for mode in MODES: check(mode in styles, f"visual showcase contains {mode}")
