@@ -64,6 +64,12 @@ def main():
               "homepage navigation exposes the dashboard and project portfolio")
         check('aria-label="Main navigation"' in home and '.nav nav{display:flex;order:3' in home,
               "homepage navigation remains available on mobile layouts")
+        check('Your AI Partner for a <span>Smarter Tomorrow</span>' in home,
+              "homepage tagline matches the saved visual reference")
+        check('class="command-preview"' in home and 'Not live telemetry' in home,
+              "homepage includes a clearly labelled command-center preview")
+        check('id="featured-projects"' in home and 'Integration Center' in home,
+              "homepage surfaces the recovered project ecosystem")
     if "projects.html" in docs:
         portfolio = docs["projects.html"]
         check("AI Agent Catalog" in portfolio and "3,500 Skills" in portfolio and "OmniRoute" in portfolio,
