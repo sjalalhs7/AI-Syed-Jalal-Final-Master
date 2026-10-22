@@ -57,7 +57,7 @@ details{margin-top:12px;font-size:12px;color:var(--m)}
 <label for="u">Username</label><input id="u" required autocomplete="username"><label for="p">Password</label><input id="p" type="password" required autocomplete="current-password">
 <details><summary>Server address (only if API is elsewhere)</summary><input id="api" placeholder="https://api.example.com" style="margin-top:8px"></details>
 <div id="err" role="alert"></div><button class="btn g" style="width:100%;margin-top:8px" id="go">Sign in</button></form></div></div>
-<script src="assets/ai-widget.js" defer></script>
+<!-- The recovered V122 custom-element widget is mounted by the module below. -->
 <script>
 const $=s=>document.getElementById(s),m=$('login');
 const show=()=>{m.classList.add('show');$('u').focus()};

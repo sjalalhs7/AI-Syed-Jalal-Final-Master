@@ -92,3 +92,12 @@ The application should be marked **DONE** only after the source reconciliation, 
 - All eight gallery image URLs returned HTTP 200. Homepage markup checks confirmed the shared logo, login modal/form, both visual navigation links, and existing `/api/auth/login` request marker. The four style labels are present.
 - `GET /api/health` and `GET /api/ready` both returned HTTP 404 on the Pages preview. This confirms that the preview is currently static-only; the backend service has not been attached to this Pages project. Live login, database and AI E2E remain blocked until the separate backend is deployed.
 - These were read-only HTTP fetches, not a browser interaction or authenticated test. Production was not changed.
+
+
+## Update — single-widget and static-module compatibility fix (2026-10-22)
+
+- Removed the duplicate legacy `assets/ai-widget.js` script from the homepage; the recovered V122 custom-element widget remains the single mounted widget.
+- Replaced the browser-incompatible `import './AIWidget.css'` with a stylesheet link inside the widget's shadow root. The static Pages project has no bundler to transform CSS imports.
+- Updated `config/api.js` to read the API base dynamically and accept both the current login storage key (`aj-v31-api`) and the legacy key (`aj-v122-api`).
+- Extended the static regression validator to catch duplicate widget loading, CSS module import regression, and API-base key mismatch.
+- Validator and Node module syntax checks pass against the proposed changes. Live chat remains unavailable on Pages until the separate backend is deployed (`/api/health` currently returns 404).
