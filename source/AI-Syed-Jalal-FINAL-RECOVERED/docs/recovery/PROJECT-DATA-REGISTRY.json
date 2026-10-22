@@ -64,6 +64,15 @@
         "result": "success",
         "completed_at": "2026-10-22T10:19:05.458359Z",
         "scope": "Preview build/deploy and read-only HTTP checks of homepage, widget JS/CSS/API config and visual pages; not browser interaction or backend E2E."
+      },
+      {
+        "id": "ff92d5df-65b3-402a-bf78-b4f07a00ccaf",
+        "url": "https://ff92d5df.ai-syed-jalal-live.pages.dev",
+        "branch": "recovery/data-upgrade-2026-10-22",
+        "commit": "6598f27e86bcc532207c8a1b3f38feac98bcabfb",
+        "result": "success",
+        "completed_at": "2026-10-22T10:37:36.804933Z",
+        "scope": "Homepage command-center preview, recovered crowned SJ emblem, dashboard/project portfolio, styles/library. Read-only HTTP checks passed; backend endpoints remain 404."
       }
     ]
   },
@@ -238,6 +247,19 @@
         "source-backed status labels for agent catalog, skill registry, Supervisor, AutoGPT, OmniRoute, OSSU/roadmaps, Wikipedia adapter, Local LLM, OpenCode/Android IDE and provider/database integration gaps"
       ],
       "live_runtime": "Not implied; backend health endpoints on Pages preview remain HTTP 404"
+    },
+    "homepage_command_center_preview": {
+      "status": "PASS_STATIC_AND_HTTP",
+      "preview_url": "https://ff92d5df.ai-syed-jalal-live.pages.dev",
+      "checks": [
+        "reference tagline present",
+        "responsive command-center preview present and labelled as preview",
+        "featured project ecosystem visible",
+        "dashboard/projects navigation present",
+        "login form preserved",
+        "crowned SJ raster asset served HTTP 200"
+      ],
+      "api_health_and_ready": "HTTP 404; live backend not connected to Pages"
     }
   }
 }
