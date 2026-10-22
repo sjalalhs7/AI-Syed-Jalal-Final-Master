@@ -45,26 +45,27 @@
     "required_modes": [
       {
         "name": "Glassmorphism",
-        "status": "implementation and visual QA pending"
+        "status": "static showcase concept present on recovery branch; selectable production theme integration and visual QA not verified"
       },
       {
         "name": "Watermorphism",
-        "status": "implementation and visual QA pending"
+        "status": "static showcase concept present on recovery branch; selectable production theme integration and visual QA not verified"
       },
       {
         "name": "Firemorphism",
-        "status": "implementation and visual QA pending"
+        "status": "static showcase concept present on recovery branch; selectable production theme integration and visual QA not verified"
       },
       {
         "name": "Rainbowmorphism",
-        "status": "implementation and visual QA pending"
+        "status": "static showcase concept present on recovery branch; selectable production theme integration and visual QA not verified"
       }
     ],
     "approved_library_images": {
       "expected_count": 8,
       "mapped_count_verified": 0,
-      "status": "Do not claim mapping complete until each approved Library image is identified and linked to its intended UI asset/component.",
-      "user_reupload_required_now": false
+      "status": "Eight candidate gallery cards are surfaced; exact approved-set identity and intended screen mapping remain unverified.",
+      "user_reupload_required_now": false,
+      "candidate_gallery_count": 8
     }
   },
   "recovery_sources": [
@@ -98,6 +99,7 @@
   },
   "release_gates": [
     "source and branch snapshot recorded",
+    "Repeatable static recovery regression validator passes on the candidate branch",
     "V122/V125 path and hash comparison completed",
     "approved Homepage/Login/Logo asset mapping confirmed",
     "all 8 Library images mapped or explicitly marked unresolved",

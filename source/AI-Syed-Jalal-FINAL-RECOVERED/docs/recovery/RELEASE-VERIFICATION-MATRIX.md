@@ -26,6 +26,8 @@ This matrix is evidence-driven. A check is not PASS until a result, timestamp, a
 | Preview | preview URL, test report, reviewer sign-off | Pending | Blocker |
 | Production | direct live-site smoke test after deployment | Deployment success recorded, rendered behavior not fully verified | Blocker |
 
+| Static recovery regression | validator script run and output recorded | PASS on recovery branch: HTML file/asset presence, preserved homepage logo/login markup, visual mode labels, 8 gallery cards, and local links; not a browser or runtime test | Supporting evidence |
+
 ## Evidence record template
 
 For every row, record:
