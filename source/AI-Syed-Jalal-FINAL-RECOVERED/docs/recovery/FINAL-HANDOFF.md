@@ -48,6 +48,7 @@ The application should be marked **DONE** only after the source reconciliation, 
 ## Update — 2026-10-22: Visual showcase added
 
 - Added `frontend/visual-styles.html`, a responsive, accessible CSS preview for Glassmorphism, Watermorphism, Firemorphism, and Rainbowmorphism.
+- Added `frontend/visual-library.html` to surface eight recovered board records while keeping the original images in the recovery-history directory. These are explicitly labeled recovered/candidate, not individually signed-off approved finals.
 - Added a homepage navigation link to the showcase. The approved login form, logo assets, and existing homepage layout were not redesigned.
 - Static source review confirms the homepage references the existing logo, palette, AI widget asset, and AIWidget component files in the repository.
 
