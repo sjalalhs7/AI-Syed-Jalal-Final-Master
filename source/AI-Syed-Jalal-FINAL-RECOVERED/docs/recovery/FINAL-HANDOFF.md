@@ -101,3 +101,11 @@ The application should be marked **DONE** only after the source reconciliation, 
 - Updated `config/api.js` to read the API base dynamically and accept both the current login storage key (`aj-v31-api`) and the legacy key (`aj-v122-api`).
 - Extended the static regression validator to catch duplicate widget loading, CSS module import regression, and API-base key mismatch.
 - Validator and Node module syntax checks pass against the proposed changes. Live chat remains unavailable on Pages until the separate backend is deployed (`/api/health` currently returns 404).
+
+
+## Update — latest widget preview verification (2026-10-22)
+
+- Cloudflare preview deployment `e3c6be9b-fa4d-4fd4-8aa8-ce437aa9a030` completed successfully for commit `a5bc31301627473ca39faa3830f185109b0837db`: `https://e3c6be9b.ai-syed-jalal-live.pages.dev`.
+- Read-only HTTP checks returned 200 for the homepage, visual style/gallery pages, widget JS, widget CSS, API config module, and shared logo. Markup checks confirmed the original login modal/form and logo remain, the recovered widget module is loaded, and the duplicate legacy widget script is absent.
+- The static regression validator passed with zero failures; Node syntax checks passed for the widget and API config modules.
+- `GET /api/health` and `/api/ready` still return 404 on Pages. This proves the frontend/widget assets are served but does not prove a live chat response, authentication, database or AI provider behavior.
