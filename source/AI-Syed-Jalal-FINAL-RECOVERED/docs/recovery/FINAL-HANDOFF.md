@@ -67,3 +67,12 @@ The application should be marked **DONE** only after the source reconciliation, 
 - Added `scripts/validate-recovery-static.py` for repeatable checks of required frontend files, shared logo/CSS assets, preserved homepage login markup/API request, homepage links, four style labels, responsive/reduced-motion rules, eight candidate gallery cards, and local-link targets.
 - This check is intentionally static. It does **not** certify browser rendering, approved-reference matching, selectable theme integration, login/backend/API operation, database persistence, or Cloudflare production behavior. Those release blockers remain open.
 - Run from the repository root: `python source/AI-Syed-Jalal-FINAL-RECOVERED/scripts/validate-recovery-static.py`.
+
+
+## Update — preview deployment and backend configuration (2026-10-22)
+
+- Cloudflare project settings were read successfully using the active account connection. The recovery branch preview deployment completed successfully at `https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev` for commit `4358c8584bdc05c79a0ac519a70a846b30f248c9`.
+- The production branch remains `recovery/extracted-source-2026-10-11`; the production deployment still points to `94476eed2451fea1c527a59592eb46683a4a85f5`. No production promotion or overwrite was performed.
+- Cloudflare Pages is configured for static files (`uses_functions: false`, no production environment variables reported). The Node/PostgreSQL API is present in `backend/` but must be deployed and configured separately; successful Pages deployment is not backend verification.
+- Fixed `backend/docker-compose.yml` to pass through the provider API keys, base URLs, model names and Gemini Search toggle that the existing AI runtime reads. Updated `.env.production.example` to use the known HTTPS frontend origin and secure session cookies while keeping all secrets blank/placeholders.
+- Still required before release: set real secrets privately, deploy the backend/database, validate API health/readiness and login, perform real AI/provider fallback tests, and inspect the preview in a real browser. Do not commit secrets or promote the preview to production yet.

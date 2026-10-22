@@ -28,6 +28,9 @@ This matrix is evidence-driven. A check is not PASS until a result, timestamp, a
 
 | Static recovery regression | validator script run and output recorded | PASS on recovery branch: HTML file/asset presence, preserved homepage logo/login markup, visual mode labels, 8 gallery cards, and local links; not a browser or runtime test | Supporting evidence |
 
+| Backend Compose provider configuration | compare Compose environment with `backend/ai-runtime.mjs` provider variables | Updated to forward Gemini, DeepSeek, OpenAI-compatible and OmniRoute settings; YAML/runtime deployment still requires environment and service verification | Supporting configuration fix |
+| Cloudflare preview deployment | deployment API stage record | PASS: preview `https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev`, commit `4358c8584bdc05c79a0ac519a70a846b30f248c9`, deploy stage success at 2026-10-22 10:12:12Z; browser/rendered behavior not verified | Deployment-only evidence |
+
 ## Evidence record template
 
 For every row, record:
