@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#070b14"><title>Dashboard — Alsyed Jalal AI</title>
-<link rel="icon" href="assets/approved-sj-emblem.png"><link rel="stylesheet" href="assets/v101-palette.css">
+<link rel="icon" href="assets/web-logo.svg"><link rel="stylesheet" href="assets/v101-palette.css">
 <style>
 :root{--bg:#070b14;--card:#0d1424;--line:#1f3a2f;--o:#ff8b00;--g:#ffd15a;--e:#18e07a;--t:#f4f7fb;--m:#9fb0c6}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#16301f 0,transparent 40%),var(--bg);color:var(--t);font-family:Inter,system-ui,sans-serif;display:grid;grid-template-columns:250px 1fr;min-height:100vh}
@@ -22,8 +22,21 @@ textarea{width:100%;min-height:90px;resize:vertical}.bar input{flex:1;min-width:
 .out{white-space:pre-wrap;background:#05090f;border:1px solid #ffffff14;border-radius:12px;padding:14px;margin-top:12px;min-height:60px;font-size:14px;line-height:1.6}
 .grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.dash-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px;padding:12px 16px;border:1px solid #ffffff12;background:#ffffff05;border-radius:16px}.dash-top small{color:var(--m)}.eyebrow{color:#72e5ac;text-transform:uppercase;font-size:10px;font-weight:900;letter-spacing:.18em}.section-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 18px}.project-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.project-card{border:1px solid #ffffff14;background:linear-gradient(150deg,#111d2d,#0a111d);border-radius:18px;padding:18px;min-height:180px;display:flex;flex-direction:column;gap:10px}.project-card h3{margin:0;font-size:16px}.project-card p{color:var(--m);font-size:13px;line-height:1.6;margin:0}.pill{display:inline-flex;align-self:flex-start;border:1px solid #ffffff1c;border-radius:99px;padding:4px 9px;font-size:10px;color:#d6e7e0}.pill.ready{color:#78efb5;border-color:#2d8b62}.pill.verify{color:#ffd67c;border-color:#8c6a2a}.project-card a{margin-top:auto;color:#9cf0c2;font-size:12px;font-weight:800}.err{color:#ff8a80}.ok{color:var(--e)}h3{margin:0 0 10px}
 @media(max-width:860px){body{grid-template-columns:1fr}aside{position:relative;height:auto;max-height:none;padding:14px}.brand{margin-bottom:12px}#nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}nav a{flex:0 0 auto;white-space:nowrap}main{padding:16px}.grid2{grid-template-columns:1fr}.dash-top{align-items:flex-start;flex-direction:column}}
+
+/* Shared approved visual-theme system */
+:root{--aj-accent:#c9a65b;--aj-glow:rgba(126,92,255,.18);--aj-surface:rgba(18,24,42,.78);--aj-line:rgba(198,178,255,.22)}
+body[data-theme="glass"]{--aj-accent:#b7c9ff;--aj-glow:rgba(126,92,255,.24);--aj-surface:rgba(180,200,255,.10);--aj-line:rgba(190,205,255,.38)}
+body[data-theme="water"]{--aj-accent:#5fe3ef;--aj-glow:rgba(20,185,220,.22);--aj-surface:rgba(10,100,140,.18);--aj-line:rgba(95,227,239,.32)}
+body[data-theme="fire"]{--aj-accent:#ff9b55;--aj-glow:rgba(255,72,35,.20);--aj-surface:rgba(110,35,22,.20);--aj-line:rgba(255,155,85,.34)}
+body[data-theme="rainbow"]{--aj-accent:#e5a9ff;--aj-glow:rgba(210,80,255,.20);--aj-surface:rgba(70,35,105,.20);--aj-line:rgba(210,150,255,.34)}
+body[data-theme] .card,body[data-theme] .metric,body[data-theme] .hero-side,body[data-theme] .brand,body[data-theme] .top,body[data-theme] .dash-top{border-color:var(--aj-line)!important;box-shadow:0 12px 38px var(--aj-glow)}
+body[data-theme] .btn,body[data-theme] .top-cta,body[data-theme] nav a{border-color:var(--aj-line)}
+.aj-theme-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;margin:10px 0 16px;border:1px solid var(--aj-line);border-radius:16px;background:var(--aj-surface);backdrop-filter:blur(18px)}
+.aj-theme-bar strong{font-size:11px;letter-spacing:.12em;color:var(--aj-accent);margin-right:4px}.aj-theme-bar button{font:inherit;font-size:12px;padding:7px 11px;border:1px solid var(--aj-line);border-radius:999px;background:transparent;color:inherit;cursor:pointer}.aj-theme-bar button[aria-pressed="true"]{background:var(--aj-glow);outline:1px solid var(--aj-accent);color:var(--aj-accent)}
+.aj-theme-bar button:focus-visible{outline:2px solid var(--aj-accent);outline-offset:2px}
 </style></head><body>
-<aside><div class="brand"><img src="assets/approved-sj-emblem.png" alt=""><span>Alsyed Jalal AI</span></div>
+<div class="aj-theme-bar" role="group" aria-label="Visual theme"><strong>VISUAL MODE</strong><button type="button" data-aj-theme="glass">Glassmorphism</button><button type="button" data-aj-theme="water">Watermorphism</button><button type="button" data-aj-theme="fire">Firemorphism</button><button type="button" data-aj-theme="rainbow">Rainbowmorphism</button></div>
+<aside><div class="brand"><img src="assets/web-logo.svg" alt=""><span>Alsyed Jalal AI</span></div>
 <nav id="nav">
 <a class="on" data-v="home">⌂ <span>Overview</span></a><a data-v="agents">✳ <span>AI Agent Catalog</span></a><a data-v="run">↗ <span>Run an Agent</span></a>
 <a data-v="lib">▤ <span>Skills Library</span></a><a href="projects.html">▦ <span>Projects &amp; Integrations</span></a><a href="roadmaps.html">⌁ <span>Learning Roadmaps</span></a><a href="visual-library.html">▧ <span>Visual Library</span></a><a href="visual-styles.html">◈ <span>Design Themes</span></a><a href="workspace.html">▣ <span>Records Workspace</span></a><a data-v="sec">⚿ <span>Security &amp; Audit</span></a></nav>
@@ -94,4 +107,4 @@ $('#out').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST',body
  $('#prov').innerHTML=(inv.providers||[]).map(p=>`<div>${p.configured?'<span class="ok">●</span>':'○'} ${esc(p.label)} <small>${esc(p.model)}</small></div>`).join('');
  $('#prv').innerHTML=(inv.providers||[]).map(p=>`<option value="${esc(p.id)}"${p.configured?'':' disabled'}>${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');
  const first=(inv.providers||[]).find(p=>p.configured);if(first)$('#prv').value=first.id;draw();lib=await api('/api/library');drawLib()}catch(e){if(e.message!=='Signed out')document.body.insertAdjacentHTML('afterbegin','<p class="err" style="grid-column:1/-1;padding:12px">'+esc(e.message)+'</p>')}})();
-</script><script type="module" src="components/AIWidget/AIWidget.js"></script></body></html>
+</script><script type="module" src="components/AIWidget/AIWidget.js"></script><script>(function(){const key='aj-visual-theme',valid=['glass','water','fire','rainbow'];function apply(t){if(!valid.includes(t))t='glass';document.body.dataset.theme=t;document.querySelectorAll('[data-aj-theme]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ajTheme===t)));try{localStorage.setItem(key,t)}catch(e){}}document.querySelectorAll('[data-aj-theme]').forEach(b=>b.addEventListener('click',()=>apply(b.dataset.ajTheme)));let saved='glass';try{saved=localStorage.getItem(key)||'glass'}catch(e){}apply(saved)})();</script></body></html>
