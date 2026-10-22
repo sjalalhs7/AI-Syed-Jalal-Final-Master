@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0.0",
+  "project": "AI-Syed-Jalal",
+  "generated_on": "2026-10-22",
+  "purpose": "Machine-readable recovery registry for source, visual approvals, deployment facts, integrations, and verification status.",
+  "repository": {
+    "owner": "sjalalhs7",
+    "name": "AI-Syed-Jalal-Final-Master",
+    "base_branch": "recovery/extracted-source-2026-10-11",
+    "frontend_path": "source/AI-Syed-Jalal-FINAL-RECOVERED/frontend",
+    "visual_spec_path": "source/AI-Syed-Jalal-FINAL-RECOVERED/docs/visual-history/MASTER-VISUAL-DEFINITION-V125.md",
+    "finalization_status_path": "source/AI-Syed-Jalal-FINAL-RECOVERED/docs/FINALIZATION-STATUS.md",
+    "current_frontend_index": {
+      "path": "source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/index.html",
+      "bytes": 10176,
+      "git_blob_sha": "e0bd772b82bc3d9d721ca2c2c15fa6cb997bea66",
+      "note": "Recorded source snapshot; recheck before code changes."
+    }
+  },
+  "hosting": {
+    "provider": "Cloudflare Pages",
+    "project": "ai-syed-jalal-live",
+    "production_url": "https://ai-syed-jalal-live.pages.dev",
+    "root_directory": "source/AI-Syed-Jalal-FINAL-RECOVERED/frontend",
+    "build_command": "",
+    "output_directory": ".",
+    "latest_recorded_deployment": {
+      "id": "2e082571-7aaa-49d7-96fa-32ce2b320812",
+      "commit": "94476eed2451fea1c527a59592eb46683a4a85f5",
+      "result": "success",
+      "completed_at": "2026-10-19T15:06:35Z",
+      "verification_scope": "Deployment operation only; does not verify visual correctness or full app functionality."
+    }
+  },
+  "approved_visual_baseline": {
+    "homepage": {
+      "status": "approval-reported; exact source-to-reference comparison pending"
+    },
+    "login": {
+      "status": "approval-reported; end-to-end flow pending"
+    },
+    "logo": {
+      "status": "approval-reported; exact asset mapping pending"
+    },
+    "required_modes": [
+      {
+        "name": "Glassmorphism",
+        "status": "implementation and visual QA pending"
+      },
+      {
+        "name": "Watermorphism",
+        "status": "implementation and visual QA pending"
+      },
+      {
+        "name": "Firemorphism",
+        "status": "implementation and visual QA pending"
+      },
+      {
+        "name": "Rainbowmorphism",
+        "status": "implementation and visual QA pending"
+      }
+    ],
+    "approved_library_images": {
+      "expected_count": 8,
+      "mapped_count_verified": 0,
+      "status": "Do not claim mapping complete until each approved Library image is identified and linked to its intended UI asset/component.",
+      "user_reupload_required_now": false
+    }
+  },
+  "recovery_sources": [
+    {
+      "name": "V122 archive",
+      "role": "Historical source bundle",
+      "known_fact": "Audit reports approximately 9,950 files and 282.4 MB.",
+      "policy": "Preserve; compare by path/hash; do not bulk-overwrite current source."
+    },
+    {
+      "name": "V125-FULL archive",
+      "role": "Recovered source bundle",
+      "known_fact": "Audit reports approximately 1,226 files and 18.7 MB.",
+      "policy": "Not a complete superset of V122; preserve and reconcile selectively."
+    },
+    {
+      "name": "Recovery audit",
+      "role": "Conflict and missing-file evidence",
+      "policy": "Use before merging assets or modules."
+    }
+  ],
+  "integration_status": {
+    "frontend_static_deployment": "deployment record verified",
+    "backend_service": "not verified",
+    "api_base_url": "must be derived from source/config; not to be guessed",
+    "login_and_session": "end-to-end verification pending",
+    "dashboard_authorization": "verification pending",
+    "database_and_persistence": "not verified",
+    "ai_provider_or_omniroute_fallback": "not verified",
+    "agent_tool_actions": "real execution not verified"
+  },
+  "release_gates": [
+    "source and branch snapshot recorded",
+    "V122/V125 path and hash comparison completed",
+    "approved Homepage/Login/Logo asset mapping confirmed",
+    "all 8 Library images mapped or explicitly marked unresolved",
+    "four visual modes verified",
+    "critical login/API/dashboard flows tested against real services",
+    "responsive, accessibility, console, and security checks completed",
+    "preview URL verified",
+    "production URL directly verified after release",
+    "rollback target recorded"
+  ],
+  "release_status": "BLOCKED_PENDING_VERIFICATION",
+  "constraints": [
+    "Do not rebuild from scratch.",
+    "Do not overwrite production during recovery work.",
+    "Do not claim tests passed without recorded evidence.",
+    "Do not treat a successful Pages deployment as proof of app correctness.",
+    "Do not expose secrets in frontend code.",
+    "Do not request re-upload of approved images as the first recovery step."
+  ]
+}
