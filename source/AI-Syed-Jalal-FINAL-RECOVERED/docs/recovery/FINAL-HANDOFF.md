@@ -60,3 +60,10 @@ The application should be marked **DONE** only after the source reconciliation, 
 - The new visual page has been committed to the recovery branch, but a real browser preview/visual comparison and end-to-end login/backend tests remain outstanding.
 
 **Current release status: PARTIAL — review branch updated; production release not certified.**
+
+
+## Update — repeatable static regression check (2026-10-22)
+
+- Added `scripts/validate-recovery-static.py` for repeatable checks of required frontend files, shared logo/CSS assets, preserved homepage login markup/API request, homepage links, four style labels, responsive/reduced-motion rules, eight candidate gallery cards, and local-link targets.
+- This check is intentionally static. It does **not** certify browser rendering, approved-reference matching, selectable theme integration, login/backend/API operation, database persistence, or Cloudflare production behavior. Those release blockers remain open.
+- Run from the repository root: `python source/AI-Syed-Jalal-FINAL-RECOVERED/scripts/validate-recovery-static.py`.
