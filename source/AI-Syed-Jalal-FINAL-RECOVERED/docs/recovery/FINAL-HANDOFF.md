@@ -83,3 +83,12 @@ The application should be marked **DONE** only after the source reconciliation, 
 - Re-ran the frontend static regression validator: PASS, 0 failures.
 - Parsed `backend/docker-compose.yml` successfully and verified all 13 provider/runtime variables are represented in both Compose and `.env.production.example`.
 - `node --check` passed for `server.mjs`, `ai-runtime.mjs`, migration, seed, and smoke-test files under Node 20.20.2. These are syntax/configuration checks only; the API was not started and no database or AI provider was contacted.
+
+
+## Update — read-only preview HTTP checks (2026-10-22)
+
+- Preview URL used: `https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev`.
+- HTTP 200 confirmed for `/`, `/visual-styles.html`, `/visual-library.html`, `/workspace.html`, `/dashboard.html`, and `/assets/web-logo.svg`.
+- All eight gallery image URLs returned HTTP 200. Homepage markup checks confirmed the shared logo, login modal/form, both visual navigation links, and existing `/api/auth/login` request marker. The four style labels are present.
+- `GET /api/health` and `GET /api/ready` both returned HTTP 404 on the Pages preview. This confirms that the preview is currently static-only; the backend service has not been attached to this Pages project. Live login, database and AI E2E remain blocked until the separate backend is deployed.
+- These were read-only HTTP fetches, not a browser interaction or authenticated test. Production was not changed.

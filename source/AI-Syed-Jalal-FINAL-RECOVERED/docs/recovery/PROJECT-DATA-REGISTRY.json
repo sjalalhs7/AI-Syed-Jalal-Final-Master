@@ -150,6 +150,41 @@
     "backend_node_syntax": "PASS; node --check passed for server.mjs, ai-runtime.mjs, scripts/migrate.mjs, scripts/seed.mjs, and tests/smoke.mjs",
     "compose_provider_env_coverage": "PASS; 13 of 13 provider variables present in docker-compose.yml and .env.production.example",
     "compose_yaml_parse": "PASS; YAML parsed with services db and api",
-    "runtime_integration": "NOT VERIFIED; database, real login, real AI providers, and browser E2E not run"
+    "runtime_integration": "NOT VERIFIED; database, real login, real AI providers, and browser E2E not run",
+    "preview_http_smoke": {
+      "status": "PASS",
+      "preview_alias": "https://recovery-data-upgrade-2026-1.ai-syed-jalal-live.pages.dev",
+      "routes_http_200": [
+        "/",
+        "/visual-styles.html",
+        "/visual-library.html",
+        "/workspace.html",
+        "/dashboard.html",
+        "/assets/web-logo.svg"
+      ],
+      "gallery_image_urls_http_200": 8,
+      "homepage_checks": [
+        "shared logo asset",
+        "login modal/form markup",
+        "visual styles link",
+        "visual library link",
+        "login API request marker"
+      ],
+      "visual_modes": [
+        "Glassmorphism",
+        "Watermorphism",
+        "Firemorphism",
+        "Rainbowmorphism"
+      ],
+      "scope": "Read-only HTTP fetches; no browser interaction or authentication."
+    },
+    "backend_endpoint_probe": {
+      "status": "FAIL_ON_PAGES_PREVIEW",
+      "endpoints": {
+        "/api/health": 404,
+        "/api/ready": 404
+      },
+      "interpretation": "Cloudflare Pages deployment is static-only; the separate backend must be deployed before live login/AI/database tests."
+    }
   }
 }
