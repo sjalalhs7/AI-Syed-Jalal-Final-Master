@@ -109,3 +109,12 @@ The application should be marked **DONE** only after the source reconciliation, 
 - Read-only HTTP checks returned 200 for the homepage, visual style/gallery pages, widget JS, widget CSS, API config module, and shared logo. Markup checks confirmed the original login modal/form and logo remain, the recovered widget module is loaded, and the duplicate legacy widget script is absent.
 - The static regression validator passed with zero failures; Node syntax checks passed for the widget and API config modules.
 - `GET /api/health` and `/api/ready` still return 404 on Pages. This proves the frontend/widget assets are served but does not prove a live chat response, authentication, database or AI provider behavior.
+
+
+## Update — visual mismatch audit and brand recovery (2026-10-22)
+
+- Directly inspected the saved Library visual boards `1000120836.png` and `1000121172.png`. The boards show a full branded homepage, login, mobile app, dashboard/command center, visible navigation, project/agent tiles, and an ornate crowned `SJ` emblem with the “Your AI Partner for a Smarter Tomorrow” tagline.
+- The prior frontend instead used a generic A-shaped SVG mark, a comparatively simple landing page, and an isolated dashboard not exposed in the homepage navigation. The dashboard also marked several product areas “SOON” while the source inventory already contained additional project references.
+- Added a searchable Project Portfolio and Integrations page, exposed Dashboard/Projects/Integrations/Roadmaps links in desktop and mobile homepage navigation, and added project inventory access within the dashboard.
+- Recovered a small crowned-SJ emblem crop from the saved visual board and applied it consistently to the active pages instead of the generic A mark. This is a raster recovery from the board, **not the original standalone vector master**; exact vector/logo master recovery and pixel-level visual sign-off remain open.
+- Static validation passes, and the preview serves the updated homepage, dashboard, portfolio and visual library. The frontend is still not the complete final product: backend endpoints return 404 on Pages, live integrations remain unverified, and the original visual board still requires full-size pixel comparison.

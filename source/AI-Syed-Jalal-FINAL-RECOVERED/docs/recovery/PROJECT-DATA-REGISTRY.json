@@ -215,6 +215,29 @@
       ],
       "api_health_and_ready": "HTTP 404; separate backend still absent from Pages preview",
       "scope": "Read-only HTTP requests; no real browser interaction."
+    },
+    "visual_reference_comparison": {
+      "status": "PARTIAL_DIRECT_INSPECTION",
+      "references": [
+        "1000120836.png",
+        "1000121172.png"
+      ],
+      "findings": [
+        "reference boards show homepage, login, mobile app, dashboard/command center and navigation",
+        "current previous frontend used generic A-shaped logo and hid dashboard from homepage navigation",
+        "recovered crowned SJ emblem crop applied consistently",
+        "original standalone vector logo master and exact pixel-level final approval still missing"
+      ]
+    },
+    "project_portfolio_ui": {
+      "status": "PASS_STATIC_AND_HTTP",
+      "features": [
+        "homepage dashboard/projects/integrations navigation",
+        "mobile horizontal navigation",
+        "searchable project portfolio",
+        "source-backed status labels for agent catalog, skill registry, Supervisor, AutoGPT, OmniRoute, OSSU/roadmaps, Wikipedia adapter, Local LLM, OpenCode/Android IDE and provider/database integration gaps"
+      ],
+      "live_runtime": "Not implied; backend health endpoints on Pages preview remain HTTP 404"
     }
   }
 }

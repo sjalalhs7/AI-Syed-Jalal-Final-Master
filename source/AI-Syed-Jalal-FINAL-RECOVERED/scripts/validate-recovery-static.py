@@ -51,11 +51,11 @@ def main():
         path = ROOT / name
         check(path.is_file(), f"required frontend file exists: {name}")
         if path.is_file(): docs[name] = path.read_text(encoding="utf-8")
-    for asset in ("assets/web-logo.svg", "assets/v101-palette.css"):
+    for asset in ("assets/approved-sj-emblem.png", "assets/v101-palette.css"):
         check((ROOT / asset).is_file(), f"shared asset exists: {asset}")
     if "index.html" in docs:
         home = docs["index.html"]
-        check('src="assets/web-logo.svg"' in home, "homepage keeps the shared logo asset")
+        check('src="assets/approved-sj-emblem.png"' in home, "homepage uses the recovered crowned SJ emblem")
         check('id="login"' in home and 'id="f"' in home, "existing login modal and form remain present")
         check("/api/auth/login" in home, "existing login API request is preserved")
         check('href="visual-styles.html"' in home and 'href="visual-library.html"' in home,
@@ -95,7 +95,10 @@ def main():
         for mode in MODES: check(mode in styles, f"visual showcase contains {mode}")
         check("@media(max-width:720px)" in styles, "visual showcase includes a mobile layout")
         check("prefers-reduced-motion" in styles, "visual showcase respects reduced-motion preference")
-        check('href="assets/web-logo.svg"' in styles, "visual showcase uses the shared logo asset")
+        check('src="assets/approved-sj-emblem.png"' in styles, "visual showcase uses the recovered crowned SJ emblem")
+    for page in ("index.html", "dashboard.html", "projects.html", "visual-styles.html", "visual-library.html", "workspace.html", "roadmaps.html"):
+        if page in docs:
+            check('assets/approved-sj-emblem.png' in docs[page], f"{page} uses the same recovered crowned SJ brand asset")
     if "visual-library.html" in docs:
         gallery = docs["visual-library.html"]
         parsed = Markup(); parsed.feed(gallery)
