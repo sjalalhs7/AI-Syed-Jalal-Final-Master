@@ -35,6 +35,8 @@ This matrix is evidence-driven. A check is not PASS until a result, timestamp, a
 
 | Preview HTTP smoke | GET homepage, style/gallery pages, workspace/dashboard, shared logo, and gallery images | PASS: six frontend routes/assets returned HTTP 200; all eight gallery image URLs returned HTTP 200; four mode labels and homepage login/navigation markers present | Static/HTTP evidence only |
 
+| AI widget static-host compatibility | single mount, CSS served separately, API base keys and deployed widget assets | PASS: static validator passed; homepage/widget JS/CSS/API config returned HTTP 200; no duplicate legacy script; real chat still blocked by missing backend | Supporting evidence only |
+
 ## Evidence record template
 
 For every row, record:

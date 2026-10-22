@@ -55,6 +55,15 @@
         "result": "success",
         "completed_at": "2026-10-22T10:14:29.649554Z",
         "scope": "Preview build/deploy only; browser and application behavior not certified."
+      },
+      {
+        "id": "e3c6be9b-fa4d-4fd4-8aa8-ce437aa9a030",
+        "url": "https://e3c6be9b.ai-syed-jalal-live.pages.dev",
+        "branch": "recovery/data-upgrade-2026-10-22",
+        "commit": "a5bc31301627473ca39faa3830f185109b0837db",
+        "result": "success",
+        "completed_at": "2026-10-22T10:19:05.458359Z",
+        "scope": "Preview build/deploy and read-only HTTP checks of homepage, widget JS/CSS/API config and visual pages; not browser interaction or backend E2E."
       }
     ]
   },
@@ -146,7 +155,7 @@
     "Do not request re-upload of approved images as the first recovery step."
   ],
   "verification_evidence": {
-    "frontend_static_regression": "PASS; 0 failures; run against current recovery branch files",
+    "frontend_static_regression": "PASS; 0 failures including widget single-mount, stylesheet link, and dynamic API-base storage checks",
     "backend_node_syntax": "PASS; node --check passed for server.mjs, ai-runtime.mjs, scripts/migrate.mjs, scripts/seed.mjs, and tests/smoke.mjs",
     "compose_provider_env_coverage": "PASS; 13 of 13 provider variables present in docker-compose.yml and .env.production.example",
     "compose_yaml_parse": "PASS; YAML parsed with services db and api",
@@ -185,6 +194,27 @@
         "/api/ready": 404
       },
       "interpretation": "Cloudflare Pages deployment is static-only; the separate backend must be deployed before live login/AI/database tests."
+    },
+    "widget_preview_http_smoke": {
+      "status": "PASS",
+      "preview_url": "https://e3c6be9b.ai-syed-jalal-live.pages.dev",
+      "http_200": [
+        "/",
+        "/visual-styles.html",
+        "/visual-library.html",
+        "/components/AIWidget/AIWidget.js",
+        "/components/AIWidget/AIWidget.css",
+        "/config/api.js",
+        "/assets/web-logo.svg"
+      ],
+      "homepage_markers": [
+        "login modal/form retained",
+        "single recovered widget module loaded",
+        "legacy duplicate widget not loaded",
+        "shared logo preserved"
+      ],
+      "api_health_and_ready": "HTTP 404; separate backend still absent from Pages preview",
+      "scope": "Read-only HTTP requests; no real browser interaction."
     }
   }
 }
