@@ -40,7 +40,8 @@ jobs:
           test -f "$root/backend/db/schema.sql"
           test -f "$root/README.md"
           test -f "$root/frontend/assets/web-logo.svg"
-          echo "Critical frontend, API proxy, backend, smoke-test, database schema and README files are present."
+          test -f "$root/frontend/intelligence-evolution.html"
+          echo "Critical frontend, AI evolution guide, API proxy, backend, database schema and README files are present."
 
       - name: Validate backend package metadata
         run: node -e "const p=require('./source/AI-Syed-Jalal-FINAL-RECOVERED/backend/package.json'); if(!p.scripts || !p.scripts.start) process.exit(1); console.log(p.name, p.version)"
@@ -63,7 +64,7 @@ jobs:
       - name: Test Pages API proxy behavior
         run: node --test source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/tests/api-proxy.test.mjs
 
-      - name: Ensure all four approved theme names remain in the visual library
+      - name: Ensure approved visual library themes remain present
         shell: bash
         run: |
           set -euo pipefail
@@ -73,3 +74,13 @@ jobs:
             grep -qi "$theme" "$file"
           done
           echo "All four theme labels are present."
+
+      - name: Validate intelligence evolution guide content
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/intelligence-evolution.html"
+          for topic in 'AI vs GenAI vs AGI vs ASI vs OI' 'id="ai"' 'id="genai"' 'id="agi"' 'id="asi"' 'id="oi"' 'prefers-reduced-motion'; do
+            grep -Fqi "$topic" "$file"
+          done
+          echo "Intelligence guide includes all five topics and responsive reduced-motion support."
