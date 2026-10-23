@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://sjalalhs7.github.io/employee-register/sitemap.xml
+Disallow: /dashboard.html
+Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
