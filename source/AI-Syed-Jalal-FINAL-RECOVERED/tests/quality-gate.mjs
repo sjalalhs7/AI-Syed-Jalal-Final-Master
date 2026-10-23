@@ -21,7 +21,7 @@ assert.match(html, /manifest\.webmanifest/, 'PWA manifest remains linked');
 for (const utility of ['.auto-fit-grid', '.fluid-type', '.container-query', 'prefers-reduced-motion']) {
   assert.ok(css.includes(utility), `responsive utility exists: ${utility}`);
 }
-assert.match(logo, /<title>/i, 'brand logo has an accessible title');
+assert.match(logo, /<title\b/i, 'brand logo has an accessible title');
 
 for (const topic of ['id="ai"', 'id="genai"', 'id="agi"', 'id="asi"', 'id="oi"']) {
   assert.ok(guide.includes(topic), `intelligence guide section exists: ${topic}`);
