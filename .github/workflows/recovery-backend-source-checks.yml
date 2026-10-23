@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED/backend
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
     steps:
       - name: Check out recovery source
         uses: actions/checkout@v4
@@ -31,18 +31,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: source/AI-Syed-Jalal-FINAL-RECOVERED/backend/package.json
+          cache-dependency-path: source/AI-Syed-Jalal-FINAL-RECOVERED/backend/package-lock.json
       - name: Install backend dependencies
-        run: npm install --no-audit --no-fund
+        run: npm --prefix backend install --no-audit --no-fund
       - name: Validate server syntax
-        run: node --check server.mjs
+        run: node --check backend/server.mjs
       - name: Run backend quality gate
-        run: npm run quality
+        run: node tests/quality-gate.mjs
       - name: Run V75 final contract checks
-        run: npm run v75-final
+        run: node tests/v75-final.mjs
       - name: Run V75 agency integration checks
-        run: npm run v75-agency
+        run: node tests/v75-agency-integration.mjs
       - name: Run Wikipedia adapter checks
-        run: npm run wikipedia-adapter
+        run: node tests/wikipedia-adapter.mjs
       - name: Run capability contract checks
-        run: npm run capability-contracts
+        run: node tests/agent-capability-contracts.mjs
