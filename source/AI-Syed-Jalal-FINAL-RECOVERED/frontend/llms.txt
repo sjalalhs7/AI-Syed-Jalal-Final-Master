@@ -1,17 +1,19 @@
-# AI-Syed Jalal
+# Alsyed Jalal AI
 
-AI-Syed Jalal is a professional AI workspace for chat, research, coding, data analysis, documents, AI agents and multi-model workflows.
+> Alsyed Jalal AI is a web-based AI workspace project focused on chat, research, coding, data analysis, documents, and agent workflows.
 
-Primary site: https://sjalalhs7.github.io/employee-register/
+Primary website: https://ai-syed-jalal-live.pages.dev/
 
-Core capabilities:
-- AI chat and multi-model workflows
-- Research and analysis
-- Code and development workflows
-- Data management and analysis
-- Document generation and printing
-- AI agents and orchestration
-- Provider/API integrations
-- Operations, security and audit controls
+## Public entry points
+- Homepage: https://ai-syed-jalal-live.pages.dev/
+- Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
+- Robots policy: https://ai-syed-jalal-live.pages.dev/robots.txt
 
-The public website is a static frontend hosted on GitHub Pages. Shared multi-PC authentication and central database features require the separately deployed backend/API.
+## Project areas
+- AI workspace and multi-model workflow interface
+- Research, coding, data analysis, and document workflows
+- Agent orchestration and provider/API integration work
+- Security, operations, and audit interfaces
+
+## Important availability note
+The presence of an interface or integration source file does not guarantee that a live provider is connected. Some capabilities require a separately deployed backend, a configured PostgreSQL database, provider API credentials, and server-side environment variables. Do not assume live authentication, database persistence, or provider execution unless the relevant endpoint reports healthy and the workflow has been tested.
