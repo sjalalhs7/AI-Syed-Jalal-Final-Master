@@ -71,7 +71,8 @@ body[data-theme] .btn,body[data-theme] .top-cta,body[data-theme] nav a{border-co
 
 </main>
 <script>
-const $=s=>document.querySelector(s),base=(localStorage.getItem('aj-v31-api')||location.origin).replace(/\/$/,'');
+const safeStorageGet=key=>{try{return localStorage.getItem(key)||''}catch{return ''}};
+const $=s=>document.querySelector(s),base=(safeStorageGet('aj-v31-api')||location.origin).replace(/\/$/,'');
 let lib=null,csrf='',agents=[],inv=null,cur=null;
 async function api(path,o={}){const m=(o.method||'GET').toUpperCase();
  if(m!=='GET'&&!csrf){const c=await fetch(base+'/api/csrf',{credentials:'include'});if(c.ok)csrf=(await c.json()).token||''}
