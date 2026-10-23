@@ -1,21 +1,57 @@
-/* AI-Syed Jalal V101 presentation palette — controlled four-color system. */
-:root{
-  --v101-coral:#FF6F61;
-  --v101-deep-blue:#0B1F3A;
-  --v101-emerald:#18B981;
-  --v101-gold:#F4C95D;
+/* AI-Syed Jalal responsive layer — additive utilities; keeps the existing V101 palette. */
+:root {
+  --sj-ink: #070b14;
+  --sj-panel: #0d1424;
+  --sj-line: #1f3a52;
+  --sj-cyan: #43d9ff;
+  --sj-violet: #8b6cff;
+  --sj-gold: #ffd15a;
+  --sj-content: 1180px;
+  --sj-gutter: clamp(16px, 3vw, 32px);
+  --sj-radius: clamp(12px, 1.5vw, 20px);
 }
-/* Shared accent enforcement for pages using the V100 presentation layer. */
-body{background-color:var(--v101-deep-blue)}
-.btn.primary,.btn.green,.btn.gold{border-color:transparent}
-.btn.primary{background:linear-gradient(135deg,var(--v101-coral),var(--v101-gold));color:#07111d}
-.btn.green{background:color-mix(in srgb,var(--v101-emerald) 12%,transparent);border-color:color-mix(in srgb,var(--v101-emerald) 45%,transparent);color:var(--v101-emerald)}
-.btn.gold{background:color-mix(in srgb,var(--v101-gold) 12%,transparent);border-color:color-mix(in srgb,var(--v101-gold) 45%,transparent);color:var(--v101-gold)}
-.eyebrow,.icon{color:var(--v101-coral)}
-.progress i,.bar i,.meter i{background:linear-gradient(90deg,var(--v101-coral),var(--v101-gold),var(--v101-emerald))}
-.nav button.active{box-shadow:inset 3px 0 var(--v101-coral)}
-.status,.state{color:var(--v101-emerald)}
-[data-v101-accent="coral"]{color:var(--v101-coral)!important}
-[data-v101-accent="emerald"]{color:var(--v101-emerald)!important}
-[data-v101-accent="gold"]{color:var(--v101-gold)!important}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+/* Reusable responsive primitives */
+.smart-width { width: min(100% - 2 * var(--sj-gutter), var(--sj-content)); margin-inline: auto; }
+.fluid-type { font-size: clamp(var(--type-min, 1rem), var(--type-fluid, 2vw), var(--type-max, 3rem)); }
+.auto-fit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--grid-min, 220px)), 1fr)); gap: var(--grid-gap, 16px); }
+.aspect-ratio { aspect-ratio: var(--ratio, 16 / 9); }
+.flex-wrap { display: flex; flex-wrap: wrap; gap: var(--wrap-gap, 12px); }
+.container-query { container-type: inline-size; container-name: component; min-width: 0; }
+.media-frame { width: 100%; aspect-ratio: var(--media-ratio, 16 / 9); overflow: hidden; }
+.media-frame > img, .media-frame > video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.min-w-0 { min-width: 0; }
+.text-balance { text-wrap: balance; }
+.safe-area { padding-inline: max(var(--sj-gutter), env(safe-area-inset-left)); padding-right: max(var(--sj-gutter), env(safe-area-inset-right)); }
+/* Improve resilience of existing page sections without replacing their design. */
+img, video, canvas, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:where(a, button, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--sj-cyan); outline-offset: 3px; }
+.wrap { width: min(var(--sj-content), calc(100% - 2 * var(--sj-gutter))); }
+.hero, .featured-grid, .command-preview, .cp-lower, .cp-kpis { min-width: 0; }
+.featured-card, .tile, .stat, .command-preview, .scene { min-width: 0; }
+.featured-card, .tile { overflow-wrap: anywhere; }
+@container component (max-width: 420px) {
+  .auto-fit-grid { --grid-min: 145px; --grid-gap: 10px; }
+  .fluid-type { --type-fluid: 5vw; }
+}
+@media (max-width: 820px) {
+  .hero { gap: clamp(18px, 4vw, 30px); }
+  .wrap { width: min(100% - 28px, var(--sj-content)); }
+  .nav nav { max-width: 100%; }
+  .stats { align-items: stretch; }
+  .stat { flex: 1 1 140px; }
+}
+@media (max-width: 520px) {
+  :root { --sj-gutter: 14px; }
+  .wrap { width: calc(100% - 28px); }
+  h1 { font-size: clamp(2.35rem, 12vw, 3.5rem); overflow-wrap: anywhere; }
+  .lead { font-size: 1rem; }
+  .acts > .btn { flex: 1 1 145px; text-align: center; }
+  .stats .stat { min-width: 0; flex: 1 1 calc(50% - 8px); padding: 10px; }
+  .scene { min-height: 280px; }
+  .scene .ring { max-width: 86vw; max-height: 86vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
