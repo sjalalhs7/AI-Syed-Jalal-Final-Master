@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ai-syed-jalal",
+  "main": "source/AI-Syed-Jalal-FINAL-RECOVERED/worker/index.js",
+  "compatibility_date": "2026-10-24",
+  "workers_dev": true,
+  "previews": {}
+}
