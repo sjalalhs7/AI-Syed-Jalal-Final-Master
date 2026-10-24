@@ -4,7 +4,11 @@ import {fileURLToPath} from 'node:url';
 import pg from 'pg';
 const {Pool}=pg;
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
-const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='true'?{rejectUnauthorized:false}:false});
+const useSsl=process.env.PGSSL==='true';
+const rejectUnauthorized=process.env.PGSSL_REJECT_UNAUTHORIZED ? process.env.PGSSL_REJECT_UNAUTHORIZED==='true' : process.env.NODE_ENV==='production';
+if(process.env.NODE_ENV==='production' && useSsl && !rejectUnauthorized) throw new Error('PGSSL_REJECT_UNAUTHORIZED must be true in production');
+const ssl=useSsl?{rejectUnauthorized,...(process.env.PGSSL_CA?{ca:process.env.PGSSL_CA}:{})}:false;
+const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl});
 const client=await pool.connect();
 try{
   await client.query('BEGIN');

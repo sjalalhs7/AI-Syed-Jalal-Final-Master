@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: ai-syed-jalal-api
+    runtime: docker
+    plan: free
+    dockerContext: ./source/AI-Syed-Jalal-FINAL-RECOVERED
+    dockerfilePath: ./source/AI-Syed-Jalal-FINAL-RECOVERED/backend/Dockerfile
+    healthCheckPath: /api/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: https://ai-syed-jalal-live.pages.dev
+      - key: DATABASE_URL
+        sync: false
+      - key: CSRF_SECRET
+        generateValue: true
+      - key: PGSSL
+        value: "true"
+      - key: PGSSL_REJECT_UNAUTHORIZED
+        value: "true"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"

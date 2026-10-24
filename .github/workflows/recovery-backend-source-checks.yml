@@ -1,0 +1,46 @@
+name: Recovery backend source checks
+
+on:
+  push:
+    branches:
+      - recovery/data-upgrade-2026-10-22
+  pull_request:
+    branches:
+      - recovery/data-upgrade-2026-10-22
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-backend-source-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-source-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+    steps:
+      - name: Check out recovery source
+        uses: actions/checkout@v4
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install backend dependencies
+        run: npm --prefix backend install --no-audit --no-fund
+      - name: Validate server syntax
+        run: node --check backend/server.mjs
+      - name: Run backend quality gate
+        run: node tests/quality-gate.mjs
+      - name: Run V75 final contract checks
+        run: node tests/v75-final.mjs
+      - name: Run V75 agency integration checks
+        run: node tests/v75-agency-integration.mjs
+      - name: Run Wikipedia adapter checks
+        run: node tests/wikipedia-adapter.mjs
+      - name: Run capability contract checks
+        run: node tests/agent-capability-contracts.mjs
