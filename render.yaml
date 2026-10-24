@@ -5,7 +5,7 @@ services:
     plan: free
     dockerContext: ./source/AI-Syed-Jalal-FINAL-RECOVERED
     dockerfilePath: ./source/AI-Syed-Jalal-FINAL-RECOVERED/backend/Dockerfile
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     envVars:
       - key: NODE_ENV
         value: production
