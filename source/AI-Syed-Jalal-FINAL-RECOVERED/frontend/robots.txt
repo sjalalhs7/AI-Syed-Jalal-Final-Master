@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /dashboard.html
+
 Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
