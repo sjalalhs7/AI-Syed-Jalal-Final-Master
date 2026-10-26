@@ -95,7 +95,7 @@ body[data-theme="rainbow"] .tile,body[data-theme="rainbow"] .featured-card{borde
 
 <div class="modal" id="login"><div class="lc"><div class="la"><img src="assets/web-logo.svg" alt="Alsyed Jalal AI crowned logo"><h2>Welcome Back</h2><p>Sign in to continue to your AI workspace.</p></div>
 <form class="lf" id="f" autocomplete="on"><button type="button" class="x" id="close" aria-label="Close">×</button><h3>Sign in</h3>
-<label for="u">Username</label><input id="u" required autocomplete="username"><label for="p">Password</label><input id="p" type="password" required autocomplete="current-password">
+<label for="u">Username</label><input id="u" required autocomplete="username"><label for="p">Password</label><input id="p" type="password" required minlength="12" autocomplete="current-password"><div id="confirm-wrap" hidden><label for="confirm-p">Confirm password</label><input id="confirm-p" type="password" minlength="12" autocomplete="new-password"></div>
 <details><summary>Server address (only if API is elsewhere)</summary><input id="api" placeholder="https://api.example.com" style="margin-top:8px"></details>
 <div id="err" role="alert"></div><button class="btn g" style="width:100%;margin-top:8px" id="go">Sign in</button><p class="auth-note">New here? <button type="button" class="auth-switch" id="signup-note">Create an account</button></p><div class="provider-note">Google · GitHub · Microsoft sign-in will appear when secure provider credentials are configured.</div></form></div></div>
 <!-- The recovered V122 custom-element widget is mounted by the module below. -->
@@ -105,16 +105,17 @@ body[data-theme="rainbow"] .tile,body[data-theme="rainbow"] .featured-card{borde
 </script>
 <script>
 const $=s=>document.getElementById(s),m=$('login');
-const show=()=>{m.classList.add('show');$('u').focus()};
-['open','start','start2'].forEach(i=>$(i).onclick=show);$('signup-note').onclick=()=>{$('err').textContent='Account creation is not active yet: the live /api/auth/register backend must be deployed first.'};$('close').onclick=()=>m.classList.remove('show');
+let authMode='login';const setAuthMode=mode=>{authMode=mode;$('err').textContent='';$('confirm-wrap').hidden=mode!=='signup';$('confirm-p').required=mode==='signup';$('p').minLength=mode==='signup'?12:1;$('p').autocomplete=mode==='signup'?'new-password':'current-password';document.querySelector('.lf h3').textContent=mode==='signup'?'Create account':'Sign in';$('go').textContent=mode==='signup'?'Create account':'Sign in';$('signup-note').textContent=mode==='signup'?'Back to sign in':'Create an account';document.querySelector('.auth-note').firstChild.textContent=mode==='signup'?'Already registered? ':'New here? ';};
+const show=()=>{setAuthMode('login');m.classList.add('show');$('u').focus()};
+['open','start','start2'].forEach(i=>$(i).onclick=show);$('signup-note').onclick=()=>setAuthMode(authMode==='signup'?'login':'signup');$('close').onclick=()=>m.classList.remove('show');
 document.addEventListener('keydown',e=>e.key==='Escape'&&m.classList.remove('show'));
 try{$('api').value=localStorage.getItem('aj-v31-api')||''}catch{}
-$('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';b.disabled=true;b.textContent='Signing in…';
+$('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';if(authMode==='signup'&&$('p').value!==$('confirm-p').value){er.textContent='Passwords do not match.';return}b.disabled=true;b.textContent=authMode==='signup'?'Creating account…':'Signing in…';
  let base=($('api').value.trim()||(location.protocol.startsWith('http')?location.origin:'')).replace(/\/$/,'');
  if(!base){er.textContent='Open this site from your server (http/https) or enter the server address.';b.disabled=false;b.textContent='Sign in';return}
- try{const r=await fetch(base+'/api/auth/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
-  const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('Login failed (HTTP '+r.status+')'));
+ try{const endpoint=authMode==='signup'?'/api/auth/register':'/api/auth/login';const r=await fetch(base+endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||((authMode==='signup'?'Registration':'Login')+' failed (HTTP '+r.status+')'));
   try{localStorage.setItem('aj-v31-api',base)}catch{};location.href='dashboard.html'}
- catch(x){er.textContent=x.message==='Failed to fetch'?'Cannot reach the server. Check the address.':x.message;b.disabled=false;b.textContent='Sign in'}};
+ catch(x){er.textContent=x.message==='Failed to fetch'?'Cannot reach the server. Check the address.':x.message;b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in'}};
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script><script type="module" src="components/AIWidget/AIWidget.js"></script></body></html>
