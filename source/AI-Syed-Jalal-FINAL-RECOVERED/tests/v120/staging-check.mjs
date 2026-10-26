@@ -15,7 +15,7 @@ const required = [
 ];
 for (const rel of required) assert.ok(fs.existsSync(path.join(root, rel)), `missing ${rel}`);
 const tokens = JSON.parse(fs.readFileSync(path.join(root,'frontend/assets/v120-design-tokens.json'),'utf8'));
-assert.deepEqual(tokens.palette, {coral:'#FF6F61',deepBlue:'#102A56',emerald:'#159A70',gold:'#D8A62A'});
+assert.deepEqual(tokens.palette, {coral:'#FF6F61',deepBlue:'#0B1F3A',emerald:'#18B981',gold:'#F4C95D'});
 const html = fs.readFileSync(path.join(root,'frontend/v120/catalog/index.html'),'utf8');
 assert.match(html,/project|catalog/i);
 console.log('V120 STAGING PASS: V100 baseline + V120 modules/catalog present');
