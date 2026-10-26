@@ -1,50 +1,70 @@
-/** Same-origin API proxy for Cloudflare Pages. Configure BACKEND_API_URL to the Node API origin. */
-export async function onRequest({ request, env }) {
-  const incoming = new URL(request.url);
-  if (!incoming.pathname.startsWith('/api/')) {
-    return Response.json({ ok: false, error: 'Not found', code: 'NOT_FOUND' }, { status: 404 });
+import { neon } from '@neondatabase/serverless';
+import { scrypt } from 'scrypt-js';
+
+const cookieName = 'aj_session';
+const sessionMs = 8 * 60 * 60 * 1000;
+const roles = ['Admin', 'Manager', 'Data Operator', 'Viewer'];
+const writeRoles = ['Admin', 'Manager', 'Data Operator'];
+const json = (data, status = 200, headers = {}) => Response.json(data, {status, headers: {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Cross-Origin-Opener-Policy':'same-origin', ...headers}});
+const hex = b => Array.from(b, x => x.toString(16).padStart(2,'0')).join('');
+const fromHex = s => new Uint8Array((String(s).match(/.{1,2}/g)||[]).map(x=>parseInt(x,16)));
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+const hashToken = async t => hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t))));
+const passHash = async (p,s) => hex(await scrypt(new TextEncoder().encode(String(p)),new TextEncoder().encode(String(s)),16384,8,1,64));
+const equal = (a,b) => { const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b)); if(x.length!==y.length)return false;let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0; };
+const csrf = async (token,secret) => { if(!secret||secret.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(token)))); };
+const cookies = req => Object.fromEntries((req.headers.get('cookie')||'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{const i=v.indexOf('=');return i<0?[v,'']:[v.slice(0,i),decodeURIComponent(v.slice(i+1))]}));
+const token = req => {const a=req.headers.get('authorization')||'';return a.startsWith('Bearer ')?a.slice(7):(cookies(req)[cookieName]||'');};
+const cookie = t => cookieName+'='+t+'; Max-Age='+Math.floor(sessionMs/1000)+'; Path=/; HttpOnly; Secure; SameSite=Lax';
+async function readBody(req){const t=await req.text();if(new TextEncoder().encode(t).length>1048576)throw Object.assign(Error('Request body too large'),{status:413});if(!t)return {};try{return JSON.parse(t)}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}}
+async function audit(sql,u,action,detail,req){try{await sql.query('INSERT INTO audit_events(id,user_id,action,detail,ip,request_id) VALUES($1,$2,$3,$4,$5,$6)',[crypto.randomUUID(),u?u.id:null,action,detail,req.headers.get('CF-Connecting-IP')||'',req.headers.get('cf-ray')||null])}catch{}}
+async function authenticate(sql,req){const t=token(req);if(!t)return null;const rows=await sql.query('SELECT u.id,u.username,u.role,s.id AS session_id FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active=true LIMIT 1',[await hashToken(t)]);return rows[0]||null}
+async function csrfValid(req,env){const t=token(req),v=req.headers.get('x-csrf-token')||'';if(!t||!v)return false;return equal(await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||''),v)}
+export async function onRequest({request,env}){
+ const u=new URL(request.url);
+ if(!u.pathname.startsWith('/api/'))return json({ok:false,error:'Not found'},404);
+ if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{Allow:'GET,POST,PUT,PATCH,DELETE,OPTIONS','Cache-Control':'no-store'}});
+ if(!env.DATABASE_URL)return json({ok:false,error:'Neon DATABASE_URL is not configured',code:'DATABASE_NOT_CONFIGURED'},503);
+ const sql=neon(env.DATABASE_URL);
+ try{
+  if(u.pathname==='/api/health'&&request.method==='GET')return json({ok:true,service:'Al-Syed Jalal AI Cloudflare API',version:'V126',runtime:'Cloudflare Pages Functions',database:'Neon PostgreSQL'});
+  if(u.pathname==='/api/version'&&request.method==='GET')return json({app:'Al-Syed Jalal AI',version:'V126',release:'cloudflare-native'});
+  if(u.pathname==='/api/ready'&&request.method==='GET'){await sql.query('SELECT 1');const r=await sql.query("SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('app_users','sessions','records','audit_events','record_history','documents','approvals','ai_runs')");return json({ok:Number(r[0]?.n||0)>=8,ready:Number(r[0]?.n||0)>=8,database:'Neon PostgreSQL',schemaTables:Number(r[0]?.n||0)},Number(r[0]?.n||0)>=8?200:503)}
+  if(u.pathname==='/api/auth/login'&&request.method==='POST'){
+   const x=await readBody(request),username=String(x.username||'').trim(),password=String(x.password||'');
+   if(!username||!password||username.length>200||password.length>1024)return json({error:'Username and password are required'},400);
+   let users=await sql.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[username]);
+   if(!users.length){const any=await sql.query('SELECT id FROM app_users LIMIT 1');if(!any.length&&env.SEED_ADMIN_USERNAME&&String(env.SEED_ADMIN_PASSWORD||'').length>=12&&!/change-?me|replace/i.test(env.SEED_ADMIN_PASSWORD)){const salt=hex(rand(16));await sql.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),String(env.SEED_ADMIN_USERNAME),salt,await passHash(env.SEED_ADMIN_PASSWORD,salt)]);users=await sql.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[username]);}}
+   const user=users[0];if(!user){await passHash(password,'00000000000000000000000000000000');await audit(sql,null,'LOGIN_FAILED','Unknown user',request);return json({error:'Invalid credentials'},401)}
+   if(!equal(await passHash(password,user.salt),user.password_hash)){await audit(sql,user,'LOGIN_FAILED','Bad password',request);return json({error:'Invalid credentials'},401)}
+   const raw=hex(rand(48)),id=crypto.randomUUID();await sql.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[id,user.id,await hashToken(raw),new Date(Date.now()+sessionMs).toISOString()]);await audit(sql,user,'LOGIN','Successful login',request);
+   return json({user:{id:user.id,username:user.username,role:user.role},session:'httpOnly-cookie'},200,{'Set-Cookie':cookie(raw)});
   }
-  if (!env.BACKEND_API_URL) {
-    return Response.json(
-      { ok: false, error: 'API backend is not configured', code: 'BACKEND_NOT_CONFIGURED' },
-      { status: 503, headers: { 'Cache-Control': 'no-store' } },
-    );
+  if(u.pathname==='/api/csrf'&&request.method==='GET'){const t=token(request);if(!t)return json({error:'Authentication required'},401);return json({token:await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||'')})}
+  if(u.pathname==='/api/auth/logout'&&request.method==='POST'){const me=await authenticate(sql,request);if(!me)return json({error:'Authentication required'},401);if(!await csrfValid(request,env))return json({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);await sql.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[await hashToken(token(request))]);await audit(sql,me,'LOGOUT','Session revoked',request);return json({ok:true},200,{'Set-Cookie':cookieName+'=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'})}
+  const me=await authenticate(sql,request);if(!me)return json({error:'Authentication required'},401);
+  if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await csrfValid(request,env))return json({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);
+  if(u.pathname==='/api/me'&&request.method==='GET')return json({user:{id:me.id,username:me.username,role:me.role}});
+  if(u.pathname==='/api/auth/sessions'&&request.method==='GET')return json({sessions:await sql.query('SELECT id,created_at AS "createdAt",expires_at AS "expiresAt",revoked_at AS "revokedAt" FROM sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[me.id])});
+  if(u.pathname==='/api/auth/sessions'&&request.method==='DELETE'){await sql.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL',[me.id,me.session_id]);await audit(sql,me,'SESSION_REVOKE_ALL','Other active sessions revoked',request);return json({ok:true})}
+  if(u.pathname==='/api/records'&&request.method==='GET'){
+   const page=Math.max(1,Number(u.searchParams.get('page')||1)),limit=Math.min(200,Math.max(1,Number(u.searchParams.get('limit')||100))),term=(u.searchParams.get('q')||'').slice(0,200),like='%'+term+'%',region=(u.searchParams.get('region')||'').slice(0,200),sector=(u.searchParams.get('sector')||'').slice(0,200),off=(page-1)*limit;
+   const where="deleted_at IS NULL AND ($1='' OR id ILIKE $2 OR name ILIKE $2 OR region ILIKE $2 OR sector ILIKE $2 OR status ILIKE $2 OR notes ILIKE $2) AND ($3='' OR region=$3) AND ($4='' OR sector=$4)";
+   const [records,count]=await Promise.all([sql.query('SELECT id,name,region,sector,status,notes,updated_at AS "updatedAt" FROM records WHERE '+where+' ORDER BY updated_at DESC LIMIT $5 OFFSET $6',[term,like,region,sector,limit,off]),sql.query('SELECT count(*)::int AS n FROM records WHERE '+where,[term,like,region,sector])]);const total=Number(count[0]?.n||0);return json({records,total,page,limit,pages:Math.max(1,Math.ceil(total/limit))});
   }
-  let backendOrigin;
-  try {
-    const parsed = new URL(env.BACKEND_API_URL);
-    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) {
-      throw new Error('Expected an HTTPS origin only');
-    }
-    backendOrigin = parsed.origin;
-  } catch {
-    return Response.json(
-      { ok: false, error: 'API backend configuration is invalid', code: 'BACKEND_CONFIG_INVALID' },
-      { status: 503, headers: { 'Cache-Control': 'no-store' } },
-    );
+  if(u.pathname==='/api/records'&&request.method==='POST'){
+   if(!writeRoles.includes(me.role))return json({error:'Role not permitted'},403);const x=await readBody(request),name=String(x.name||'').trim();if(!name||name.length>500)return json({error:'name is required (maximum 500 characters)'},400);
+   const r={id:String(x.id||'AJ-'+crypto.randomUUID().slice(0,8).toUpperCase()),name,region:String(x.region||'').slice(0,200),sector:String(x.sector||'').slice(0,200),status:String(x.status||'Active').slice(0,100),notes:String(x.notes||'').slice(0,10000)};
+   await sql.query('INSERT INTO records(id,name,region,sector,status,notes,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$7)',[r.id,r.name,r.region,r.sector,r.status,r.notes,me.id]);await sql.query("INSERT INTO record_history(id,record_id,user_id,action,snapshot) SELECT $1,id,$2,'CREATE',to_jsonb(records) FROM records WHERE id=$3",[crypto.randomUUID(),me.id,r.id]);await audit(sql,me,'CREATE',r.id,request);return json({record:r},201);
   }
-  const target = new URL(backendOrigin);
-  target.pathname = incoming.pathname;
-  target.search = incoming.search;
-  const headers = new Headers(request.headers);
-  headers.delete('host');
-  headers.set('x-forwarded-host', incoming.host);
-  headers.set('x-forwarded-proto', 'https');
-  try {
-    const upstreamRequest = new Request(target.toString(), new Request(request, { headers }));
-    const upstream = await fetch(upstreamRequest);
-    const responseHeaders = new Headers(upstream.headers);
-    responseHeaders.set('Cache-Control', 'no-store');
-    responseHeaders.delete('set-cookie2');
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: responseHeaders,
-    });
-  } catch {
-    return Response.json(
-      { ok: false, error: 'API backend is unreachable', code: 'BACKEND_UNREACHABLE' },
-      { status: 502, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
+  const m=u.pathname.match(/^\\/api\\/records\\/([^/]+)$/);
+  if(m){const id=decodeURIComponent(m[1]);if(request.method==='GET'){const r=await sql.query('SELECT id,name,region,sector,status,notes,updated_at AS "updatedAt" FROM records WHERE id=$1 AND deleted_at IS NULL LIMIT 1',[id]);return r[0]?json({record:r[0]}):json({error:'Not found'},404)}
+   if(request.method==='PUT'){if(!writeRoles.includes(me.role))return json({error:'Role not permitted'},403);const x=await readBody(request);const r=await sql.query('UPDATE records SET name=COALESCE($2,name),region=COALESCE($3,region),sector=COALESCE($4,sector),status=COALESCE($5,status),notes=COALESCE($6,notes),updated_by=$7,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id,name,region,sector,status,notes,updated_at AS "updatedAt"',[id,x.name??null,x.region??null,x.sector??null,x.status??null,x.notes??null,me.id]);if(!r[0])return json({error:'Not found'},404);await sql.query("INSERT INTO record_history(id,record_id,user_id,action,snapshot) SELECT $1,id,$2,'UPDATE',to_jsonb(records) FROM records WHERE id=$3",[crypto.randomUUID(),me.id,id]);await audit(sql,me,'UPDATE',id,request);return json({record:r[0]})}
+   if(request.method==='DELETE'){if(!['Admin','Manager'].includes(me.role))return json({error:'Role not permitted'},403);const r=await sql.query('UPDATE records SET deleted_at=now(),deleted_by=$2,updated_by=$2,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id',[id,me.id]);if(!r[0])return json({error:'Not found'},404);await sql.query("INSERT INTO record_history(id,record_id,user_id,action,snapshot) SELECT $1,id,$2,'SOFT_DELETE',to_jsonb(records) FROM records WHERE id=$3",[crypto.randomUUID(),me.id,id]);await audit(sql,me,'SOFT_DELETE',id,request);return json({ok:true,softDeleted:true})}}
+  if(u.pathname==='/api/meta'&&request.method==='GET'){const [r,s]=await Promise.all([sql.query("SELECT DISTINCT region FROM records WHERE region<>'' AND deleted_at IS NULL ORDER BY region"),sql.query("SELECT DISTINCT sector FROM records WHERE sector<>'' AND deleted_at IS NULL ORDER BY sector")]);return json({regions:r.map(x=>x.region),sectors:s.map(x=>x.sector)})}
+  if(u.pathname==='/api/stats'&&request.method==='GET'){const [t,r,s,a,d]=await Promise.all([sql.query('SELECT count(*)::int AS n FROM records WHERE deleted_at IS NULL'),sql.query('SELECT region,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY region ORDER BY n DESC'),sql.query('SELECT sector,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY sector ORDER BY n DESC'),sql.query('SELECT count(*)::int AS n FROM audit_events'),sql.query('SELECT count(*)::int AS n FROM app_users WHERE active=true')]);return json({total:Number(t[0]?.n||0),regions:Object.fromEntries(r.map(x=>[x.region||'Unassigned',Number(x.n)])),sectors:Object.fromEntries(s.map(x=>[x.sector||'Unassigned',Number(x.n)])),auditCount:Number(a[0]?.n||0),activeUsers:Number(d[0]?.n||0)})}
+  if(u.pathname==='/api/approvals'&&request.method==='GET')return json({approvals:await sql.query("SELECT id,action,description,status,requested_by AS \\"requestedBy\\",created_at AS \\"createdAt\\",resolved_at AS \\"resolvedAt\\",resolved_by AS \\"resolvedBy\\" FROM approvals WHERE status='pending' ORDER BY created_at ASC LIMIT 100")});
+  const am=u.pathname.match(/^\\/api\\/approvals\\/([^/]+)$/);if(am&&['PATCH','POST'].includes(request.method)){if(!['Admin','Manager'].includes(me.role))return json({error:'Manager or Admin role required'},403);const x=await readBody(request),status=String(x.status||'');if(!['approved','rejected'].includes(status))return json({error:'status must be approved or rejected'},400);const r=await sql.query('UPDATE approvals SET status=$2,resolved_at=now(),resolved_by=$3 WHERE id=$1 AND status=\\'pending\\' RETURNING id,action,description,status,requested_by AS "requestedBy",created_at AS "createdAt",resolved_at AS "resolvedAt",resolved_by AS "resolvedBy"',[decodeURIComponent(am[1]),status,me.username]);if(!r[0])return json({error:'Approval not found or already resolved'},404);await audit(sql,me,'APPROVAL_'+status.toUpperCase(),r[0].action+' · '+r[0].description,request);return json({ok:true,approval:r[0]})}
+  return json({ok:false,error:'Route not yet migrated to Cloudflare API',code:'ROUTE_NOT_IMPLEMENTED'},501);
+ }catch(e){const status=Number(e?.status)||500;return json({ok:false,error:status>=500?'Internal server error':e.message,code:status===500?'INTERNAL_ERROR':'REQUEST_ERROR'},status)}
 }
