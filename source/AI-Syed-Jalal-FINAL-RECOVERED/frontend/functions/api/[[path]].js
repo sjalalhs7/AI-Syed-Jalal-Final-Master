@@ -25,7 +25,7 @@ export async function onRequest({request,env}){
  try{
   if(u.pathname==='/api/health'&&request.method==='GET')return reply({ok:true,service:'Al-Syed Jalal AI Cloudflare API',version:'V126',runtime:'Cloudflare Pages Functions',database:'Neon PostgreSQL'});
   if(u.pathname==='/api/version'&&request.method==='GET')return reply({app:'Al-Syed Jalal AI',version:'V126',release:'cloudflare-native'});
-  if(u.pathname==='/api/ready'&&request.method==='GET'){await db.query('SELECT 1');const a=await db.query("SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('app_users','sessions','records','audit_events','record_history','documents','approvals','ai_runs')");const n=Number(a[0]?.n||0);return reply({ok:n>=8,ready:n>=8,database:'Neon PostgreSQL',schemaTables:n},n>=8?200:503)}
+  if(u.pathname==='/api/ready'&&request.method==='GET'){await db.query('SELECT 1');const a=await db.query("SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('app_users','sessions','records','audit_events','record_history','documents','approvals')");const n=Number(a[0]?.n||0);return reply({ok:n>=7,ready:n>=7,database:'Neon PostgreSQL',schemaTables:n},n>=7?200:503)}
   if(u.pathname==='/api/auth/login'&&request.method==='POST'){
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');if(!name||!password||name.length>200||password.length>1024)return reply({error:'Username and password are required'},400);
    let found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
