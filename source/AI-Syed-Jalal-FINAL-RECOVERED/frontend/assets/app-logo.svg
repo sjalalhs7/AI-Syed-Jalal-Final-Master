@@ -1,17 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">AI-Syed Jalal crowned SJ</title>
-  <desc id="desc">A gold crown above an SJ monogram on a midnight navy shield with cyan and violet highlights.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Al-Syed Jalal logo">
   <defs>
-    <linearGradient id="gold" x1="90" y1="80" x2="420" y2="440" gradientUnits="userSpaceOnUse"><stop stop-color="#fff0a6"/><stop offset=".36" stop-color="#ffd15a"/><stop offset=".72" stop-color="#f4a91f"/><stop offset="1" stop-color="#b96a16"/></linearGradient>
-    <linearGradient id="edge" x1="60" y1="80" x2="440" y2="450" gradientUnits="userSpaceOnUse"><stop stop-color="#43d9ff"/><stop offset=".5" stop-color="#8b6cff"/><stop offset="1" stop-color="#ffd15a"/></linearGradient>
-    <radialGradient id="bg" cx="0" cy="0" r="1" gradientTransform="translate(180 120) rotate(55) scale(420)"><stop stop-color="#182d54"/><stop offset="1" stop-color="#070b14"/></radialGradient>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="ajg" x1="62" y1="70" x2="440" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD15A"/>
+      <stop offset="0.42" stop-color="#FF8B00"/>
+      <stop offset="0.78" stop-color="#6EEB45"/>
+      <stop offset="1" stop-color="#00C86B"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect x="22" y="22" width="468" height="468" rx="104" fill="url(#bg)" stroke="url(#edge)" stroke-width="8"/>
-  <path d="M256 54 286 96 334 76 326 128 186 128 178 76 226 96Z" fill="url(#gold)" stroke="#fff0a6" stroke-width="5" stroke-linejoin="round" filter="url(#glow)"/>
-  <circle cx="178" cy="72" r="10" fill="#fff0a6"/><circle cx="256" cy="48" r="12" fill="#fff0a6"/><circle cx="334" cy="72" r="10" fill="#fff0a6"/>
-  <path d="M142 153H370" stroke="url(#edge)" stroke-width="5" stroke-linecap="round"/>
-  <text x="256" y="300" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="150" font-weight="700" letter-spacing="-12" fill="url(#gold)" stroke="#5c3b16" stroke-width="2" paint-order="stroke" filter="url(#glow)">SJ</text>
-  <path d="M112 350Q256 425 400 350" fill="none" stroke="url(#edge)" stroke-width="7" stroke-linecap="round"/>
-  <circle cx="112" cy="350" r="7" fill="#43d9ff"/><circle cx="400" cy="350" r="7" fill="#8b6cff"/>
+  <g fill="none" stroke="url(#ajg)" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)">
+    <path stroke-width="34" d="M120 382 254 94l138 288"/>
+    <path stroke-width="28" d="M174 267h154"/>
+    <path stroke-width="23" d="M119 335c41-55 111-89 201-96 64-4 107 4 132 18"/>
+    <ellipse stroke-width="23" transform="rotate(-17 259 257)" cx="259" cy="257" rx="205" ry="86"/>
+    <path stroke-width="23" d="M286 154c44 35 76 93 76 144 0 81-48 141-111 141"/>
+  </g>
+  <path d="M385 85l9 20 21 9-21 9-9 21-9-21-21-9 21-9z" fill="#fff8d7"/>
 </svg>
