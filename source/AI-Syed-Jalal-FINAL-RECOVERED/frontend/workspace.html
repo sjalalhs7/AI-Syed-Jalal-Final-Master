@@ -342,7 +342,7 @@ async function renderAICommand(){
  }
  try{
   const [cap,ov,ph,runs]=await Promise.all([api('/api/ai/capabilities'),api('/api/admin/ai/overview'),api('/api/admin/ai/provider-health'),api('/api/ai/runs?limit=8')]);
-  $('#aiRuntimeStatus').textContent='LIVE / VERIFIED';
+  $('#aiRuntimeStatus').textContent=cap.mode==='demo'?'DEMO MODE · VERIFIED':'LIVE / VERIFIED';
   $('#aiAgentCount').textContent=cap.executableAgentProfiles??cap.agents?.length??'—';
   $('#aiProviderCount').textContent=(cap.providers||[]).length;
   $('#aiCapabilityCount').textContent=cap.skills?.length??cap.skillPacks?.length??'—';
