@@ -1,6 +1,3 @@
 name = "ai-syed-jalal-live"
 pages_build_output_dir = "."
 compatibility_date = "2026-10-26"
-
-[vars]
-API_RUNTIME = "cloudflare-pages-functions"
