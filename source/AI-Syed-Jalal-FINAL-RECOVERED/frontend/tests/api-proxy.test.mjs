@@ -28,6 +28,10 @@ test("admin provider health accepts OmniRoute alternate key and endpoint names",
   assert.ok(health.includes("live call not yet verified"));
 });
 
+test("malformed cookie encoding does not crash session parsing", () => {
+  assert.ok(source.includes("try{return [k,decodeURIComponent(v)]}catch{return [k,v]}"));
+});
+
 test("API route rejects paths outside /api", () => {
   assert.ok(source.includes("if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404)"));
 });
