@@ -50,7 +50,15 @@ export async function onRequest({request,env}){
    let found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
    if(!found.length){if(env.SEED_ADMIN_USERNAME&&String(env.SEED_ADMIN_PASSWORD||'').length>=12&&!/change-?me|replace/i.test(env.SEED_ADMIN_PASSWORD)){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),String(env.SEED_ADMIN_USERNAME),salt,await pass(env.SEED_ADMIN_PASSWORD,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}}
    const usr=found[0];if(!usr){await pass(password,'00000000000000000000000000000000');await audit(db,null,'LOGIN_FAILED','Unknown user',request);return reply({error:'Invalid credentials'},401)}
-   if(!equal(await pass(password,usr.salt),usr.password_hash)){await audit(db,usr,'LOGIN_FAILED','Bad password',request);return reply({error:'Invalid credentials'},401)}
+   if(!equal(await pass(password,usr.salt),usr.password_hash)){
+    const seedName=String(env.SEED_ADMIN_USERNAME||''),seedPassword=String(env.SEED_ADMIN_PASSWORD||'');
+    const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword&&seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword);
+    if(!mayRecover){await audit(db,usr,'LOGIN_FAILED','Bad password',request);return reply({error:'Invalid credentials'},401)}
+    const salt=hex(random(16)),hash=await pass(password,salt);
+    const rotated=await db.query("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id",[salt,hash,usr.id]);
+    if(!rotated.length){await audit(db,usr,'LOGIN_FAILED','Admin recovery did not update account',request);return reply({error:'Invalid credentials'},401)}
+    usr.salt=salt;usr.password_hash=hash;
+   }
    const t=hex(random(48));await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),usr.id,await digest(t),new Date(Date.now()+TTL).toISOString()]);await audit(db,usr,'LOGIN','Successful login',request);return reply({user:{id:usr.id,username:usr.username,role:usr.role},session:'httpOnly-cookie'},200,{'Set-Cookie':sessionCookie(t)});
   }
   if(u.pathname==='/api/csrf'&&request.method==='GET'){const t=rawToken(request);if(!t)return reply({error:'Authentication required'},401);return reply({token:await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||'')})}
