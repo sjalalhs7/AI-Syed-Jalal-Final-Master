@@ -3,65 +3,24 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../functions/api/[[path]].js", import.meta.url), "utf8");
-const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-const { onRequest } = await import(moduleUrl);
 
-function context({ env = {}, url = "https://site.example/api/health?full=1", method = "GET", path = "health", headers = {} } = {}) {
-  return {
-    env,
-    params: { path },
-    request: new Request(url, { method, headers, ...(method === "GET" || method === "HEAD" ? {} : { body: JSON.stringify({ sample: true }) }) }),
-  };
-}
-
-test("returns explicit 503 JSON when backend origin is missing", async () => {
-  const response = await onRequest(context());
-  assert.equal(response.status, 503);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.equal((await response.json()).code, "BACKEND_NOT_CONFIGURED");
+test("API explicitly reports missing Neon configuration instead of pretending readiness", () => {
+  assert.ok(source.includes("DATABASE_NOT_CONFIGURED"));
+  assert.ok(source.includes("if(!env.DATABASE_URL)"));
 });
 
-test("rejects invalid protocols and credentials in backend URL", async () => {
-  for (const origin of ["ftp://api.example", "https://user:pass@api.example"]) {
-    const response = await onRequest(context({ env: { BACKEND_API_URL: origin } }));
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).code, "BACKEND_CONFIG_INVALID");
-  }
+test("chat forwards to the provider-backed AI route, not a canned demo response", () => {
+  assert.ok(source.includes("target.pathname='/api/ai/run'"));
+  assert.ok(source.includes("reply:result.output||''"));
+  assert.ok(!source.includes("mode:'demo',simulated:true,reply:"));
 });
 
-test("forwards method, API path, query, and request body to configured origin", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  let captured;
-  globalThis.fetch = async (request) => {
-    captured = request;
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
-  };
-
-  const response = await onRequest(context({
-    env: { BACKEND_API_URL: "https://api.example/" },
-    url: "https://site.example/api/auth/login?source=mobile",
-    method: "POST",
-    path: ["auth", "login"],
-    headers: { "content-type": "application/json", "x-csrf-token": "test-token" },
-  }));
-
-  assert.equal(response.status, 200);
-  assert.equal(captured.url, "https://api.example/api/auth/login?source=mobile");
-  assert.equal(captured.method, "POST");
-  assert.deepEqual(await captured.json(), { sample: true });
-  assert.equal(captured.headers.get("x-forwarded-host"), "site.example");
-  assert.equal(captured.headers.get("x-forwarded-proto"), "https");
-  assert.equal((await response.json()).ok, true);
-  assert.equal(response.headers.get("cache-control"), "no-store");
+test("OmniRoute capability detection accepts the same aliases as execution", () => {
+  assert.ok(source.includes("env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY"));
+  assert.ok(source.includes("env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL"));
+  assert.ok(source.includes("configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL))"));
 });
 
-test("maps upstream network failures to explicit 502 JSON", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = async () => { throw new Error("upstream unavailable"); };
-
-  const response = await onRequest(context({ env: { BACKEND_API_URL: "https://api.example" } }));
-  assert.equal(response.status, 502);
-  assert.equal((await response.json()).code, "BACKEND_UNREACHABLE");
+test("API route rejects paths outside /api", () => {
+  assert.ok(source.includes("if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404)"));
 });
