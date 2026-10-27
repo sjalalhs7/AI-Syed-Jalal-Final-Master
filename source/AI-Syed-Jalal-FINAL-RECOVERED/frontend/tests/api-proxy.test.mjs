@@ -35,3 +35,9 @@ test("malformed cookie encoding does not crash session parsing", () => {
 test("API route rejects paths outside /api", () => {
   assert.ok(source.includes("if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404)"));
 });
+
+test("admin seed password can recover an existing Admin account only when the configured seed credentials match", () => {
+  assert.ok(source.includes("const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword"));
+  assert.ok(source.includes("seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword)"));
+  assert.ok(source.includes("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id"));
+});
