@@ -8,7 +8,7 @@ const random = n => crypto.getRandomValues(new Uint8Array(n));
 const digest = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))));
 const pass = async (p,s) => hex(await scrypt(new TextEncoder().encode(String(p)),new TextEncoder().encode(String(s)),16384,8,1,64));
 const equal = (a,b) => {const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b));if(x.length!==y.length)return false;let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0};
-const cookies = r => Object.fromEntries((r.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');return i<0?[x,'']:[x.slice(0,i),decodeURIComponent(x.slice(i+1))]}));
+const cookies = r => Object.fromEntries((r.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');if(i<0)return [x,''];const k=x.slice(0,i),v=x.slice(i+1);try{return [k,decodeURIComponent(v)]}catch{return [k,v]}}));
 const rawToken = r => {const a=r.headers.get('authorization')||'';return a.startsWith('Bearer ')?a.slice(7):(cookies(r)[C]||'')};
 const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(s),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(t))))};
 const readBody = async r => {const t=await r.text();if(new TextEncoder().encode(t).length>1048576)throw Object.assign(Error('Request body too large'),{status:413});if(!t)return {};try{return JSON.parse(t)}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}};
