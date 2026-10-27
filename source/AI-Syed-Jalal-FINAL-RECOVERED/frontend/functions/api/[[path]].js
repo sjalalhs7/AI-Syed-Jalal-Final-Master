@@ -58,9 +58,11 @@ export async function onRequest({request,env}){
   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
   if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);
   if(u.pathname==='/api/ai/run'&&request.method==='POST'){
-   const x=await readBody(request),prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80);
+   const x=await readBody(request),prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80),attachments=Array.isArray(x.attachments)?x.attachments:[];
    if(!prompt)return reply({error:'Enter a prompt before running the assistant'},400);
    if(prompt.length>10000)return reply({error:'Prompt is too long (maximum 10,000 characters)'},413);
+   if(attachments.length>4)return reply({error:'Attach no more than four images per message'},413);
+   const imageAttachments=[];for(const item of attachments){const type=String(item?.type||'').toLowerCase(),dataUrl=String(item?.dataUrl||'');if(!type.startsWith('image/')||!/^data:image\/(png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=]+$/i.test(dataUrl))return reply({error:'Invalid image attachment. Supported images: PNG, JPEG, WEBP, or GIF.'},400);if(dataUrl.length>5_600_000)return reply({error:'Each image must be 4 MB or smaller'},413);imageAttachments.push({type,dataUrl,name:String(item?.name||'image').slice(0,180)})}
    const configs={
     openai:{key:env.OPENAI_API_KEY,model:env.OPENAI_MODEL||'gpt-4o-mini',label:'OpenAI / ChatGPT'},
     anthropic:{key:env.ANTHROPIC_API_KEY,model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest',label:'Anthropic / Claude'},
@@ -90,13 +92,13 @@ export async function onRequest({request,env}){
     if(provider==='openai'){url='https://api.openai.com/v1/chat/completions';headers.authorization='Bearer '+cfg.key;}
     else if(provider==='deepseek'){url='https://api.deepseek.com/chat/completions';headers.authorization='Bearer '+cfg.key;}
     else {const base=String(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL||'').trim().replace(/\/+$/,'');if(!base)return reply({ok:false,traceId,provider,model,status:'not_configured',error:'OMNIROUTE_BASE_URL is not configured on the server.'},503);try{if(new URL(base).protocol!=='https:')return reply({ok:false,error:'OmniRoute base URL must use HTTPS.'},400);}catch{return reply({ok:false,error:'OmniRoute base URL is invalid.'},400);}url=/\/chat\/completions$/i.test(base)?base:base+'/chat/completions';headers.authorization='Bearer '+cfg.key;}
-    payload={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.4,max_tokens:2048};
+    const userContent=imageAttachments.length?[{type:'text',text:prompt},...imageAttachments.map(a=>({type:'image_url',image_url:{url:a.dataUrl}}))]:prompt;if(imageAttachments.length&&provider==='deepseek')return reply({ok:false,error:'The selected DeepSeek endpoint is not enabled for image analysis here. Choose a vision-capable OpenAI, Gemini, Claude, or OmniRoute model.'},400);payload={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userContent}],temperature:0.4,max_tokens:2048};
    } else if(provider==='anthropic'){
     url='https://api.anthropic.com/v1/messages';headers['x-api-key']=cfg.key;headers['anthropic-version']='2023-06-01';
-    payload={model,max_tokens:2048,system:systemPrompt,messages:[{role:'user',content:prompt}]};
+    const userContent=imageAttachments.length?[{type:'text',text:prompt},...imageAttachments.map(a=>({type:'image',source:{type:'base64',media_type:a.type,data:a.dataUrl.split(',')[1]}}))]:prompt;payload={model,max_tokens:2048,system:systemPrompt,messages:[{role:'user',content:userContent}]};
    } else {
     url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent';headers['x-goog-api-key']=cfg.key;
-    payload={systemInstruction:{parts:[{text:systemPrompt}]},contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:2048}};
+    const parts=[{text:prompt},...imageAttachments.map(a=>({inline_data:{mime_type:a.type,data:a.dataUrl.split(',')[1]}}))];payload={systemInstruction:{parts:[{text:systemPrompt}]},contents:[{role:'user',parts}],generationConfig:{temperature:0.4,maxOutputTokens:2048}};
    }
    let upstream,data;
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
