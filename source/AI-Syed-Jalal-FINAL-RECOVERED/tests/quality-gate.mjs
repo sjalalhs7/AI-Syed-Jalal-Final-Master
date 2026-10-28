@@ -13,7 +13,7 @@ assert.match(html, /<html lang="en">/i, 'homepage language is declared');
 assert.match(html, /name="viewport"/i, 'homepage includes a responsive viewport');
 assert.match(html, /rel="canonical"/i, 'homepage includes canonical metadata');
 assert.match(html, /assets\/v101-palette\.css/, 'approved responsive stylesheet is loaded');
-assert.match(html, /assets\/web-logo\.svg/, 'approved crowned SJ logo is loaded');
+assert.match(html, /assets\/approved-sj-rainbow-crown\.svg/, 'approved crowned SJ logo is loaded');
 assert.match(html, /id="login"/i, 'existing login interface remains present');
 assert.match(html, /AIWidget\.js/, 'AI widget module remains wired');
 assert.match(html, /manifest\.webmanifest/, 'PWA manifest remains linked');
