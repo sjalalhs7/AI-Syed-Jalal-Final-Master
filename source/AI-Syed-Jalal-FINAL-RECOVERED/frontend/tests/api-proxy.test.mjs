@@ -65,3 +65,11 @@ test("admin AI overview and provider-health endpoints enforce Admin role", () =>
   assert.ok(overview.includes("if(me.role!=='Admin')return reply({error:'Admin role required'},403)"));
   assert.ok(health.includes("if(me.role!=='Admin')return reply({error:'Admin role required'},403)"));
 });
+
+
+test("JSON request body is capped before full buffering and during streaming reads", () => {
+  assert.ok(source.includes("declared>max"));
+  assert.ok(source.includes("const reader=r.body.getReader()"));
+  assert.ok(source.includes("size>max"));
+  assert.ok(source.includes("Request body too large"));
+});
