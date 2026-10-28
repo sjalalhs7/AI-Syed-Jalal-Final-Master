@@ -143,7 +143,7 @@ body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <div class="modal" id="login"><div class="lc"><div class="la"><img src="assets/approved-sj-rainbow-crown.svg" alt="Alsyed Jalal AI crowned logo"><h2>Welcome Back</h2><p>Sign in to continue to your AI workspace.</p></div>
 <form class="lf" id="f" autocomplete="on"><button type="button" class="x" id="close" aria-label="Close">×</button><h3>Sign in</h3>
 <label for="u">Username</label><input id="u" required autocomplete="username"><label for="p">Password</label><input id="p" type="password" required minlength="12" autocomplete="current-password"><div id="confirm-wrap" hidden><label for="confirm-p">Confirm password</label><input id="confirm-p" type="password" minlength="12" autocomplete="new-password"></div>
-<details><summary>Server address (only if API is elsewhere)</summary><input id="api" placeholder="https://api.example.com" style="margin-top:8px"></details>
+<p class="provider-note" role="note">Secure connection: sign-in uses this website’s own API.</p>
 <div id="err" role="alert"></div><button class="btn g" style="width:100%;margin-top:8px" id="go">Sign in</button><p class="auth-note">New here? <button type="button" class="auth-switch" id="signup-note">Create an account</button></p><div class="provider-note">Google · GitHub · Microsoft sign-in will appear when secure provider credentials are configured.</div></form></div></div>
 <!-- The recovered V122 custom-element widget is mounted by the module below. -->
 
@@ -156,13 +156,12 @@ let authMode='login';const setAuthMode=mode=>{authMode=mode;$('err').textContent
 const show=()=>{setAuthMode('login');m.classList.add('show');$('u').focus()};
 ['open','start','start2'].forEach(i=>$(i).onclick=show);$('signup-note').onclick=()=>setAuthMode(authMode==='signup'?'login':'signup');$('close').onclick=()=>m.classList.remove('show');
 document.addEventListener('keydown',e=>e.key==='Escape'&&m.classList.remove('show'));
-try{$('api').value=localStorage.getItem('aj-v31-api')||''}catch{}
 $('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';if(authMode==='signup'&&$('p').value!==$('confirm-p').value){er.textContent='Passwords do not match.';return}b.disabled=true;b.textContent=authMode==='signup'?'Creating account…':'Signing in…';
- let base=($('api').value.trim()||(location.protocol.startsWith('http')?location.origin:'')).replace(/\/$/,'');
- if(!base){er.textContent='Open this site from your server (http/https) or enter the server address.';b.disabled=false;b.textContent='Sign in';return}
+ const base=location.origin;
+ if(!location.protocol.startsWith('https:')){er.textContent='Please open the secure HTTPS website to sign in.';b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in';return}
  try{const endpoint=authMode==='signup'?'/api/auth/register':'/api/auth/login';const r=await fetch(base+endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||((authMode==='signup'?'Registration':'Login')+' failed (HTTP '+r.status+')'));
-  try{localStorage.setItem('aj-v31-api',base)}catch{};location.href='dashboard.html'}
+  location.href='dashboard.html'}
  catch(x){er.textContent=x.message==='Failed to fetch'?'Cannot reach the server. Check the address.':x.message;b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in'}};
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script><script type="module" src="components/AIWidget/AIWidget.js"></script><script id="aj-global-theme-controller">(()=>{const key='aj-site-theme-v1',valid=['glass','water','fire','rainbow'],labels={glass:'Glassmorphism',water:'Watermorphism',fire:'Firemorphism',rainbow:'Rainbowmorphism'};function setTheme(t){if(!valid.includes(t))t='glass';document.body.dataset.ajGlobalTheme=t;document.querySelectorAll('[data-aj-theme]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.ajTheme===t));b.setAttribute('aria-label','Apply '+labels[b.dataset.ajTheme]+' to the whole page')});try{localStorage.setItem(key,t)}catch(e){}}let saved='glass';try{saved=localStorage.getItem(key)||'glass'}catch(e){}if(!document.querySelector('.aj-theme-bar')){const bar=document.createElement('div');bar.className='aj-theme-bar';bar.setAttribute('role','group');bar.setAttribute('aria-label','Whole website theme');bar.innerHTML='<strong>WHOLE-PAGE THEME</strong>'+Object.keys(labels).map(t=>'<button type="button" data-aj-theme="'+t+'">'+labels[t]+'</button>').join('');const main=document.querySelector('main')||document.querySelector('#app')||document.body;main.insertBefore(bar,main.firstChild)}document.querySelectorAll('[data-aj-theme]').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.ajTheme)));setTheme(saved)})();</script></body></html>
