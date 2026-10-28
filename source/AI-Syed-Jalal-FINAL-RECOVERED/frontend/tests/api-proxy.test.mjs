@@ -57,9 +57,7 @@ test("AI requests have per-user minute and daily quotas", () => {
   assert.ok(source.includes("interval '1 day'"));
   assert.ok(source.includes("AI request limit reached (20 per minute)"));
   assert.ok(source.includes("Daily AI request limit reached (200 per day)"));
-}
-... (output truncated, full output saved to: /mnt/files/.composio/output/bash_pony_stdout.txt)
-Run 'cat /mnt/files/.composio/output/bash_pony_stdout.txt' to view the full output, or use 'head -n 100 /mnt/files/.composio/output/bash_pony_stdout.txt' / 'tail -n 100 /mnt/files/.composio/output/bash_pony_stdout.txt' to view parts of it.
+});
 
 test("admin AI overview and provider-health endpoints enforce Admin role", () => {
   const overview = source.slice(source.indexOf("/api/admin/ai/overview"), source.indexOf("/api/admin/ai/provider-health"));
