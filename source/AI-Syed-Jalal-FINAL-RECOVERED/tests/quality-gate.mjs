@@ -6,7 +6,7 @@ const root = process.cwd();
 const frontend = path.join(root, 'frontend');
 const html = await fs.readFile(path.join(frontend, 'index.html'), 'utf8');
 const css = await fs.readFile(path.join(frontend, 'assets/v101-palette.css'), 'utf8');
-const logo = await fs.readFile(path.join(frontend, 'assets/web-logo.svg'), 'utf8');
+const logo = await fs.readFile(path.join(frontend, 'assets/approved-sj-rainbow-crown.svg'), 'utf8');
 const guide = await fs.readFile(path.join(frontend, 'intelligence-evolution.html'), 'utf8');
 
 assert.match(html, /<html lang="en">/i, 'homepage language is declared');
