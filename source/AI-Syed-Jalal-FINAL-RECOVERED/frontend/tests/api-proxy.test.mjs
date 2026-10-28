@@ -41,3 +41,20 @@ test("admin seed password can recover an existing Admin account only when the co
   assert.ok(source.includes("seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword)"));
   assert.ok(source.includes("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id"));
 });
+
+test("registration uses a role allowed by the database schema", () => {
+  assert.ok(source.includes("VALUES($1,$2,'Viewer',$3,$4)"));
+  assert.ok(!source.includes("VALUES($1,$2,'User',$3,$4)"));
+});
+
+test("login has a server-side IP rate limit", () => {
+  assert.ok(source.includes("rateLimited(db,request,'LOGIN_FAILED',10,\"interval '15 minutes'\")"));
+  assert.ok(source.includes("'Retry-After':'900'"));
+});
+
+test("AI requests have per-user minute and daily quotas", () => {
+  assert.ok(source.includes("interval '1 minute'"));
+  assert.ok(source.includes("interval '1 day'"));
+  assert.ok(source.includes("AI request limit reached (20 per minute)"));
+  assert.ok(source.includes("Daily AI request limit reached (200 per day)"));
+});
