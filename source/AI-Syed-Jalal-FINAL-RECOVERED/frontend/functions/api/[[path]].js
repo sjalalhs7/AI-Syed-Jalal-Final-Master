@@ -14,6 +14,16 @@ const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not 
 const readBody = async r => {const t=await r.text();if(new TextEncoder().encode(t).length>1048576)throw Object.assign(Error('Request body too large'),{status:413});if(!t)return {};try{return JSON.parse(t)}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}};
 const sessionCookie = t => C+'='+t+'; Max-Age=28800; Path=/; HttpOnly; Secure; SameSite=Lax';
 async function audit(db,u,action,detail,req){try{await db.query('INSERT INTO audit_events(id,user_id,action,detail,ip,request_id) VALUES($1,$2,$3,$4,$5,$6)',[crypto.randomUUID(),u?u.id:null,action,detail,req.headers.get('CF-Connecting-IP')||'',req.headers.get('cf-ray')||null])}catch{}}
+async function rateLimited(db, req, action, max, windowSql, userId=null){
+ const ip=req.headers.get('CF-Connecting-IP')||'';
+ if(!ip)return true; // fail closed if the trusted edge IP is unavailable
+ const sql=userId
+  ? `SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-${windowSql}`
+  : `SELECT count(*)::int AS n FROM audit_events WHERE action=$1 AND ip=$2 AND created_at>now()-${windowSql}`;
+ const args=userId?[userId]:[action,ip];
+ const rows=await db.query(sql,args);
+ return Number(rows[0]?.n||0)>=max;
+}
 async function userFor(db,req){const t=rawToken(req);if(!t)return null;const a=await db.query('SELECT u.id,u.username,u.role,s.id AS session_id FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active=true LIMIT 1',[await digest(t)]);return a[0]||null}
 async function validCsrf(req,env){const t=rawToken(req),v=req.headers.get('x-csrf-token')||'';return !!(t&&v&&equal(await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||''),v))}
 export async function onRequest({request,env}){
@@ -34,19 +44,21 @@ export async function onRequest({request,env}){
   if(u.pathname==='/api/admin/diagnostics'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const rows=await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('app_users','sessions','records','audit_events','record_history','documents','approvals','ai_runs') ORDER BY table_name");return reply({ok:rows.length===8,database:'Neon PostgreSQL',schemaTables:rows.map(x=>x.table_name),schemaTableCount:rows.length})}
   if(u.pathname==='/api/admin/audit'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||20)));const rows=await db.query('SELECT e.id,e.action,e.detail,e.created_at,u.username FROM audit_events e LEFT JOIN app_users u ON u.id=e.user_id ORDER BY e.created_at DESC LIMIT $1',[limit]);return reply({events:rows.map(x=>({id:x.id,time:x.created_at,user:x.username||'system',action:x.action,detail:x.detail||''}))})}
   if(u.pathname==='/api/auth/register'&&request.method==='POST'){
+   if(await rateLimited(db,request,'REGISTER',10,"interval '1 hour'"))return reply({error:'Registration limit reached. Please try again later.'},429,{'Retry-After':'3600'});
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
    if(!/^[A-Za-z0-9_.-]{3,40}$/.test(name))return reply({error:'Username must be 3–40 characters and use letters, numbers, dot, underscore or hyphen'},400);
    if(password.length<12||password.length>1024)return reply({error:'Password must be at least 12 characters'},400);
    if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
    const exists=await db.query('SELECT id FROM app_users WHERE lower(username)=lower($1) LIMIT 1',[name]);if(exists.length)return reply({error:'That username is already registered'},409);
    const salt=hex(random(16)),id=crypto.randomUUID();
-   try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'User',$3,$4)",[id,name,salt,await pass(password,salt)])}catch(e){if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'That username is already registered'},409);throw e}
+   try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Viewer',$3,$4)",[id,name,salt,await pass(password,salt)])}catch(e){if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'That username is already registered'},409);throw e}
    const token=hex(random(48));await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
-   await audit(db,{id,username:name,role:'User'},'REGISTER','Account created',request);
-   return reply({user:{id,username:name,role:'User'},session:'httpOnly-cookie'},201,{'Set-Cookie':sessionCookie(token)});
+   await audit(db,{id,username:name,role:'Viewer'},'REGISTER','Account created',request);
+   return reply({user:{id,username:name,role:'Viewer'},session:'httpOnly-cookie'},201,{'Set-Cookie':sessionCookie(token)});
   }
   if(u.pathname==='/api/auth/login'&&request.method==='POST'){
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');if(!name||!password||name.length>200||password.length>1024)return reply({error:'Username and password are required'},400);
+   if(await rateLimited(db,request,'LOGIN_FAILED',10,"interval '15 minutes'"))return reply({error:'Too many login attempts. Please wait 15 minutes and try again.'},429,{'Retry-After':'900'});
    let found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
    if(!found.length){if(env.SEED_ADMIN_USERNAME&&String(env.SEED_ADMIN_PASSWORD||'').length>=12&&!/change-?me|replace/i.test(env.SEED_ADMIN_PASSWORD)){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),String(env.SEED_ADMIN_USERNAME),salt,await pass(env.SEED_ADMIN_PASSWORD,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}}
    const usr=found[0];if(!usr){await pass(password,'00000000000000000000000000000000');await audit(db,null,'LOGIN_FAILED','Unknown user',request);return reply({error:'Invalid credentials'},401)}
@@ -66,6 +78,10 @@ export async function onRequest({request,env}){
   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
   if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);
   if(u.pathname==='/api/ai/run'&&request.method==='POST'){
+   const minuteRows=await db.query("SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[me.id]);
+   if(Number(minuteRows[0]?.n||0)>=20)return reply({error:'AI request limit reached (20 per minute). Please wait and retry.'},429,{'Retry-After':'60'});
+   const dayRows=await db.query("SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 day'",[me.id]);
+   if(Number(dayRows[0]?.n||0)>=200)return reply({error:'Daily AI request limit reached (200 per day). Please retry tomorrow.'},429,{'Retry-After':'3600'});
    const x=await readBody(request),prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80),attachments=Array.isArray(x.attachments)?x.attachments:[];
    if(!prompt)return reply({error:'Enter a prompt before running the assistant'},400);
    if(prompt.length>10000)return reply({error:'Prompt is too long (maximum 10,000 characters)'},413);
