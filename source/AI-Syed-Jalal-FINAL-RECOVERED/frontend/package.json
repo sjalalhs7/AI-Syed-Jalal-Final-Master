@@ -2,6 +2,10 @@
   "name": "ai-syed-jalal-cloudflare-api",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "node --test tests/api-proxy.test.mjs tests/security-headers.test.mjs",
+    "check": "node --check 'functions/api/[[path]].js'"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
     "scrypt-js": "^3.0.1"
