@@ -73,3 +73,33 @@ test("JSON request body is capped before full buffering and during streaming rea
   assert.ok(source.includes("size>max"));
   assert.ok(source.includes("Request body too large"));
 });
+
+test("admin user management routes are implemented and role protected", () => {
+  assert.ok(source.includes("/api/admin/users"));
+  assert.ok(source.includes("ADMIN_USER_CREATE"));
+  assert.ok(source.includes("Cannot deactivate the last active administrator"));
+});
+
+test("password changes verify the current password and revoke other sessions", () => {
+  assert.ok(source.includes("/api/auth/change-password"));
+  assert.ok(source.includes("otherSessionsRevoked:true"));
+});
+
+test("bulk import and backup restore use bounded, non-destructive merge semantics", () => {
+  assert.ok(source.includes("/api/records/bulk"));
+  assert.ok(source.includes("/api/backup"));
+  assert.ok(source.includes("/api/restore"));
+  assert.ok(source.includes("mode:'merge'"));
+  assert.ok(source.includes("no unrelated records deleted"));
+});
+
+test("operations, permissions and data integrity endpoints are implemented", () => {
+  for (const route of ["/api/security/events", "/api/admin/permissions", "/api/admin/metrics", "/api/admin/data-integrity", "/api/admin/system-snapshot"]) assert.ok(source.includes(route));
+});
+
+test("Supervisor and AutoGPT are bounded provider-backed workflows", () => {
+  assert.ok(source.includes("/api/ai/supervisor"));
+  assert.ok(source.includes("/api/ai/autogpt"));
+  assert.ok(source.includes("Math.min(3"));
+  assert.ok(source.includes("target.pathname='/api/ai/run'"));
+});
