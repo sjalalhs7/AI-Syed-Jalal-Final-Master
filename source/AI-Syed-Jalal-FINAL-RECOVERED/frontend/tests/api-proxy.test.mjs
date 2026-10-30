@@ -103,3 +103,8 @@ test("Supervisor and AutoGPT are bounded provider-backed workflows", () => {
   assert.ok(source.includes("Math.min(3"));
   assert.ok(source.includes("target.pathname='/api/ai/run'"));
 });
+
+test("nested Supervisor and AutoGPT calls rebuild JSON headers without stale content length", () => {
+  assert.equal((source.match(/delete\('content-length'\)/g) || []).length, 2);
+  assert.equal((source.match(/headers:childHeaders/g) || []).length, 2);
+});
