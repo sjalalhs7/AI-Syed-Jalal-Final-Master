@@ -68,7 +68,7 @@ body[data-theme="clay"] .sub,body[data-theme="clay"] .project-card p,body[data-t
 <div class="card"><div class="bar"><select id="prv"></select></div><textarea id="p" placeholder="Describe the task…"></textarea><div class="bar" style="margin-top:8px"><button class="btn" id="go">Run</button></div><div class="out" id="res" hidden></div></div></section>
 
 <section id="v-lib" hidden><h1>Library</h1><p class="sub">Imported open-source skills and app templates (see THIRD_PARTY_NOTICES.md).</p>
-<div class="bar"><input id="ls" placeholder="Search skills and templates…"><select id="lt"><option value="skills">Superpowers skills</option><option value="tpl">App templates</option><option value="src">Upstream status</option></select></div><div class="agents" id="lib"></div></section>
+<div class="bar"><input id="ls" placeholder="Search skills and templates…"><select id="lt"><option value="registry">Expert AI Skills (3,500)</option><option value="skills">Superpowers skills</option><option value="tpl">App templates</option><option value="src">Upstream status</option></select></div><div class="agents" id="lib"></div></section>
 <section id="v-sec" hidden><h1>Security &amp; Audit</h1><p class="sub">Admin/Manager only.</p><div class="card"><div class="bar"><button class="btn s" id="diag">System diagnostics</button><button class="btn s" id="aud">Recent audit events</button></div><div class="out" id="secout">Choose an action.</div></div></section>
 
 <section id="v-projects" hidden><div class="section-head"><div><div class="eyebrow">Portfolio</div><h1>Projects &amp; Integrations</h1><p class="sub">Recovered project modules with honest source/runtime status.</p></div><a class="btn s" href="projects.html">Open full portfolio</a></div>
@@ -106,7 +106,8 @@ async function run(agentId,prompt,provider,out,btn){if(!prompt.trim()){out.hidde
 $('#qgo').onclick=()=>run(agents[0]?.id,$('#q').value,$('#prv').value||'deepseek',$('#qout'),$('#qgo'));
 $('#go').onclick=()=>run((cur||agents[0])?.id,$('#p').value,$('#prv').value,$('#res'),$('#go'));
 function drawLib(){if(!lib)return;const q=$('#ls').value.toLowerCase(),t=$('#lt').value;let h='';
- if(t==='skills')h=lib.superpowers_skills.filter(x=>(x.name+x.description).toLowerCase().includes(q)).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small style="text-transform:none">${esc(x.description.slice(0,110))}</small></div>`).join('');
+ if(t==='registry'){const matches=lib.skills.filter(x=>(x.name+x.domain+x.family+x.objective).toLowerCase().includes(q));h=matches.slice(0,200).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small>${esc(x.domain)} · ${esc(x.family)}</small><small style="text-transform:none">${esc(x.objective.slice(0,150))}</small></div>`).join('')+(matches.length>200?`<p class="sub">Showing first 200 matches. Refine your search to narrow results.</p>`:'')}
+ else if(t==='skills')h=lib.superpowers_skills.filter(x=>(x.name+x.description).toLowerCase().includes(q)).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small style="text-transform:none">${esc(x.description.slice(0,110))}</small></div>`).join('');
  else if(t==='tpl')h=lib.templates.filter(x=>(x.name+x.category+x.description).toLowerCase().includes(q)).map(x=>`<div class="ag"><b>${esc(x.name)}</b><small>${esc(x.category.replace(/_/g,' '))}</small></div>`).join('');
  else h=Object.entries(lib.sources).map(([k,v])=>`<div class="ag"><b>${esc(k)}</b><small style="text-transform:none">${esc(v.license)} · ${esc(v.status)}</small></div>`).join('');
  $('#lib').innerHTML=h||'<p class="sub">No match.</p>'}
