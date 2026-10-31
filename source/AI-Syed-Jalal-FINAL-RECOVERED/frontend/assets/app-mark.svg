@@ -1,15 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Alsyed Jalal AI logo">
-<defs>
-<linearGradient id="g" x1="80" y1="90" x2="440" y2="450" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFD15A"/><stop offset=".4" stop-color="#FF8B00"/><stop offset=".75" stop-color="#6EEB45"/><stop offset="1" stop-color="#00C86B"/></linearGradient>
-<linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9A0"/><stop offset="1" stop-color="#F4A91F"/></linearGradient>
-<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-</defs>
-<g filter="url(#glow)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-<path d="M150 440 L256 150 L362 440" stroke="url(#g)" stroke-width="40"/>
-<path d="M196 330 H316" stroke="url(#g)" stroke-width="30"/>
-<ellipse cx="256" cy="330" rx="205" ry="72" transform="rotate(-18 256 330)" stroke="url(#g)" stroke-width="16"/>
-</g>
-<path d="M200 118 L214 66 L236 96 L256 54 L276 96 L298 66 L312 118 Z" fill="url(#c)" filter="url(#glow)"/>
-<circle cx="214" cy="62" r="7" fill="#FFE9A0"/><circle cx="256" cy="48" r="8" fill="#FFE9A0"/><circle cx="298" cy="62" r="7" fill="#FFE9A0"/>
-<path d="M430 120 l8 20 20 8 -20 8 -8 20 -8 -20 -20 -8 20 -8z" fill="#FFF3C4"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Al-Syed Jalal logo">
+  <defs>
+    <linearGradient id="ajg" x1="62" y1="70" x2="440" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD15A"/>
+      <stop offset="0.42" stop-color="#FF8B00"/>
+      <stop offset="0.78" stop-color="#6EEB45"/>
+      <stop offset="1" stop-color="#00C86B"/>
+    </linearGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke="url(#ajg)" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)">
+    <path stroke-width="34" d="M120 382 254 94l138 288"/>
+    <path stroke-width="28" d="M174 267h154"/>
+    <path stroke-width="23" d="M119 335c41-55 111-89 201-96 64-4 107 4 132 18"/>
+    <ellipse stroke-width="23" transform="rotate(-17 259 257)" cx="259" cy="257" rx="205" ry="86"/>
+    <path stroke-width="23" d="M286 154c44 35 76 93 76 144 0 81-48 141-111 141"/>
+  </g>
+  <path d="M385 85l9 20 21 9-21 9-9 21-9-21-21-9 21-9z" fill="#fff8d7"/>
 </svg>

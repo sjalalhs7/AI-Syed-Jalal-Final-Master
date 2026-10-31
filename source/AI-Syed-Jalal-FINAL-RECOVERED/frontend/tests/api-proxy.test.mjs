@@ -1,0 +1,164 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const source = await readFile(new URL("../functions/api/[[path]].js", import.meta.url), "utf8");
+
+test("API explicitly reports missing Neon configuration instead of pretending readiness", () => {
+  assert.ok(source.includes("DATABASE_NOT_CONFIGURED"));
+  assert.ok(source.includes("if(!env.DATABASE_URL)"));
+});
+
+test("chat forwards to the provider-backed AI route, not a canned demo response", () => {
+  assert.ok(source.includes("target.pathname='/api/ai/run'"));
+  assert.ok(source.includes("reply:result.output||''"));
+  assert.ok(!source.includes("mode:'demo',simulated:true,reply:"));
+});
+
+test("OmniRoute capability detection accepts the same aliases as execution", () => {
+  assert.ok(source.includes("env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY"));
+  assert.ok(source.includes("env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL"));
+  assert.ok(source.includes("configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL))"));
+});
+
+test("admin provider health accepts OmniRoute alternate key and endpoint names", () => {
+  const health = source.slice(source.indexOf("/api/admin/ai/provider-health"), source.indexOf("/api/library"));
+  assert.ok(health.includes("env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY"));
+  assert.ok(health.includes("env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL"));
+  assert.ok(health.includes("live call not yet verified"));
+});
+
+test("malformed cookie encoding does not crash session parsing", () => {
+  assert.ok(source.includes("try{return [k,decodeURIComponent(v)]}catch{return [k,v]}"));
+});
+
+test("API route rejects paths outside /api", () => {
+  assert.ok(source.includes("if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404)"));
+});
+
+test("admin seed password can recover an existing Admin account only when the configured seed credentials match", () => {
+  assert.ok(source.includes("const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword"));
+  assert.ok(source.includes("seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword)"));
+  assert.ok(source.includes("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id"));
+});
+
+test("registration uses a role allowed by the database schema", () => {
+  assert.ok(source.includes("VALUES($1,$2,'Viewer',$3,$4)"));
+  assert.ok(!source.includes("VALUES($1,$2,'User',$3,$4)"));
+});
+
+test("login has a server-side IP rate limit", () => {
+  assert.ok(source.includes("rateLimited(db,request,'LOGIN_FAILED',10,\"interval '15 minutes'\")"));
+  assert.ok(source.includes("'Retry-After':'900'"));
+});
+
+test("AI requests have per-user minute and daily quotas", () => {
+  assert.ok(source.includes("interval '1 minute'"));
+  assert.ok(source.includes("interval '1 day'"));
+  assert.ok(source.includes("AI request limit reached (20 per minute)"));
+  assert.ok(source.includes("Daily AI request limit reached (200 per day)"));
+});
+
+test("admin AI overview and provider-health endpoints enforce Admin role", () => {
+  const overview = source.slice(source.indexOf("/api/admin/ai/overview"), source.indexOf("/api/admin/ai/provider-health"));
+  const health = source.slice(source.indexOf("/api/admin/ai/provider-health"), source.indexOf("/api/library"));
+  assert.ok(overview.includes("if(me.role!=='Admin')return reply({error:'Admin role required'},403)"));
+  assert.ok(health.includes("if(me.role!=='Admin')return reply({error:'Admin role required'},403)"));
+});
+
+
+test("JSON request body is capped before full buffering and during streaming reads", () => {
+  assert.ok(source.includes("declared>max"));
+  assert.ok(source.includes("const reader=r.body.getReader()"));
+  assert.ok(source.includes("size>max"));
+  assert.ok(source.includes("Request body too large"));
+});
+
+test("admin user management routes are implemented and role protected", () => {
+  assert.ok(source.includes("/api/admin/users"));
+  assert.ok(source.includes("ADMIN_USER_CREATE"));
+  assert.ok(source.includes("Cannot deactivate the last active administrator"));
+});
+
+test("password changes verify the current password and revoke other sessions", () => {
+  assert.ok(source.includes("/api/auth/change-password"));
+  assert.ok(source.includes("otherSessionsRevoked:true"));
+});
+
+test("bulk import and backup restore use bounded, non-destructive merge semantics", () => {
+  assert.ok(source.includes("/api/records/bulk"));
+  assert.ok(source.includes("/api/backup"));
+  assert.ok(source.includes("/api/restore"));
+  assert.ok(source.includes("mode:'merge'"));
+  assert.ok(source.includes("no unrelated records deleted"));
+});
+
+test("operations, permissions and data integrity endpoints are implemented", () => {
+  for (const route of ["/api/security/events", "/api/admin/permissions", "/api/admin/metrics", "/api/admin/data-integrity", "/api/admin/system-snapshot"]) assert.ok(source.includes(route));
+});
+
+test("Supervisor and AutoGPT are bounded provider-backed workflows", () => {
+  assert.ok(source.includes("/api/ai/supervisor"));
+  assert.ok(source.includes("/api/ai/autogpt"));
+  assert.ok(source.includes("Math.min(3"));
+  assert.ok(source.includes("target.pathname='/api/ai/run'"));
+});
+
+test("nested Supervisor and AutoGPT calls rebuild JSON headers without stale content length", () => {
+  assert.equal((source.match(/delete\('content-length'\)/g) || []).length, 2);
+  assert.equal((source.match(/headers:childHeaders/g) || []).length, 2);
+});
+
+test('AI runtime exposes only supported text profiles and reports the real executable count', () => {
+  const start = source.indexOf("const agents=[{id:'general'");
+  const end = source.indexOf('return reply({mode:providers', start);
+  assert.ok(start >= 0 && end > start);
+  const capability = source.slice(start, end);
+  const ids = [...capability.matchAll(/id:'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ['general', 'coding', 'ux-ui-pro-max', 'analysis', 'superpower']);
+  assert.ok(source.includes('executableAgentProfiles:agents.length'));
+  for (const unsupported of ['voice-agent', 'health-agent', 'knowledge-vault', 'mission-orchestrator', 'omniroute', 'open-gpt']) {
+    assert.equal(capability.includes(unsupported), false, 'unsupported runtime profile remains: ' + unsupported);
+  }
+  assert.ok(source.includes('They do not browse the web'));
+});
+
+
+test('AI provider overload errors include actionable retry guidance and do not claim automatic failover', () => {
+  assert.ok(source.includes("const overloaded=upstream.status===503"));
+  assert.ok(source.includes("Automatic retries were attempted. Wait 30–60 seconds and retry"));
+  assert.ok(source.includes("No automatic provider failover is active."));
+  assert.ok(source.includes("retryAfterSeconds:retryAfter"));
+  assert.ok(source.includes("overloaded?{'Retry-After':'60'}:{}"));
+});
+
+
+test('private cloud chat uses metadata-only quota accounting and skips prompt/response persistence', () => { assert.ok(source.includes("action='AI_CHAT_REQUEST'")); assert.ok(source.includes("privacyMode?[]:db.query")); assert.ok(source.includes("Private cloud chat request; prompt and response are not stored by the app")); });
+
+test('ElevenLabs speech endpoint is authenticated through the shared session and CSRF gate', () => {
+  assert.ok(source.includes("u.pathname==='/api/voice/speak'&&request.method==='POST'"));
+  assert.ok(source.includes("if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))"));
+  assert.ok(source.includes('env.ELEVENLABS_API_KEY'));
+  assert.ok(source.includes('env.ELEVENLABS_VOICE_ID'));
+  assert.ok(source.includes("'xi-api-key':env.ELEVENLABS_API_KEY"));
+});
+
+test('voice generation bounds text, rate, timeout and audio response without storing text', () => {
+  assert.ok(source.includes('speech.length>2500'));
+  assert.ok(source.includes("action='VOICE_SPEAK_REQUEST'"));
+  assert.ok(source.includes("interval '1 hour'"));
+  assert.ok(source.includes('AbortSignal.timeout(20000)'));
+  assert.ok(source.includes("'Content-Type':'audio/mpeg'"));
+  assert.ok(source.includes('12*1024*1024'));
+  const voiceRoute = source.slice(source.indexOf("u.pathname==='/api/voice/speak'"), source.indexOf("u.pathname==='/api/ai/run'"));
+  assert.ok(!voiceRoute.includes('INSERT INTO ai_runs'));
+  assert.ok(voiceRoute.includes('not stored by the app'));
+});
+
+test('JalalAi exposes user-triggered ElevenLabs playback and discloses provider sharing', async () => {
+  const page = await readFile(new URL('../jalalai.html', import.meta.url), 'utf8');
+  assert.ok(page.includes("listen.textContent='🔊 Listen'"));
+  assert.ok(page.includes("fetch('/api/voice/speak'"));
+  assert.ok(page.includes('assistant reply text is separately sent to ElevenLabs'));
+  assert.ok(page.includes('Cloudflare production secrets/variables'));
+});

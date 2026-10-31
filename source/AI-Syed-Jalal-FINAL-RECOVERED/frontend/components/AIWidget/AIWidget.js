@@ -1,5 +1,4 @@
 import { API } from '../../config/api.js';
-import './AIWidget.css';
 
 class AIWidget extends HTMLElement {
   constructor() {
@@ -19,6 +18,10 @@ class AIWidget extends HTMLElement {
         <button class="toggle" type="button" aria-label="Open chat">💬</button>
       </div>`;
     const root = this.shadowRoot;
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = new URL('./AIWidget.css', import.meta.url).href;
+    root.prepend(stylesheet);
     this.messages = root.querySelector('.messages');
     this.input = root.querySelector('input');
     root.querySelector('.toggle').addEventListener('click', () => { root.querySelector('.ajw').classList.add('open'); this.input.focus(); });
@@ -37,8 +40,36 @@ class AIWidget extends HTMLElement {
     this.addMessage(prompt, true); this.input.value = ''; this.busy = true;
     const reply = this.addMessage('Typing…', false);
     try {
-      const response = await fetch(API.chat(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+      const csrfResponse = await fetch(new URL('/api/csrf', API.chat()), { method: 'GET', credentials: 'same-origin' });
+      const csrfData = await csrfResponse.json().catch(() => ({}));
+      if (csrfResponse.status === 401) {
+        reply.textContent = 'Please sign in to the Workspace before using AI chat. ';
+        const link = document.createElement('a');
+        link.href = new URL('../../workspace.html', import.meta.url).href;
+        link.textContent = 'Open Workspace';
+        link.style.color = '#ffd15a';
+        link.style.fontWeight = '700';
+        reply.appendChild(link);
+        return;
+      }
+      if (!csrfResponse.ok || !csrfData.token) throw new Error(csrfData.error || 'Could not verify your session');
+      const response = await fetch(API.chat(), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfData.token },
+        body: JSON.stringify({ prompt })
+      });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        reply.textContent = 'Your session expired. Please sign in again. ';
+        const link = document.createElement('a');
+        link.href = new URL('../../workspace.html', import.meta.url).href;
+        link.textContent = 'Open Workspace';
+        link.style.color = '#ffd15a';
+        link.style.fontWeight = '700';
+        reply.appendChild(link);
+        return;
+      }
       if (!response.ok) throw new Error(data.error || 'Chat failed');
       reply.textContent = data.reply || 'No reply.';
     } catch (error) {

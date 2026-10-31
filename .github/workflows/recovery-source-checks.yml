@@ -1,0 +1,88 @@
+name: Recovery source checks
+
+on:
+  push:
+    branches:
+      - recovery/data-upgrade-2026-10-22
+  pull_request:
+    branches:
+      - recovery/extracted-source-2026-10-11
+      - recovery/data-upgrade-2026-10-22
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-recovered-project:
+    name: Validate recovered application source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify critical release files exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="source/AI-Syed-Jalal-FINAL-RECOVERED"
+          test -f "$root/frontend/index.html"
+          test -f "$root/frontend/functions/api/[[path]].js"
+          test -f "$root/frontend/tests/api-proxy.test.mjs"
+          test -f "$root/frontend/tests/library-catalog.test.mjs"
+          test -f "$root/frontend/tests/security-headers.test.mjs"
+          test -f "$root/backend/server.mjs"
+          test -f "$root/backend/package.json"
+          test -f "$root/backend/tests/smoke.mjs"
+          test -f "$root/backend/db/schema.sql"
+          test -f "$root/README.md"
+          test -f "$root/frontend/assets/web-logo.svg"
+          test -f "$root/frontend/intelligence-evolution.html"
+          echo "Critical frontend, all regression suites, AI evolution guide, API proxy, backend, database schema and README files are present."
+
+      - name: Validate backend package metadata
+        run: node -e "const p=require('./source/AI-Syed-Jalal-FINAL-RECOVERED/backend/package.json'); if(!p.scripts || !p.scripts.start) process.exit(1); console.log(p.name, p.version)"
+
+      - name: Check backend JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="source/AI-Syed-Jalal-FINAL-RECOVERED/backend"
+          find "$root" -maxdepth 2 -type f -name '*.mjs' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+
+      - name: Check Pages API proxy module syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module --check < 'source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/functions/api/[[path]].js'
+
+      - name: Run all frontend regression tests
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED/frontend test
+
+      - name: Ensure approved visual library themes remain present
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/visual-styles.html"
+          test -f "$file"
+          for theme in Glassmorphism Watermorphism Firemorphism Rainbowmorphism; do
+            grep -qi "$theme" "$file"
+          done
+          echo "All four theme labels are present."
+
+      - name: Validate intelligence evolution guide content
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/intelligence-evolution.html"
+          for topic in 'AI vs GenAI vs AGI vs ASI vs OI' 'id="ai"' 'id="genai"' 'id="agi"' 'id="asi"' 'id="oi"' 'prefers-reduced-motion'; do
+            grep -Fqi "$topic" "$file"
+          done
+          echo "Intelligence guide includes all five topics and responsive reduced-motion support."

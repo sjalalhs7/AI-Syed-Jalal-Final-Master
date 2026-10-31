@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#070b14"><title>Learning Roadmaps — Alsyed Jalal AI</title>
-<link rel="icon" href="assets/app-mark.svg"><link rel="stylesheet" href="assets/v101-palette.css">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg"><link rel="stylesheet" href="assets/v101-palette.css">
 <style>
 :root{--bg:#070b14;--card:#0d1424;--line:#1f3a2f;--o:#ff8b00;--g:#ffd15a;--e:#18e07a;--t:#f4f7fb;--m:#9fb0c6}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#16301f 0,transparent 40%),var(--bg);color:var(--t);font-family:Inter,system-ui,sans-serif;padding:18px;max-width:1200px;margin-inline:auto}
@@ -29,8 +29,17 @@ h2{margin:22px 0 10px;font-size:18px;color:var(--g)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{background:#0a1220;border:1px solid #ffffff14;border-radius:12px;padding:8px 12px;font-size:13px}.chip small{display:block;color:var(--m)}
 ul.l{margin:0;padding-left:18px;line-height:1.7}
 .hidden{display:none!important}.err{color:#ff8a80}
-</style></head><body>
-<header><div class="brand"><img src="assets/app-mark.svg" alt=""><span>Alsyed Jalal AI</span></div><a class="back" href="dashboard.html">← Dashboard</a></header>
+
+/* Shared approved visual-theme system */
+:root{--aj-accent:#c9a65b;--aj-glow:rgba(126,92,255,.18);--aj-surface:rgba(18,24,42,.78);--aj-line:rgba(198,178,255,.22)}
+body[data-theme="glass"]{--aj-accent:#b7c9ff;--aj-glow:rgba(126,92,255,.24);--aj-surface:rgba(180,200,255,.10);--aj-line:rgba(190,205,255,.38)}
+body[data-theme="water"]{--aj-accent:#5fe3ef;--aj-glow:rgba(20,185,220,.22);--aj-surface:rgba(10,100,140,.18);--aj-line:rgba(95,227,239,.32)}
+body[data-theme="fire"]{--aj-accent:#ff9b55;--aj-glow:rgba(255,72,35,.20);--aj-surface:rgba(110,35,22,.20);--aj-line:rgba(255,155,85,.34)}
+body[data-theme="rainbow"]{--aj-accent:#e5a9ff;--aj-glow:rgba(210,80,255,.20);--aj-surface:rgba(70,35,105,.20);--aj-line:rgba(210,150,255,.34)}
+body[data-theme] .card,body[data-theme] .panel,body[data-theme] .tile,body[data-theme] .metric,body[data-theme] .intro,body[data-theme] .hero-side,body[data-theme] .top,body[data-theme] header{border-color:var(--aj-line)!important;box-shadow:0 10px 30px var(--aj-glow)}
+.aj-theme-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;margin:12px auto 16px;border:1px solid var(--aj-line);border-radius:16px;background:var(--aj-surface);backdrop-filter:blur(18px);max-width:1440px}.aj-theme-bar strong{font-size:11px;letter-spacing:.12em;color:var(--aj-accent);margin-right:4px}.aj-theme-bar button{font:inherit;font-size:12px;padding:7px 11px;border:1px solid var(--aj-line);border-radius:999px;background:transparent;color:inherit;cursor:pointer}.aj-theme-bar button[aria-pressed="true"]{background:var(--aj-glow);outline:1px solid var(--aj-accent);color:var(--aj-accent)}.aj-theme-bar button:focus-visible{outline:2px solid var(--aj-accent);outline-offset:2px}
+</style><link rel="canonical" href="https://ai-syed-jalal-live.pages.dev/roadmaps.html"><meta name="description" content="Structured learning roadmaps for AI, generative AI, agent systems, coding, data analysis and advanced intelligence."></head><body>
+<header><div class="brand"><img src="assets/approved-sj-rainbow-crown.svg" alt=""><span>Alsyed Jalal AI</span></div><a class="back" href="dashboard.html">← Dashboard</a></header><div class="aj-theme-bar" role="group" aria-label="Visual theme"><strong>VISUAL MODE</strong><button type="button" data-aj-theme="glass">Glassmorphism</button><button type="button" data-aj-theme="water">Watermorphism</button><button type="button" data-aj-theme="fire">Firemorphism</button><button type="button" data-aj-theme="rainbow">Rainbowmorphism</button></div>
 <h1>Learning Roadmaps</h1><p class="sub">Tick topics as you learn. Progress is saved on this device only.</p>
 <div class="tabs" id="tabs"></div>
 <div class="bar"><input id="q" type="search" placeholder="Search topics…" aria-label="Search topics"><button class="btn" id="reset">Reset progress</button></div>
@@ -79,4 +88,4 @@ fetch('assets/roadmaps.json').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status
   data=d;const t=$('#tabs');d.roadmaps.forEach((r,i)=>{const b=el('button','tab',r.title);b.onclick=()=>{cur=i;render()};t.appendChild(b)});render();
 }).catch(e=>{const m=$('#msg');m.hidden=false;m.textContent='Could not load roadmaps: '+e.message});
 })();
-</script></body></html>
+</script><script>(function(){const key='aj-visual-theme',valid=['glass','water','fire','rainbow'];function apply(t){if(!valid.includes(t))t='glass';document.body.dataset.theme=t;document.querySelectorAll('[data-aj-theme]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ajTheme===t)));try{localStorage.setItem(key,t)}catch(e){}}document.querySelectorAll('[data-aj-theme]').forEach(b=>b.addEventListener('click',()=>apply(b.dataset.ajTheme)));let saved='glass';try{saved=localStorage.getItem(key)||'glass'}catch(e){}apply(saved)})();</script></body></html>
