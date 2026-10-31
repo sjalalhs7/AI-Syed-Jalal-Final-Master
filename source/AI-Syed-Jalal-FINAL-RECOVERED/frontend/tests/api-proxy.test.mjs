@@ -134,3 +134,31 @@ test('AI provider overload errors include actionable retry guidance and do not c
 
 
 test('private cloud chat uses metadata-only quota accounting and skips prompt/response persistence', () => { assert.ok(source.includes("action='AI_CHAT_REQUEST'")); assert.ok(source.includes("privacyMode?[]:db.query")); assert.ok(source.includes("Private cloud chat request; prompt and response are not stored by the app")); });
+
+test('ElevenLabs speech endpoint is authenticated through the shared session and CSRF gate', () => {
+  assert.ok(source.includes("u.pathname==='/api/voice/speak'&&request.method==='POST'"));
+  assert.ok(source.includes("if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))"));
+  assert.ok(source.includes('env.ELEVENLABS_API_KEY'));
+  assert.ok(source.includes('env.ELEVENLABS_VOICE_ID'));
+  assert.ok(source.includes("'xi-api-key':env.ELEVENLABS_API_KEY"));
+});
+
+test('voice generation bounds text, rate, timeout and audio response without storing text', () => {
+  assert.ok(source.includes('speech.length>2500'));
+  assert.ok(source.includes("action='VOICE_SPEAK_REQUEST'"));
+  assert.ok(source.includes("interval '1 hour'"));
+  assert.ok(source.includes('AbortSignal.timeout(20000)'));
+  assert.ok(source.includes("'Content-Type':'audio/mpeg'"));
+  assert.ok(source.includes('12*1024*1024'));
+  const voiceRoute = source.slice(source.indexOf("u.pathname==='/api/voice/speak'"), source.indexOf("u.pathname==='/api/ai/run'"));
+  assert.ok(!voiceRoute.includes('INSERT INTO ai_runs'));
+  assert.ok(voiceRoute.includes('not stored by the app'));
+});
+
+test('JalalAi exposes user-triggered ElevenLabs playback and discloses provider sharing', async () => {
+  const page = await readFile('/tmp/jalalai_frontend_patched.html', 'utf8');
+  assert.ok(page.includes("listen.textContent='🔊 Listen'"));
+  assert.ok(page.includes("fetch('/api/voice/speak'"));
+  assert.ok(page.includes('assistant reply text is separately sent to ElevenLabs'));
+  assert.ok(page.includes('Cloudflare production secrets/variables'));
+});
