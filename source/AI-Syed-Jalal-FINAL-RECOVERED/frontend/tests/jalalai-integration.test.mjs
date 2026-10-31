@@ -41,7 +41,7 @@ test('Privacy disclosure accurately describes stored AI run history and unavaila
 
 test('Setup guide distinguishes mobile cloud chat from optional local OpenJarvis', () => {
   assert.match(guide, /mobile cloud chat/i);
-  assert.match(guide, /OpenJarvis is optional/i);
-  assert.match(guide, /server-side AI route/i);
+  assert.match(guide, /OpenJarvis is not required/i);
+  assert.match(guide, /\/api\/ai\/run/);
   assert.match(guide, /AI run history/i);
 });
