@@ -156,7 +156,7 @@ test('voice generation bounds text, rate, timeout and audio response without sto
 });
 
 test('JalalAi exposes user-triggered ElevenLabs playback and discloses provider sharing', async () => {
-  const page = await readFile('/tmp/jalalai_frontend_patched.html', 'utf8');
+  const page = await readFile(new URL('../jalalai.html', import.meta.url), 'utf8');
   assert.ok(page.includes("listen.textContent='🔊 Listen'"));
   assert.ok(page.includes("fetch('/api/voice/speak'"));
   assert.ok(page.includes('assistant reply text is separately sent to ElevenLabs'));

@@ -35,7 +35,7 @@ test('other accounts and external actions are not silently connected', () => {
   assert.match(page, /does not read Gmail, Calendar, contacts, files/);
   assert.match(page, /No email, calendar, WhatsApp/);
   assert.match(page, /require your approval/);
-  assert.match(page, /not integrated or tested on this page yet/i);
+  assert.match(page, /WhatsApp:[\s\S]*?Not integrated/i);
 });
 test('setup guide records the mobile cloud design and explicit integration limits', () => {
   assert.match(guide, /no local computer or OpenJarvis installation is needed/i);
