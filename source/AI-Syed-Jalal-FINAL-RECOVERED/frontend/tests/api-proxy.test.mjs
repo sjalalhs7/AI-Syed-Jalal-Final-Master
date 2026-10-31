@@ -108,3 +108,17 @@ test("nested Supervisor and AutoGPT calls rebuild JSON headers without stale con
   assert.equal((source.match(/delete\('content-length'\)/g) || []).length, 2);
   assert.equal((source.match(/headers:childHeaders/g) || []).length, 2);
 });
+
+test('AI runtime exposes only supported text profiles and reports the real executable count', () => {
+  const start = source.indexOf("const agents=[{id:'general'");
+  const end = source.indexOf('return reply({mode:providers', start);
+  assert.ok(start >= 0 && end > start);
+  const capability = source.slice(start, end);
+  const ids = [...capability.matchAll(/id:'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ['general', 'coding', 'ux-ui-pro-max', 'analysis', 'superpower']);
+  assert.ok(source.includes('executableAgentProfiles:agents.length'));
+  for (const unsupported of ['voice-agent', 'health-agent', 'knowledge-vault', 'mission-orchestrator', 'omniroute', 'open-gpt']) {
+    assert.equal(capability.includes(unsupported), false, 'unsupported runtime profile remains: ' + unsupported);
+  }
+  assert.ok(source.includes('They do not browse the web'));
+});
