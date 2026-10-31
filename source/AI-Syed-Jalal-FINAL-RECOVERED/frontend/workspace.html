@@ -343,25 +343,49 @@ async
 
 async function renderAICommand(){
  if(!remoteMode()){
-  $('#aiRuntimeStatus').textContent='LOCAL / DEMO'; $('#aiAgentCount').textContent='—'; $('#aiProviderCount').textContent='—'; $('#aiCapabilityCount').textContent='—';
-  $('#aiInventory').textContent='Sign in to the central API to load agent inventory, provider status, execution traces and run history.';
-  $('#aiProviderHealth').textContent='No central API connected.'; $('#aiRecentRuns').textContent='No server-side run history in local demo mode.';
+  $('#aiRuntimeStatus').textContent='API CONNECTION REQUIRED';
+  $('#aiAgentCount').textContent='—';$('#aiProviderCount').textContent='—';$('#aiCapabilityCount').textContent='—';
+  $('#aiInventory').textContent='Sign in to the central API to load agent profiles and provider status.';
+  $('#aiProviderHealth').textContent='Sign in required.';
+  $('#aiRecentRuns').textContent='Sign in to view your AI run history.';
   return;
  }
  try{
-  const [cap,ov,ph,runs]=await Promise.all([api('/api/ai/capabilities'),api('/api/admin/ai/overview'),api('/api/admin/ai/provider-health'),api('/api/ai/runs?limit=8')]);
-  $('#aiRuntimeStatus').textContent=cap.mode==='demo'?'DEMO · NO PROVIDER KEY':cap.mode==='live-ready'?'LIVE-READY · KEY DETECTED':'LIVE / VERIFIED';
-  $('#aiAgentCount').textContent=cap.executableAgentProfiles??cap.agents?.length??'—';
+  const [cap,runs]=await Promise.all([api('/api/ai/capabilities'),api('/api/ai/runs?limit=8')]);
+  $('#aiRuntimeStatus').textContent=cap.mode==='demo'?'NO PROVIDER KEY':cap.mode==='live-ready'?'PROVIDER KEY DETECTED · TEST REQUIRED':'AI SERVICE STATUS UNKNOWN';
+  $('#aiAgentCount').textContent=cap.agents?.length??'—';
   $('#aiProviderCount').textContent=(cap.providers||[]).length;
   $('#aiCapabilityCount').textContent=cap.skills?.length??cap.skillPacks?.length??'—';
-  $('#aiAgentSelect').innerHTML=(cap.agents||[]).map(a=>`<option value="${escape(a.id)}">${escape(a.name||a.id)}</option>`).join('');
-  const s=ov.summary||{}; $('#ai24Runs').textContent=s.runs??0; $('#ai24Completed').textContent=`${s.completed??0} completed · ${s.non_completed??0} non-completed`; $('#ai24Tokens').textContent=Number(s.tokens||0).toLocaleString();
-  const configured=(ph.providers||[]).filter(x=>x.configured).length; $('#aiConfiguredProviders').textContent=`${configured}/${(ph.providers||[]).length}`;
-  const blocked=(cap.runtime?.providers?Object.values(cap.runtime.providers).filter(x=>(x.blockedUntil||0)>Date.now()).length:0); $('#aiCircuitState').textContent=blocked?'OPEN':'READY';
-  $('#aiInventory').innerHTML=`<div><b>${escape(String($('#aiAgentCount').textContent))}</b> executable profiles</div><div><b>${configured}</b> providers configured</div><div><b>${escape(String(cap.skillPacks?.length??cap.skills?.length??0))}</b> skill packs/capability groups</div><div class="muted" style="margin-top:8px">Profiles are configurations, not independent model instances.</div>`;
-  $('#aiProviderHealth').innerHTML=(ph.providers||[]).map(x=>`<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>${escape(x.label||x.id)}</b> · <span class="${x.configured?'connection-ok':'muted'}">${escape(x.status)}</span><br><span class="muted">${escape(x.model||'default model')} · ${escape(x.baseUrl||'provider default')}</span></div>`).join('')||'No providers returned.';
-  $('#aiRecentRuns').innerHTML=(runs.runs||[]).map(r=>`<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>${escape(r.agentId)}</b> · ${escape(r.provider)} · ${escape(r.status)}<br><span class="muted">${new Date(r.createdAt).toLocaleString()} · ${escape(r.id)}</span></div>`).join('')||'No AI runs yet.';
- }catch(e){ $('#aiRuntimeStatus').textContent='UNAVAILABLE'; $('#aiInventory').textContent='AI runtime unavailable: '+e.message; toast(e.message); }
+  $('#aiAgentSelect').innerHTML=(cap.agents||[]).map(a=>'<option value="'+escape(a.id)+'">'+escape(a.name||a.id)+'</option>').join('');
+  const providers=cap.providers||[],configured=providers.filter(x=>x.configured).length;
+  $('#aiConfiguredProviders').textContent=configured+'/'+providers.length;
+  $('#aiCircuitState').textContent='Provider status only; no live health probe';
+  $('#aiInventory').innerHTML='<div><b>'+escape(String(cap.agents?.length??0))+'</b> prompt profiles</div><div><b>'+configured+'</b> provider keys configured</div><div class="muted" style="margin-top:8px">Profiles are prompt configurations, not independent model instances. A configured key does not prove a successful live request.</div>';
+  $('#aiProviderHealth').innerHTML=providers.map(x=>'<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>'+escape(x.label||x.id)+'</b> · <span class="'+(x.configured?'connection-ok':'muted')+'">'+escape(x.status)+'</span><br><span class="muted">'+escape(x.model||'default model')+'</span></div>').join('')||'No providers returned.';
+  $('#aiRecentRuns').innerHTML=(runs.runs||[]).map(r=>'<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>'+escape(r.agentId)+'</b> · '+escape(r.provider)+' · '+escape(r.status)+'<br><span class="muted">'+new Date(r.createdAt).toLocaleString()+' · '+escape(r.id)+'</span></div>').join('')||'No AI runs yet.';
+  if(state.role==='Admin'){
+   try{
+    const ov=await api('/api/admin/ai/overview'),summary=ov.summary||{};
+    $('#ai24Runs').textContent=summary.runs??0;
+    $('#ai24Completed').textContent=(summary.completed??0)+' completed · '+(summary.non_completed??0)+' non-completed';
+    $('#ai24Tokens').textContent=Number(summary.tokens||0).toLocaleString();
+   }catch(e){
+    $('#ai24Runs').textContent='Admin data unavailable';
+    $('#ai24Completed').textContent='Could not load privileged metrics';
+    $('#ai24Tokens').textContent='—';
+   }
+  }else{
+   $('#ai24Runs').textContent='Admin only';
+   $('#ai24Completed').textContent='Usage metrics require Admin role';
+   $('#ai24Tokens').textContent='—';
+  }
+ }catch(e){
+  $('#aiRuntimeStatus').textContent='UNAVAILABLE';
+  $('#aiInventory').textContent='AI runtime unavailable: '+e.message;
+  $('#aiProviderHealth').textContent='Could not load provider configuration.';
+  $('#aiRecentRuns').textContent='Could not load run history.';
+  toast(e.message);
+ }
 }
 function approvalModal(){let m=$('#approvalModal');if(m)return m;m=document.createElement('div');m.id='approvalModal';m.className='modal hidden';m.innerHTML='<div class="modal-card"><div class="card-head"><h3>Approval Queue</h3><button class="btn" id="closeApprovalModal">Close</button></div><p class="muted">Approve or reject each queued action. Approval does not execute an action by itself; it records the human decision.</p><div id="approvalList"></div></div>';document.body.appendChild(m);$('#closeApprovalModal').onclick=()=>m.classList.add('hidden');return m}
 async function renderApprovals(){const m=approvalModal(),list=$('#approvalList');if(!remoteMode()){list.textContent='Live sign-in is required to load approvals from the central database.';$('#approvalCount').textContent='—';m.classList.remove('hidden');return}let rows=[];try{rows=(await api('/api/approvals')).approvals||[]}catch(e){list.textContent='Approval service unavailable: '+e.message;$('#approvalCount').textContent='—';m.classList.remove('hidden');return}$('#approvalCount').textContent=String(rows.length);if($('#controlApprovalCount'))$('#controlApprovalCount').textContent=String(rows.length);list.innerHTML=rows.length?rows.map(x=>`<div class="card" style="margin:10px 0"><div class="card-head"><b>${escape(x.action)}</b><span class="tag gold-tag">PENDING</span></div><p class="muted">${escape(x.description)}</p><div class="toolbar"><button class="btn green" data-approval-action="approved" data-approval-id="${escape(x.id)}">Approve</button><button class="btn danger" data-approval-action="rejected" data-approval-id="${escape(x.id)}">Reject</button></div></div>`).join(''):'<div class="card"><p class="muted">No pending approvals.</p></div>';m.classList.remove('hidden')}
