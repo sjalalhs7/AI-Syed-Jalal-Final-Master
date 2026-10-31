@@ -19,6 +19,13 @@ Official guide: https://open-jarvis.github.io/OpenJarvis/getting-started/install
 ## ElevenLabs key safety
 OpenJarvis documents an ElevenLabs TTS backend. Keep `ELEVENLABS_API_KEY` only in the local process environment or local configuration supported by the installed version. Never put it in HTML/JavaScript, this repository, browser storage, screenshots, or Cloudflare Pages. Do not paste it into ChatGPT. Set a local voice ID after choosing a voice and test actual audio. ElevenLabs usage may have plan limits or charges; confirm current account terms.
 
+## Privacy boundary and account connections
+- Gmail/Calendar authorizations made in ChatGPT are separate from this website and are not automatically available to the JalalAi page.
+- The current page only checks `/api/me` and sends chat prompts to the local OpenJarvis endpoint. It has no email/calendar/WhatsApp action endpoints and does not run background integration sync.
+- The exact Google OAuth scopes granted outside this page have not been independently verified. Review or revoke them at https://myaccount.google.com/permissions.
+- Do not access another person's account or private data without their explicit permission.
+- Keep all future integrations disabled by default; use least-privilege scopes and require explicit per-action approval before sending, editing, deleting, posting, purchasing, or sharing.
+
 ## Gmail and Calendar
 Use the documented Google connector (`jarvis connect gdrive`) after checking `jarvis --help` and connector docs. Sign in yourself in the browser. Grant the minimum available scopes. Test reading today's calendar and a small set of email metadata before enabling write-capable actions.
 
@@ -37,7 +44,7 @@ Before any preset command that overwrites settings, make a dated backup of `~/.o
 - [ ] Gmail and Calendar are read-only and verified.
 - [ ] WhatsApp route is agreed and tested; no false claim of personal-account support.
 - [ ] Morning digest plays real email/calendar data at 8 AM Asia/Karachi.
-- [ ] Confirmation gate tested before any send/delete/post/buy action.
+- [ ] No external side-effect actions are enabled by default; if added, per-action confirmation is tested before send/edit/delete/post/buy/share.
 - [ ] Stop and uninstall steps documented for the installed OS.
 
 The module is not complete until the local computer and all selected services pass these tests.
