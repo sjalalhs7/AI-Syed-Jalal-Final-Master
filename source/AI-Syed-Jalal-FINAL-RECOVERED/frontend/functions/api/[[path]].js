@@ -78,6 +78,22 @@ export async function onRequest({request,env}){
   if(u.pathname==='/api/auth/logout'&&request.method==='POST'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);await db.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[await digest(rawToken(request))]);await audit(db,me,'LOGOUT','Session revoked',request);return reply({ok:true},200,{'Set-Cookie':C+'=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'})}
   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
   if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);
+  if(u.pathname==='/api/voice/speak'&&request.method==='POST'){
+   if(!env.ELEVENLABS_API_KEY)return reply({error:'ElevenLabs is not configured on the cloud project yet.',code:'VOICE_PROVIDER_NOT_CONFIGURED'},503);
+   const voiceId=String(env.ELEVENLABS_VOICE_ID||'').trim();
+   if(!voiceId)return reply({error:'ELEVENLABS_VOICE_ID is not configured on the cloud project.',code:'VOICE_ID_NOT_CONFIGURED'},503);
+   const x=await readBody(request),speech=String(x.text||'').trim();
+   if(!speech)return reply({error:'There is no reply text to speak.'},400);
+   if(speech.length>2500)return reply({error:'Voice text is too long (maximum 2,500 characters).'},413);
+   const count=await db.query("SELECT count(*)::int AS n FROM audit_events WHERE user_id=$1 AND action='VOICE_SPEAK_REQUEST' AND created_at>now()-interval '1 hour'",[me.id]);
+   if(Number(count[0]?.n||0)>=30)return reply({error:'Voice limit reached (30 requests per hour). Please wait and retry.'},429,{'Retry-After':'3600'});
+   await db.query('INSERT INTO audit_events(id,user_id,action,detail,ip,request_id) VALUES($1,$2,$3,$4,$5,$6)',[crypto.randomUUID(),me.id,'VOICE_SPEAK_REQUEST','ElevenLabs text-to-speech requested; text is not stored by the app',request.headers.get('CF-Connecting-IP')||'',request.headers.get('cf-ray')||null]);
+   let upstream;
+   try{upstream=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(voiceId),{method:'POST',headers:{'xi-api-key':env.ELEVENLABS_API_KEY,'Content-Type':'application/json','Accept':'audio/mpeg'},body:JSON.stringify({text:speech,model_id:env.ELEVENLABS_MODEL_ID||'eleven_multilingual_v2',voice_settings:{stability:0.5,similarity_boost:0.75}}),signal:AbortSignal.timeout(20000)})}catch{return reply({error:'ElevenLabs could not be reached. Please retry shortly.',code:'VOICE_UPSTREAM_UNAVAILABLE'},502)}
+   if(!upstream.ok){const status=upstream.status;return reply({error:status===401||status===403?'ElevenLabs rejected the cloud credentials or voice access.':status===429?'ElevenLabs rate limit reached. Please retry later.':'ElevenLabs could not generate speech.',code:'VOICE_GENERATION_FAILED',upstreamStatus:status},502)}
+   const audio=await upstream.arrayBuffer();if(!audio.byteLength||audio.byteLength>12*1024*1024)return reply({error:'Generated audio was empty or exceeded the 12 MB limit.'},502);
+   return new Response(audio,{status:200,headers:{'Content-Type':'audio/mpeg','Content-Length':String(audio.byteLength),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Disposition':'inline; filename=jalalai-reply.mp3'}})
+  }
   if(u.pathname==='/api/ai/run'&&request.method==='POST'){
    const x=await readBody(request),privacyMode=x.privacyMode===true;
    const minuteSql=privacyMode?"SELECT count(*)::int AS n FROM audit_events WHERE user_id=$1 AND action='AI_CHAT_REQUEST' AND created_at>now()-interval '1 minute'":"SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 minute'";
