@@ -131,3 +131,6 @@ test('AI provider overload errors include actionable retry guidance and do not c
   assert.ok(source.includes("retryAfterSeconds:retryAfter"));
   assert.ok(source.includes("overloaded?{'Retry-After':'60'}:{}"));
 });
+
+
+test('private cloud chat uses metadata-only quota accounting and skips prompt/response persistence', () => { assert.ok(source.includes("action='AI_CHAT_REQUEST'")); assert.ok(source.includes("privacyMode?[]:db.query")); assert.ok(source.includes("Private cloud chat request; prompt and response are not stored by the app")); });
