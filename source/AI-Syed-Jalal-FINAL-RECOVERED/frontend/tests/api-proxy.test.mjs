@@ -122,3 +122,12 @@ test('AI runtime exposes only supported text profiles and reports the real execu
   }
   assert.ok(source.includes('They do not browse the web'));
 });
+
+
+test('AI provider overload errors include actionable retry guidance and do not claim automatic failover', () => {
+  assert.ok(source.includes("const overloaded=upstream.status===503"));
+  assert.ok(source.includes("Automatic retries were attempted. Wait 30–60 seconds and retry"));
+  assert.ok(source.includes("No automatic provider failover is active."));
+  assert.ok(source.includes("retryAfterSeconds:retryAfter"));
+  assert.ok(source.includes("overloaded?{'Retry-After':'60'}:{}"));
+});
