@@ -1,12 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+
 const base = new URL('../', import.meta.url);
 const page = readFileSync(new URL('jalalai.html', base), 'utf8');
 const workspace = readFileSync(new URL('workspace.html', base), 'utf8');
 const guide = readFileSync(new URL('JALALAI-SETUP.md', base), 'utf8');
-test('JalalAi is linked from the existing workspace and keeps the approved logo', () => { assert.match(workspace, /jalalai\.html/); assert.match(workspace, /assets\/approved-sj-rainbow-crown\.svg/); assert.match(page, /AI-Syed Jalal/); });
-test('JalalAi uses documented local OpenJarvis endpoints, not a hosted model endpoint', () => { assert.match(page, /http:\/\/127\.0\.0\.1:8000/); assert.match(page, /\/v1\/models/); assert.match(page, /\/v1\/chat\/completions/); assert.match(page, /if\(!accountReady\)/); assert.match(page, /credentials:'same-origin'/); assert.doesNotMatch(page, /api\.openai\.com|generativelanguage\.googleapis\.com/); });
-test('Unconfigured voice and local digest are not falsely represented as complete', () => { assert.doesNotMatch(page, /sk-[A-Za-z0-9]{12,}|xi-[A-Za-z0-9]{12,}/); assert.match(page, /Not connected to this page yet/); assert.match(page, /local digest is not configured or tested yet/); assert.match(page, /No email, calendar, or WhatsApp action is wired/); });
-test('JalalAi clearly documents local-first behavior and account-connection boundaries', () => { assert.match(page, /Privacy & permission rules/); assert.match(page, /chat prompts are sent only to OpenJarvis/); assert.match(page, /ChatGPT account connections do not automatically connect this website/); assert.match(page, /Google Account permissions/); assert.match(page, /require your clear approval for each action/); });
-test('Setup guide documents key safety and WhatsApp limits', () => { assert.match(guide, /Never put it in HTML\/JavaScript/); assert.match(guide, /reads exported chat files/); assert.match(guide, /Asia\/Karachi/); });
+
+test('JalalAi remains linked from the existing workspace and keeps the approved SJ logo', () => {
+  assert.match(workspace, /jalalai\.html/);
+  assert.match(workspace, /assets\/approved-sj-rainbow-crown\.svg/);
+  assert.match(page, /AI-Syed Jalal/);
+  assert.match(page, /approved-sj-rainbow-crown\.svg/);
+});
+
+test('JalalAi uses the existing authenticated cloud AI API, not a local computer endpoint', () => {
+  assert.match(page, /fetch\('\/api\/me'/);
+  assert.match(page, /fetch\('\/api\/csrf'/);
+  assert.match(page, /fetch\('\/api\/ai\/run'/);
+  assert.match(page, /X-CSRF-Token/);
+  assert.match(page, /credentials:'same-origin'/);
+  assert.doesNotMatch(page, /127\.0\.0\.1:8000|localhost:8000|\/v1\/chat\/completions/);
+  assert.doesNotMatch(page, /GEMINI_API_KEY|AIza[A-Za-z0-9_-]{20,}/);
+});
+
+test('Mobile layout is responsive and does not require a desktop installation', () => {
+  assert.match(page, /name="viewport"/);
+  assert.match(page, /@media\(max-width:600px\)/);
+  assert.match(page, /MOBILE READY/);
+  assert.match(page, /No computer or local OpenJarvis installation is required for this chat/);
+});
+
+test('Privacy disclosure accurately describes stored AI run history and unavailable integrations', () => {
+  assert.match(page, /prompts and AI replies are currently saved/);
+  assert.match(page, /Clearing this screen does not delete those records/);
+  assert.match(page, /does not read Gmail, Calendar, contacts, files/);
+  assert.match(page, /ElevenLabs voice/);
+  assert.match(page, /WhatsApp Business integration/);
+});
+
+test('Setup guide distinguishes mobile cloud chat from optional local OpenJarvis', () => {
+  assert.match(guide, /mobile cloud chat/i);
+  assert.match(guide, /OpenJarvis is optional/i);
+  assert.match(guide, /server-side AI route/i);
+  assert.match(guide, /AI run history/i);
+});

@@ -1,50 +1,44 @@
-# JalalAi — local integration plan
+# JalalAi — mobile cloud chat
 
-JalalAi is an entry point inside the existing AI-Syed Jalal website. It does not replace the homepage, login, dashboard, or approved rainbow SJ crown logo.
+JalalAi is part of the existing AI-Syed Jalal website. It keeps the existing homepage, login, workspace, approved rainbow SJ crown logo, Cloudflare Pages Functions API, and Neon database.
 
-## Current module behavior
-- `jalalai.html` checks the existing project's `/api/me` login endpoint.
-- It attempts to reach the OpenJarvis local API at `http://127.0.0.1:8000` and uses documented `/health`, `/v1/models`, and `/v1/chat/completions` endpoints.
-- Browser-to-localhost access can be blocked by CORS or browser policy. If so, use the official OpenJarvis local UI at `http://localhost:5173`; do not weaken CORS or expose the local API to the public internet to bypass the block.
-- This page does not read or send emails, alter calendars, or send WhatsApp messages. No action-capable tool is connected here.
+## Mobile chat
 
-## Install only after identifying the computer
-Official guide: https://open-jarvis.github.io/OpenJarvis/getting-started/installation/
-- macOS/Linux/WSL2: follow the official `install.sh` instructions.
-- Native Windows: follow the PowerShell installer instructions in the same guide.
-- Then run `jarvis doctor` and `jarvis --help`. Confirm command syntax before changing configuration.
-- Let `jarvis init` detect hardware or use the official hardware table to select a local model. Do not assume RAM or disk capacity.
-- Test `jarvis ask "Who are you?"` or use the local chat interface.
+- Open `/jalalai.html` from the existing website on Android or another modern browser.
+- Sign in through the existing project workspace first.
+- The page checks the existing `/api/me` session, obtains a CSRF token from `/api/csrf`, and submits prompts to the authenticated `/api/ai/run` route.
+- The AI provider key stays server-side in Cloudflare Pages secrets. It is never placed in browser JavaScript.
+- The existing API applies per-user quotas (20 requests/minute and 200/day) and enforces session authentication and CSRF validation.
+- The API currently saves prompts and AI replies in the existing `ai_runs` database history. Clearing the visible chat only clears the browser screen; it does not erase those records. Do not submit passwords or highly sensitive information.
 
-## ElevenLabs key safety
-OpenJarvis documents an ElevenLabs TTS backend. Keep `ELEVENLABS_API_KEY` only in the local process environment or local configuration supported by the installed version. Never put it in HTML/JavaScript, this repository, browser storage, screenshots, or Cloudflare Pages. Do not paste it into ChatGPT. Set a local voice ID after choosing a voice and test actual audio. ElevenLabs usage may have plan limits or charges; confirm current account terms.
+## What this does not enable
 
-## Privacy boundary and account connections
-- Gmail/Calendar authorizations made in ChatGPT are separate from this website and are not automatically available to the JalalAi page.
-- The current page only checks `/api/me` and sends chat prompts to the local OpenJarvis endpoint. It has no email/calendar/WhatsApp action endpoints and does not run background integration sync.
-- The exact Google OAuth scopes granted outside this page have not been independently verified. Review or revoke them at https://myaccount.google.com/permissions.
-- Do not access another person's account or private data without their explicit permission.
-- Keep all future integrations disabled by default; use least-privilege scopes and require explicit per-action approval before sending, editing, deleting, posting, purchasing, or sharing.
+- This page does not read Gmail, Calendar, contacts, files, or another person's private data.
+- It does not send email or WhatsApp messages, edit calendars, publish posts, make purchases, or delete records.
+- ChatGPT account connections are separate from website-level OAuth connections.
+- ElevenLabs voice, website-level Gmail/Calendar OAuth, WhatsApp Business, and per-action approval enforcement still require separate implementation and end-to-end testing.
+- Provider key presence is not proof of a successful live request. The first real chat message is the provider smoke test.
 
-## Gmail and Calendar
-Use the documented Google connector (`jarvis connect gdrive`) after checking `jarvis --help` and connector docs. Sign in yourself in the browser. Grant the minimum available scopes. Test reading today's calendar and a small set of email metadata before enabling write-capable actions.
+## Optional local OpenJarvis
 
-## WhatsApp limits
-The documented WhatsApp connector reads exported chat files. Its WhatsApp channel uses API credentials and is not equivalent to connecting a personal WhatsApp account normally. Do not promise live inbound chat until the supported route is configured and tested.
+OpenJarvis is not required for the mobile cloud chat. It is an optional local-computer runtime and is not suitable as the required backend for a phone-only setup. Do not expose its localhost API to the public internet to work around browser restrictions.
 
-## 8 AM morning digest
-Official guide: https://open-jarvis.github.io/OpenJarvis/user-guide/morning-digest/
-Before any preset command that overwrites settings, make a dated backup of `~/.openjarvis/config.toml`. Confirm the installed version's preset names and TTS backend using `jarvis --help` and official docs. Configure `Asia/Karachi` and schedule `0 8 * * *`. Restore assistant name, honorific, voice, and connectors after preset initialization. Run `jarvis digest --fresh`, verify audio and real calendar/email data, then configure startup using the OS-appropriate documented method. A powered-off or sleeping computer may miss the briefing.
+Official guide: https://open-jarvis.github.io/OpenJarvis/
 
-## Acceptance checklist
-- [ ] Actual computer OS, RAM, graphics and free storage checked.
-- [ ] OpenJarvis installed; `jarvis doctor` checked.
-- [ ] Local model answers “Who are you?” without a hosted AI key.
-- [ ] ElevenLabs voice plays out loud without exposing its key.
-- [ ] Gmail and Calendar are read-only and verified.
-- [ ] WhatsApp route is agreed and tested; no false claim of personal-account support.
-- [ ] Morning digest plays real email/calendar data at 8 AM Asia/Karachi.
-- [ ] No external side-effect actions are enabled by default; if added, per-action confirmation is tested before send/edit/delete/post/buy/share.
-- [ ] Stop and uninstall steps documented for the installed OS.
+## Verification
 
-The module is not complete until the local computer and all selected services pass these tests.
+From the frontend project directory:
+
+```bash
+npm install --no-audit --no-fund
+npm test
+npm run check
+```
+
+After a preview deployment, verify on an Android browser:
+1. Existing project login succeeds.
+2. JalalAi identifies the signed-in account.
+3. Provider configuration is detected without exposing secrets.
+4. A real prompt returns a provider response.
+5. Missing session, invalid CSRF token, missing provider key, and provider errors fail safely.
+6. Existing workspace, login, dashboard, and library remain unchanged.
