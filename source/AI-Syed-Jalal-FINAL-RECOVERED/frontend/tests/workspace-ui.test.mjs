@@ -111,3 +111,21 @@ test('All AI actions remain disabled without a configured provider', () => {
   assert.ok(workspace.includes("['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=true})"));
   assert.ok(workspace.includes("['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=!selected})"));
 });
+
+test('Homepage does not market unimplemented autonomous, voice or multi-model features', () => {
+  for (const marker of ['Ultimate Power Agent', 'AI Agents', 'voice assistant',
+    'image and voice tools', 'multi-model workflows', '360° AI COMMAND CENTER',
+    'THINK · BUILD · AUTOMATE']) {
+    assert.equal(homepage.toLowerCase().includes(marker.toLowerCase()), false,
+      'unsupported homepage claim remains: ' + marker);
+  }
+  assert.ok(homepage.includes('AI WORKSPACE · PLAN · BUILD · ORGANIZE'));
+  assert.ok(homepage.includes('AI answers require an available configured provider.'));
+});
+
+test('Workspace metadata points to Cloudflare and does not retain GitHub Pages SEO claims', () => {
+  assert.equal(workspace.includes('github.io'), false);
+  assert.equal(workspace.includes('class=\"seo-discovery\"'), false);
+  assert.ok(workspace.includes('https://ai-syed-jalal-live.pages.dev/workspace.html'));
+  assert.ok(workspace.includes('central Neon records'));
+});
