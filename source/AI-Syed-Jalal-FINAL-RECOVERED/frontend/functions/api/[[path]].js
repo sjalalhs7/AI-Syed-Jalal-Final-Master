@@ -79,11 +79,15 @@ export async function onRequest({request,env}){
   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
   if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);
   if(u.pathname==='/api/ai/run'&&request.method==='POST'){
-   const minuteRows=await db.query("SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 minute'",[me.id]);
+   const x=await readBody(request),privacyMode=x.privacyMode===true;
+   const minuteSql=privacyMode?"SELECT count(*)::int AS n FROM audit_events WHERE user_id=$1 AND action='AI_CHAT_REQUEST' AND created_at>now()-interval '1 minute'":"SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 minute'";
+   const minuteRows=await db.query(minuteSql,[me.id]);
    if(Number(minuteRows[0]?.n||0)>=20)return reply({error:'AI request limit reached (20 per minute). Please wait and retry.'},429,{'Retry-After':'60'});
-   const dayRows=await db.query("SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 day'",[me.id]);
+   const daySql=privacyMode?"SELECT count(*)::int AS n FROM audit_events WHERE user_id=$1 AND action='AI_CHAT_REQUEST' AND created_at>now()-interval '1 day'":"SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-interval '1 day'";
+   const dayRows=await db.query(daySql,[me.id]);
    if(Number(dayRows[0]?.n||0)>=200)return reply({error:'Daily AI request limit reached (200 per day). Please retry tomorrow.'},429,{'Retry-After':'3600'});
-   const x=await readBody(request),prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80),attachments=Array.isArray(x.attachments)?x.attachments:[];
+   const prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80),attachments=Array.isArray(x.attachments)?x.attachments:[];
+   if(privacyMode)await audit(db,me,'AI_CHAT_REQUEST','Private cloud chat request; prompt and response are not stored by the app',request);
    if(!prompt)return reply({error:'Enter a prompt before running the assistant'},400);
    if(prompt.length>10000)return reply({error:'Prompt is too long (maximum 10,000 characters)'},413);
    if(attachments.length>4)return reply({error:'Attach no more than four images per message'},413);
@@ -102,7 +106,7 @@ export async function onRequest({request,env}){
    if(!cfg)return reply({ok:false,error:'Unsupported provider. Choose OpenAI, Claude, DeepSeek, Gemini, or a configured OmniRoute endpoint.',code:'UNSUPPORTED_PROVIDER'},400);
    const traceId=crypto.randomUUID(),model=String(x.model||cfg.model).trim();
    if(!model||model.length>120||!/^[A-Za-z0-9._:/-]+$/.test(model))return reply({error:'Invalid model identifier (maximum 120 safe characters)'},400);
-   const saveRun=async(status,output,trace)=>db.query('INSERT INTO ai_runs(id,user_id,agent_id,provider,model,prompt,output,status,tool_calls,trace) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb) RETURNING created_at',[traceId,me.id,agentId,provider,model,prompt,output,status,JSON.stringify([]),JSON.stringify(trace)]);
+   const saveRun=async(status,output,trace)=>privacyMode?[]:db.query('INSERT INTO ai_runs(id,user_id,agent_id,provider,model,prompt,output,status,tool_calls,trace) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb) RETURNING created_at',[traceId,me.id,agentId,provider,model,prompt,output,status,JSON.stringify([]),JSON.stringify(trace)]);
    if(!cfg.key){
     const output='No external AI call was made because this provider has no server-side API key configured.';
     const row=await saveRun('not_configured',output,{mode:'not_configured',provider,thinking:Boolean(x.thinking)});

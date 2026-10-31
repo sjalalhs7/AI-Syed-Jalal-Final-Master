@@ -1,44 +1,23 @@
 # JalalAi — mobile cloud chat
 
-JalalAi is part of the existing AI-Syed Jalal website. It keeps the existing homepage, login, workspace, approved rainbow SJ crown logo, Cloudflare Pages Functions API, and Neon database.
+JalalAi is an entry point inside the existing AI-Syed Jalal website. It does not replace the homepage, login, dashboard, library, database, or approved rainbow SJ crown logo.
 
-## Mobile chat
+## Mobile cloud chat
+- Cloud chat runs through the existing website on a phone; no local computer or OpenJarvis installation is needed for this chat.
+- The page checks `/api/me`, obtains `/api/csrf`, then calls the authenticated `/api/ai/run` route using the server-configured Gemini provider.
+- Gemini credentials remain server-side in Cloudflare Pages environment variables and are never sent to the browser.
+- Private chat mode does not store prompt or reply text in `ai_runs`; it records limited request metadata in `audit_events` for security and per-user rate limits.
+- Messages are still sent to Google Gemini and are subject to Google's service terms and retention policies.
+- The server enforces authentication, CSRF protection, 20 requests/minute and 200 requests/day per user, request-size limits, and provider timeouts/retries.
 
-- Open `/jalalai.html` from the existing website on Android or another modern browser.
-- Sign in through the existing project workspace first.
-- The page checks the existing `/api/me` session, obtains a CSRF token from `/api/csrf`, and submits prompts to the authenticated `/api/ai/run` route.
-- The AI provider key stays server-side in Cloudflare Pages secrets. It is never placed in browser JavaScript.
-- The existing API applies per-user quotas (20 requests/minute and 200/day) and enforces session authentication and CSRF validation.
-- The API currently saves prompts and AI replies in the existing `ai_runs` database history. Clearing the visible chat only clears the browser screen; it does not erase those records. Do not submit passwords or highly sensitive information.
+## Current integration boundaries
+- This page does not read or send Gmail, alter calendars, access contacts/files, or send WhatsApp messages.
+- Gmail/Calendar authorizations made in ChatGPT are separate from this website.
+- ElevenLabs voice is not integrated or tested on this page.
+- The separate ChatGPT Daily Morning Briefing is not a JalalAi website feature.
+- Any future external action must require clear approval before each action.
 
-## What this does not enable
+## Deployment and verification
+Run `npm test` and `npm run check` from this frontend directory. Deploy through the existing Cloudflare Pages project. Verify in a signed-in mobile browser with a short non-sensitive test prompt. Confirm the chat reply appears and private-mode requests do not create an `ai_runs` row containing prompt/reply text. Do not change production database schema or secrets for this update.
 
-- This page does not read Gmail, Calendar, contacts, files, or another person's private data.
-- It does not send email or WhatsApp messages, edit calendars, publish posts, make purchases, or delete records.
-- ChatGPT account connections are separate from website-level OAuth connections.
-- ElevenLabs voice, website-level Gmail/Calendar OAuth, WhatsApp Business, and per-action approval enforcement still require separate implementation and end-to-end testing.
-- Provider key presence is not proof of a successful live request. The first real chat message is the provider smoke test.
-
-## Optional local OpenJarvis
-
-OpenJarvis is not required for the mobile cloud chat. It is an optional local-computer runtime and is not suitable as the required backend for a phone-only setup. Do not expose its localhost API to the public internet to work around browser restrictions.
-
-Official guide: https://open-jarvis.github.io/OpenJarvis/
-
-## Verification
-
-From the frontend project directory:
-
-```bash
-npm install --no-audit --no-fund
-npm test
-npm run check
-```
-
-After a preview deployment, verify on an Android browser:
-1. Existing project login succeeds.
-2. JalalAi identifies the signed-in account.
-3. Provider configuration is detected without exposing secrets.
-4. A real prompt returns a provider response.
-5. Missing session, invalid CSRF token, missing provider key, and provider errors fail safely.
-6. Existing workspace, login, dashboard, and library remain unchanged.
+Gmail/Calendar website OAuth, ElevenLabs voice, WhatsApp Business API, and OpenJarvis local runtime are separate projects and are not complete as part of this mobile chat change. Review Google permissions at https://myaccount.google.com/permissions.
