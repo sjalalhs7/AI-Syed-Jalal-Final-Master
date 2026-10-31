@@ -42,3 +42,20 @@ test('homepage advertises working tools, not unverified integrations', () => {
     assert.equal(homepage.includes(marker), false, 'unverified launch remains: ' + marker);
   }
 });
+
+test('Viewer AI console does not depend on Admin-only endpoints', () => {
+  const start = workspace.indexOf('async function renderAICommand()');
+  const end = workspace.indexOf('function approvalModal()', start);
+  assert.ok(start >= 0 && end > start);
+  const loader = workspace.slice(start, end);
+  assert.match(loader, /Promise\.all\(\[api\('\/api\/ai\/capabilities'\),api\('\/api\/ai\/runs\?limit=8'\)\]\)/);
+  assert.match(loader, /state\.role==='Admin'/);
+  assert.equal(loader.includes("api('/api/admin/ai/provider-health')"), false);
+});
+
+test('Dashboard security and audit navigation is restricted to Admin', () => {
+  assert.match(dashboard, /currentRole=me\.role/);
+  assert.match(dashboard, /secNav\.hidden=me\.role!=='Admin'/);
+  assert.match(dashboard, /if\(v==='sec'&&currentRole!=='Admin'\)return/);
+  assert.match(dashboard, /Admin only\. This section is hidden for other roles\./);
+});

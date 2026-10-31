@@ -69,7 +69,7 @@ body[data-theme="clay"] .sub,body[data-theme="clay"] .project-card p,body[data-t
 
 <section id="v-lib" hidden><h1>Library</h1><p class="sub">Imported open-source skills and app templates (see THIRD_PARTY_NOTICES.md).</p>
 <div class="bar"><input id="ls" placeholder="Search skills and templates…"><select id="lt"><option value="registry">Expert AI Skills (3,500)</option><option value="skills">Superpowers skills</option><option value="tpl">App templates</option><option value="src">Upstream status</option></select></div><div class="agents" id="lib"></div></section>
-<section id="v-sec" hidden><h1>Security &amp; Audit</h1><p class="sub">Admin/Manager only.</p><div class="card"><div class="bar"><button class="btn s" id="diag">System diagnostics</button><button class="btn s" id="aud">Recent audit events</button></div><div class="out" id="secout">Choose an action.</div></div></section>
+<section id="v-sec" hidden><h1>Security &amp; Audit</h1><p class="sub">Admin only. This section is hidden for other roles.</p><div class="card"><div class="bar"><button class="btn s" id="diag">System diagnostics</button><button class="btn s" id="aud">Recent audit events</button></div><div class="out" id="secout">Choose an action.</div></div></section>
 
 
 
@@ -77,13 +77,13 @@ body[data-theme="clay"] .sub,body[data-theme="clay"] .project-card p,body[data-t
 <script>
 const safeStorageGet=key=>{try{return localStorage.getItem(key)||''}catch{return ''}};
 const $=s=>document.querySelector(s),base=(safeStorageGet('aj-v31-api')||location.origin).replace(/\/$/,'');
-let lib=null,csrf='',agents=[],inv=null,cur=null;
+let lib=null,csrf='',agents=[],inv=null,cur=null,currentRole='';
 async function api(path,o={}){const m=(o.method||'GET').toUpperCase();
  if(m!=='GET'&&!csrf){const c=await fetch(base+'/api/csrf',{credentials:'include'});if(c.ok)csrf=(await c.json()).token||''}
  const r=await fetch(base+path,{...o,credentials:'include',headers:{'Content-Type':'application/json',...(m!=='GET'&&csrf?{'X-CSRF-Token':csrf}:{})}});
  const d=await r.json().catch(()=>({}));if(r.status===401){location.href='./';throw new Error('Signed out')}if(!r.ok)throw new Error(d.error||'HTTP '+r.status);return d}
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function view(v){const allowed=['home','agents','run','lib','sec'];if(!allowed.includes(v)||!$('#v-'+v))return;allowed.forEach(x=>{const section=$('#v-'+x);if(section)section.hidden=x!==v});document.querySelectorAll('nav a[data-v]').forEach(a=>{const active=a.dataset.v===v;a.classList.toggle('on',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
+function view(v){if(v==='sec'&&currentRole!=='Admin')return;const allowed=['home','agents','run','lib','sec'];if(!allowed.includes(v)||!$('#v-'+v))return;allowed.forEach(x=>{const section=$('#v-'+x);if(section)section.hidden=x!==v});document.querySelectorAll('nav a[data-v]').forEach(a=>{const active=a.dataset.v===v;a.classList.toggle('on',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
 document.querySelectorAll('nav a[data-v]').forEach(a=>a.onclick=()=>view(a.dataset.v));
 document.querySelectorAll('[data-soon]').forEach(a=>a.setAttribute('aria-disabled','true'));
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>view(b.dataset.go));
@@ -107,7 +107,7 @@ $('#s').oninput=draw;$('#g').onchange=draw;
 $('#diag').onclick=async()=>{try{$('#secout').textContent=JSON.stringify(await api('/api/admin/diagnostics'),null,2)}catch(e){$('#secout').textContent=e.message}};
 $('#aud').onclick=async()=>{try{const d=await api('/api/admin/audit?limit=20');$('#secout').textContent=d.events.map(e=>`${new Date(e.time).toLocaleString()}  ${e.user}  ${e.action}  ${e.detail||''}`).join('\n')||'No events.'}catch(e){$('#secout').textContent=e.message}};
 $('#out').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST',body:'{}'})}catch{}location.href='./'};
-(async()=>{try{const me=(await api('/api/me')).user;$('#uname').textContent=me.username;$('#urole').textContent=me.role;$('#hi').textContent='Hello, '+me.username;
+(async()=>{try{const me=(await api('/api/me')).user;currentRole=me.role;$('#uname').textContent=me.username;$('#urole').textContent=me.role;$('#hi').textContent='Hello, '+me.username;const secNav=document.querySelector('nav a[data-v="sec"]');if(secNav)secNav.hidden=me.role!=='Admin';if(me.role!=='Admin'&&location.hash==='#sec')view('home');
  inv=await api('/api/ai/capabilities');agents=inv.agents||[];
  [...new Set(agents.map(a=>a.group))].sort().forEach(g=>$('#g').insertAdjacentHTML('beforeend',`<option>${esc(g)}</option>`));
  $('#stats').innerHTML=[[agents.length,'Executable agents'],[inv.agencyLayer?.profiles,'Specialist profiles'],[inv.skillRegistry?.totalSkills,'Skills'],[(inv.providers||[]).filter(p=>p.configured).length+' / '+(inv.providers||[]).length,'Providers configured']].map(([n,l])=>`<div class="card k"><b>${esc(n)}</b><span>${l}</span></div>`).join('');
