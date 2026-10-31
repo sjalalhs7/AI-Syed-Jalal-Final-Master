@@ -52,14 +52,14 @@ body[data-theme="clay"] .sub,body[data-theme="clay"] .project-card p,body[data-t
 <aside><div class="brand"><img src="assets/approved-sj-rainbow-crown.svg" alt=""><span>Alsyed Jalal AI</span></div>
 <nav id="nav">
 <a class="on" data-v="home">⌂ <span>Overview</span></a><a data-v="agents">✳ <span>AI Agent Catalog</span></a><a data-v="run">↗ <span>Run an Agent</span></a>
-<a data-v="lib">▤ <span>Skills Library</span></a><a href="projects.html">▦ <span>Projects &amp; Integrations</span></a><a href="roadmaps.html">⌁ <span>Learning Roadmaps</span></a><a href="visual-library.html">▧ <span>Visual Library</span></a><a href="visual-styles.html">◈ <span>Design Themes</span></a><a href="workspace.html">▣ <span>Records Workspace</span></a><a data-v="sec">⚿ <span>Security &amp; Audit</span></a></nav>
+<a data-v="lib">▤ <span>Skills Library</span></a><a href="roadmaps.html">⌁ <span>Learning Roadmaps</span></a><a href="visual-styles.html">◈ <span>Design Themes</span></a><a href="workspace.html">▣ <span>Records Workspace</span></a><a data-v="sec">⚿ <span>Security &amp; Audit</span></a></nav>
 <div class="me"><b id="uname">…</b><small id="urole"></small><a id="out" style="cursor:pointer;color:#ff8a80;font-size:12px">Log out</a></div></aside>
 <main>
 <div class="aj-theme-bar" role="group" aria-label="Visual theme"><strong>VISUAL MODE</strong><button type="button" data-aj-theme="glass">Glassmorphism</button><button type="button" data-aj-theme="water">Watermorphism</button><button type="button" data-aj-theme="fire">Firemorphism</button><button type="button" data-aj-theme="rainbow">Rainbowmorphism</button><button type="button" data-aj-theme="clay">Claymorphism</button></div>
-<div class="dash-top"><div><div class="eyebrow">AI-SYED-JALAL · CONTROL CENTER</div><small>Workspace overview · source-backed capability map</small></div><div class="bar" style="margin:0"><a class="btn s" href="projects.html">Explore projects</a><a class="btn" href="workspace.html">Open workspace</a></div></div>
+<div class="dash-top"><div><div class="eyebrow">AI-SYED-JALAL · CONTROL CENTER</div><small>Workspace overview · source-backed capability map</small></div><div class="bar" style="margin:0"><a class="btn" href="workspace.html">Open workspace</a></div></div>
 <section id="v-home"><h1 id="hi">Welcome</h1><p class="sub">What would you like to do today?</p>
 <div class="row" id="stats"></div>
-<div class="grid2"><div class="card"><h3>Quick run</h3><textarea id="q" placeholder="Ask an agent anything…"></textarea><div class="bar" style="margin-top:8px"><button class="btn" id="qgo">Run with Mission Planner</button><button class="btn s" data-go="run">Choose agent</button></div><div class="out" id="qout" hidden></div></div>
+<div class="grid2"><div class="card"><h3>Quick run</h3><textarea id="q" placeholder="Ask an agent anything…"></textarea><div class="bar" style="margin-top:8px"><button class="btn" id="qgo">Run with selected AI agent</button><button class="btn s" data-go="run">Choose agent</button></div><div class="out" id="qout" hidden></div></div>
 <div class="card"><h3>AI providers</h3><div id="prov" class="sub">Loading…</div></div></div></section>
 
 <section id="v-agents" hidden><h1>AI Agents</h1><p class="sub">Executable catalog roles from the backend.</p><div class="bar"><input id="s" placeholder="Search agents…"><select id="g"><option value="">All groups</option></select></div><div class="agents" id="list"></div></section>
@@ -71,17 +71,7 @@ body[data-theme="clay"] .sub,body[data-theme="clay"] .project-card p,body[data-t
 <div class="bar"><input id="ls" placeholder="Search skills and templates…"><select id="lt"><option value="registry">Expert AI Skills (3,500)</option><option value="skills">Superpowers skills</option><option value="tpl">App templates</option><option value="src">Upstream status</option></select></div><div class="agents" id="lib"></div></section>
 <section id="v-sec" hidden><h1>Security &amp; Audit</h1><p class="sub">Admin/Manager only.</p><div class="card"><div class="bar"><button class="btn s" id="diag">System diagnostics</button><button class="btn s" id="aud">Recent audit events</button></div><div class="out" id="secout">Choose an action.</div></div></section>
 
-<section id="v-projects" hidden><div class="section-head"><div><div class="eyebrow">Portfolio</div><h1>Projects &amp; Integrations</h1><p class="sub">Recovered project modules with honest source/runtime status.</p></div><a class="btn s" href="projects.html">Open full portfolio</a></div>
-<div class="project-grid">
-<article class="project-card"><span class="pill ready">Registry present</span><h3>AI Agent Catalog</h3><p>120 catalog roles and executable-profile definitions in the recovered source. Live provider execution still needs backend verification.</p><a href="#agents" data-go="agents">Browse agent catalog →</a></article>
-<article class="project-card"><span class="pill ready">Registry present</span><h3>3,500 Skills · 35 Domains</h3><p>Versioned skill registry and domain map retained in the source package.</p><a href="#lib" data-go="lib">Explore skills →</a></article>
-<article class="project-card"><span class="pill ready">Bounded runtime</span><h3>Supervisor</h3><p>Task coordination module and deterministic tests are present; live provider end-to-end is not verified.</p><a href="projects.html#supervisor">View evidence →</a></article>
-<article class="project-card"><span class="pill ready">Bounded runtime</span><h3>AutoGPT</h3><p>Bounded multi-step task execution is present in source and has deterministic test coverage.</p><a href="projects.html#autogpt">View evidence →</a></article>
-<article class="project-card"><span class="pill verify">Live unverified</span><h3>OmniRoute</h3><p>Provider selection and routing structure exist; live gateway, fallback, health and cost analytics remain unverified.</p><a href="projects.html#omniroute">View integration status →</a></article>
-<article class="project-card"><span class="pill ready">Roadmap present</span><h3>OSSU / Go / Programming</h3><p>Learning roadmap content and stage data are available in the recovered frontend.</p><a href="roadmaps.html">Open roadmaps →</a></article>
-<article class="project-card"><span class="pill verify">Live unverified</span><h3>Wikipedia Knowledge Search</h3><p>Adapter and tool contract are present in source; live external search needs deployment verification.</p><a href="projects.html#wikipedia">View integration status →</a></article>
-<article class="project-card"><span class="pill verify">Contract / reference</span><h3>Local LLM</h3><p>Contract-level support is recorded. Maintained runtime, CLI, REST service, wrappers and full E2E remain incomplete.</p><a href="projects.html#local-llm">View scope →</a></article>
-</div></section>
+
 
 </main>
 <script>
@@ -93,10 +83,11 @@ async function api(path,o={}){const m=(o.method||'GET').toUpperCase();
  const r=await fetch(base+path,{...o,credentials:'include',headers:{'Content-Type':'application/json',...(m!=='GET'&&csrf?{'X-CSRF-Token':csrf}:{})}});
  const d=await r.json().catch(()=>({}));if(r.status===401){location.href='./';throw new Error('Signed out')}if(!r.ok)throw new Error(d.error||'HTTP '+r.status);return d}
 const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function view(v){const allowed=['home','agents','run','lib','sec','projects'];if(!allowed.includes(v)||!$('#v-'+v))return;allowed.forEach(x=>{const section=$('#v-'+x);if(section)section.hidden=x!==v});document.querySelectorAll('nav a[data-v]').forEach(a=>{const active=a.dataset.v===v;a.classList.toggle('on',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
+function view(v){const allowed=['home','agents','run','lib','sec'];if(!allowed.includes(v)||!$('#v-'+v))return;allowed.forEach(x=>{const section=$('#v-'+x);if(section)section.hidden=x!==v});document.querySelectorAll('nav a[data-v]').forEach(a=>{const active=a.dataset.v===v;a.classList.toggle('on',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
 document.querySelectorAll('nav a[data-v]').forEach(a=>a.onclick=()=>view(a.dataset.v));
 document.querySelectorAll('[data-soon]').forEach(a=>a.setAttribute('aria-disabled','true'));
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>view(b.dataset.go));
+const requestedView=location.hash.slice(1);if(['agents','run','lib','sec'].includes(requestedView))view(requestedView);
 function draw(){const q=$('#s').value.toLowerCase(),g=$('#g').value;$('#list').innerHTML=agents.filter(a=>(!g||a.group===g)&&(!q||(a.name+a.group).toLowerCase().includes(q))).map(a=>`<div class="ag${cur?.id===a.id?' sel':''}" data-id="${esc(a.id)}"><b>${esc(a.name)}</b><small>${esc(a.group)}</small></div>`).join('')||'<p class="sub">No match.</p>';
  document.querySelectorAll('.ag').forEach(e=>e.onclick=()=>{cur=agents.find(a=>a.id===e.dataset.id);$('#sel').textContent='Selected: '+cur.name+' ('+cur.group+')';draw();view('run')})}
 async function run(agentId,prompt,provider,out,btn){if(!prompt.trim()){out.hidden=false;out.textContent='Enter a prompt first.';return}
