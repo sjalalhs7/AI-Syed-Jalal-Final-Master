@@ -15,9 +15,9 @@ test('JalalAi remains linked from the existing workspace and keeps the approved 
 });
 
 test('JalalAi uses the existing authenticated cloud AI API, not a local computer endpoint', () => {
-  assert.match(page, /fetch\('\/api\/me'/);
-  assert.match(page, /fetch\('\/api\/csrf'/);
-  assert.match(page, /fetch\('\/api\/ai\/run'/);
+  assert.match(page, /json\('\/api\/me'/);
+  assert.match(page, /json\('\/api\/csrf'/);
+  assert.match(page, /json\('\/api\/ai\/run'/);
   assert.match(page, /X-CSRF-Token/);
   assert.match(page, /credentials:'same-origin'/);
   assert.doesNotMatch(page, /127\.0\.0\.1:8000|localhost:8000|\/v1\/chat\/completions/);
