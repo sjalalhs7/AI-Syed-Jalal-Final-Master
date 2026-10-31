@@ -45,7 +45,7 @@ test('homepage advertises working tools, not unverified integrations', () => {
 
 test('Viewer AI console does not depend on Admin-only endpoints', () => {
   const start = workspace.indexOf('async function renderAICommand()');
-  const end = workspace.indexOf('function approvalModal()', start);
+  const end = workspace.indexOf('function loadConnection()', start);
   assert.ok(start >= 0 && end > start);
   const loader = workspace.slice(start, end);
   assert.match(loader, /Promise\.all\(\[api\('\/api\/ai\/capabilities'\),api\('\/api\/ai\/runs\?limit=8'\)\]\)/);
@@ -58,4 +58,56 @@ test('Dashboard security and audit navigation is restricted to Admin', () => {
   assert.match(dashboard, /secNav\.hidden=me\.role!=='Admin'/);
   assert.match(dashboard, /if\(v==='sec'&&currentRole!=='Admin'\)return/);
   assert.match(dashboard, /Admin only\. This section is hidden for other roles\./);
+});
+
+test('Data Vault exports central API records rather than the local IndexedDB store', () => {
+  assert.match(workspace, /async function fetchAllCentralRecords\(\)/);
+  assert.match(workspace, /api\('\/api\/records\?page='\+page\+'&limit=200'\)/);
+  assert.match(workspace, /async function rowsForExport\(\)\{return remoteMode\(\)\?await fetchAllCentralRecords\(\):await all\(STORE\)\}/);
+  const exportHandler = workspace.slice(workspace.indexOf("$('#exportBtn').onclick="), workspace.indexOf("$('#backupBtn').onclick="));
+  assert.equal(exportHandler.includes('all(STORE)'), false);
+});
+
+test('Workspace hides write, backup, and Admin-only controls according to role', () => {
+  assert.match(workspace, /const canWrite=\['Admin','Manager','Data Operator'\]\.includes\(state\.role\)/);
+  assert.match(workspace, /\$\('#backupBtn'\)\.hidden=state\.role!=='Admin'/);
+  assert.match(workspace, /\['operations','users'\]\.includes\(view\)&&state\.role!=='Admin'/);
+  assert.equal(workspace.includes('Approval queue'), false);
+  assert.equal(workspace.includes('renderApprovals'), false);
+});
+
+test('Operations Center labels only metrics the Pages runtime actually exposes', () => {
+  assert.ok(workspace.includes('AI runs (24h):'));
+  assert.ok(workspace.includes('Edge uptime, database pool connections, queue depth and concurrency are not exposed'));
+  assert.ok(workspace.includes('Neon pool statistics and edge process uptime are unavailable'));
+  assert.equal(workspace.includes('met.process.uptimeSeconds'), false);
+  assert.equal(workspace.includes('snap.pool.total'), false);
+});
+
+test('Dashboard runs only configured providers and describes profiles honestly', () => {
+  assert.match(dashboard, /Supported text profiles/);
+  assert.match(dashboard, /AI Prompt Profiles/);
+  assert.match(dashboard, /These are not autonomous agents/);
+  assert.ok(dashboard.includes("$('#qgo').disabled=!first;$('#go').disabled=!first;"));
+  assert.match(dashboard, /No AI provider key is configured/);
+  assert.match(dashboard, /live test required/);
+});
+
+test('Connection page cannot locally assign server roles or fake a tenant', () => {
+  assert.equal(workspace.includes('id="roleSelect"'), false);
+  assert.equal(workspace.includes('id="tenantId"'), false);
+  assert.equal(workspace.includes('Role selection is a local UI contract'), false);
+  assert.equal(workspace.includes('GitHub Pages remains the static frontend'), false);
+  assert.ok(workspace.includes('Account roles are assigned by the server'));
+  assert.ok(workspace.includes('Sign in with an account registered in the central database.'));
+});
+
+test('Workspace AI run is disabled unless the API reports a configured provider', () => {
+  assert.match(workspace, /providerSelect\.innerHTML=providers\.map/);
+  assert.match(workspace, /No provider key is configured/);
+});
+
+test('All AI actions remain disabled without a configured provider', () => {
+  assert.ok(workspace.includes("['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=true})"));
+  assert.ok(workspace.includes("['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=!selected})"));
 });
