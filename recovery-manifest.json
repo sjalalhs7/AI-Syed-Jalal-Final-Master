@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "artifact": "AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip",
+  "sha256": "21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c",
+  "size": 172636153,
+  "archiveRoot": "AI-Syed-Jalal-FINAL-RECOVERED/",
+  "entries": 12156,
+  "files": 9990,
+  "uncompressedSize": 299780270,
+  "caseInsensitiveDuplicateFiles": 75,
+  "caseInsensitiveDuplicateDirectories": 25,
+  "parts": [
+    {"name": "AI-Syed-Jalal-Master.part00", "size": 20971520, "sha256": "d9db55462878c28613c94fdf5187d5b8ae685994f40a27667f877496d5788d01"},
+    {"name": "AI-Syed-Jalal-Master.part01", "size": 20971520, "sha256": "59ee0fd40007f3cffc4b0ec42c3ca70033448e63540395a8eedeab525b86ec5d"},
+    {"name": "AI-Syed-Jalal-Master.part02", "size": 20971520, "sha256": "6c2ab6bdd90aa1d96417ca04ae1320ace29cf4fadfb746a77ffc82925faa87ed"},
+    {"name": "AI-Syed-Jalal-Master.part03", "size": 20971520, "sha256": "a1fdaa6e9fe14307651cc8a7b90a91a80c00ece178d99cf1a5e45f7331889ecf"},
+    {"name": "AI-Syed-Jalal-Master.part04", "size": 20971520, "sha256": "49e99dcfcfb1bc3266a163a97d982516ac19d86cd11367353f7218d97555afcc"},
+    {"name": "AI-Syed-Jalal-Master.part05", "size": 20971520, "sha256": "108606b3c6630409947d79537bdd44c4ae79e7e50da477940e4d69cc8ae2d00e"},
+    {"name": "AI-Syed-Jalal-Master.part06", "size": 20971520, "sha256": "dfdb67d308b33eacad9536e70fe379dfab1c2d70683a5b07a2e0b3d869e2281c"},
+    {"name": "AI-Syed-Jalal-Master.part07", "size": 20971520, "sha256": "92d724812ed725e1c07818050eb1bd52f4cadffda0da153f6a2dcfca49a7dd50"},
+    {"name": "AI-Syed-Jalal-Master.part08", "size": 4863993, "sha256": "0de25d2c19d80bb2f666273b97aec52b209e16f3ec86012803fdc9b329dd8439"}
+  ]
+}
