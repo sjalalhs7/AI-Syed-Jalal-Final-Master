@@ -6,7 +6,7 @@ JalalAi is an entry point inside the existing AI-Syed Jalal website. It does not
 - Cloud chat runs through the existing website on a phone; no local computer or OpenJarvis installation is needed for this chat.
 - The page checks `/api/me`, obtains `/api/csrf`, then calls the authenticated `/api/ai/run` route using the server-configured Gemini provider.
 - Gemini credentials remain server-side in Cloudflare Pages environment variables and are never sent to the browser.
-- Private chat mode does not store prompt or reply text in `ai_runs`; it records limited request metadata in `audit_events` for security and per-user rate limits.
+- Private chat mode does not store prompt or reply text in `ai_runs`; it records limited request metadata in `audit_events`, while hashed per-user rate-limit buckets are stored in `auth_rate_limits`.
 - Messages are still sent to Google Gemini and are subject to Google's service terms and retention policies.
 - The server enforces authentication, CSRF protection, 20 requests/minute and 200 requests/day per user, request-size limits, and provider timeouts/retries.
 
