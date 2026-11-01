@@ -2,7 +2,7 @@
 
 ## Scope and confidence
 
-Reviewed the deployed Cloudflare Pages project configuration, the production Pages Function source at commit `829e2dd38e44abcd436ff03b0a9fd4b4e8dd8ad3`, the security headers, selected regression tests, GitHub repository security settings, recent CI runs, and a read-only browser smoke test of the production deployment. This is an evidence-based source/configuration and smoke-test audit, not a full penetration test or an independent certification.
+Reviewed the deployed Cloudflare Pages project configuration, the production Pages Function source at commit `829e2dd38e44abcd436ff03b0a9fd4b4e8dd8ad3`, the security headers, selected frontend rendering paths and service worker, GitHub repository security settings and branch protections, recent CI runs, and a read-only browser smoke test of the production deployment. This is an evidence-based source/configuration and smoke-test audit, not a full penetration test or an independent certification.
 
 ## Verified production checks
 
@@ -12,6 +12,8 @@ Reviewed the deployed Cloudflare Pages project configuration, the production Pag
 - `/api/ready` returned HTTP 200 and reported all eight expected schema tables.
 - `/api/version` returned HTTP 200 and reported V126.
 - Recent GitHub source-check workflows for the deployed commit completed successfully.
+- The existing `Recovery source checks` workflow was manually dispatched against the audit branch; it completed successfully, including the frontend regression suite and Pages API syntax check (run: `https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41295136946`).
+- Reviewed dynamic HTML sinks in the main workspace: user/API-provided text is escaped before the inspected `innerHTML` insertions; no obvious unescaped XSS path was found in those reviewed sections. This is not a substitute for automated code scanning.
 - No account creation, login submission, data mutation, or database write was performed during this audit.
 
 ## Findings
@@ -22,9 +24,13 @@ GitHub Secret Scanning reports open alert #1 (`openai_api_key`) and marks it `pu
 
 **Still required:** the credential owner must revoke the exposed key and issue a replacement. This source change does not erase earlier Git commits or public forks/caches. Do not mark the GitHub alert resolved until revocation is confirmed. A coordinated Git-history rewrite may still be needed after the key is revoked.
 
+### High — repository is public and branches are unprotected
+
+The GitHub repository is public. The production branch (`recovery/data-upgrade-2026-10-22`), default branch (`main`), and all other listed branches report `protected: false`; required status checks are off. Direct pushes can therefore bypass pull-request review and required CI. Enabling branch protection is recommended, but was not changed because existing deployment automation may rely on direct pushes.
+
 ### High — dependency vulnerability alerts are disabled
 
-GitHub returned `Dependabot alerts are disabled for this repository`. Dependency risk is therefore not currently evidenced as clean. Enable Dependabot alerts and dependency review before treating dependency security as verified.
+GitHub returned `Dependabot alerts are disabled for this repository`; repository metadata also reports Dependabot security updates disabled. Dependency risk is therefore not currently evidenced as clean. Enable Dependabot alerts and dependency review before treating dependency security as verified. Secret scanning and push protection are enabled, but secret validity checks are disabled.
 
 ### High — code scanning has never run
 
