@@ -22,7 +22,7 @@ test('JalalAi uses the authenticated cloud API and does not require localhost', 
 });
 test('private chat avoids app-side prompt/reply persistence and retains per-user quotas', () => {
   assert.match(api, /privacyMode\?\[\]:db\.query/);
-  assert.match(api, /action='AI_CHAT_REQUEST'/);
+  assert.match(api, /audit\(db,me,'AI_CHAT_REQUEST'/);
   assert.match(api, /20 per minute/);
   assert.match(api, /200 per day/);
 });
