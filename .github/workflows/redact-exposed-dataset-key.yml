@@ -1,0 +1,47 @@
+name: Redact exposed dataset key
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  redact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security/redact-exposed-openai-key-2026-11-01
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Redact credential-shaped strings and validate dataset
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, sys
+          p = pathlib.Path('source/AI-Syed-Jalal-FINAL-RECOVERED/integrations/upstream/MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl')
+          s = p.read_text(encoding='utf-8')
+          s, n = re.subn(r'(?i)sk-[A-Za-z0-9_-]{20,}', '[REDACTED_OPENAI_API_KEY]', s)
+          valid = 0
+          for i, line in enumerate(s.splitlines(), 1):
+              if not line.strip(): continue
+              try: json.loads(line); valid += 1
+              except Exception as e:
+                  print(f'Invalid JSON at line {i}: {e}')
+                  sys.exit(1)
+          if re.search(r'(?i)sk-[A-Za-z0-9_-]{20,}', s):
+              print('Credential-shaped pattern remains; refusing to commit.')
+              sys.exit(1)
+          if valid != 1000:
+              print(f'Expected 1000 valid records, found {valid}; refusing to commit.')
+              sys.exit(1)
+          p.write_text(s, encoding='utf-8')
+          print(f'Validated {valid} JSONL records; redacted {n} credential-shaped strings.')
+          PY
+      - name: Commit redaction on audit branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add source/AI-Syed-Jalal-FINAL-RECOVERED/integrations/upstream/MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl
+          git diff --cached --quiet && { echo "No changes to commit"; exit 1; }
+          git commit -m "security: redact exposed API key strings from dataset"
+          git push origin HEAD:security/redact-exposed-openai-key-2026-11-01
