@@ -89,3 +89,14 @@ CREATE TABLE IF NOT EXISTS approvals (
   resolved_by text
 );
 CREATE INDEX IF NOT EXISTS idx_approvals_status_created ON approvals(status,created_at ASC);
+
+-- Atomic token-bucket state for login and AI request limits. Subject identifiers are SHA-256 hashes.
+CREATE TABLE IF NOT EXISTS auth_rate_limits (
+  scope text NOT NULL,
+  subject_hash text NOT NULL,
+  tokens numeric(12,6) NOT NULL CHECK (tokens >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_request_id uuid NOT NULL,
+  PRIMARY KEY (scope, subject_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_updated_at ON auth_rate_limits(updated_at);

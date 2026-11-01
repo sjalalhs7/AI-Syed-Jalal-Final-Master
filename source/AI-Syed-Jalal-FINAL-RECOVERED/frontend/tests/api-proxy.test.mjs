@@ -9,6 +9,12 @@ test("API explicitly reports missing Neon configuration instead of pretending re
   assert.ok(source.includes("if(!env.DATABASE_URL)"));
 });
 
+test("readiness requires the atomic rate-limit migration before declaring production ready", () => {
+  assert.ok(source.includes("auth_rate_limits"));
+  assert.ok(source.includes("ready:n>=9"));
+  assert.ok(source.includes("n>=9?200:503"));
+});
+
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {
   assert.ok(source.includes("target.pathname='/api/ai/run'"));
   assert.ok(source.includes("reply:result.output||''"));
@@ -47,14 +53,16 @@ test("registration uses a role allowed by the database schema", () => {
   assert.ok(!source.includes("VALUES($1,$2,'User',$3,$4)"));
 });
 
-test("login has a server-side IP rate limit", () => {
-  assert.ok(source.includes("rateLimited(db,request,'LOGIN_FAILED',10,\"interval '15 minutes'\")"));
-  assert.ok(source.includes("'Retry-After':'900'"));
+test("login attempts use an atomic per-IP token bucket independent of audit writes", () => {
+  assert.ok(source.includes("consumeRateLimit(db,'login',loginIp,10,90)"));
+  assert.ok(source.includes("INSERT INTO auth_rate_limits"));
+  assert.ok(source.includes("ON CONFLICT(scope,subject_hash) DO UPDATE"));
+  assert.ok(source.includes("'Retry-After':'90'"));
 });
 
-test("AI requests have per-user minute and daily quotas", () => {
-  assert.ok(source.includes("interval '1 minute'"));
-  assert.ok(source.includes("interval '1 day'"));
+test("AI requests consume atomic per-user minute and daily quotas", () => {
+  assert.ok(source.includes("consumeRateLimit(db,'ai-minute',me.id,20,3)"));
+  assert.ok(source.includes("consumeRateLimit(db,'ai-day',me.id,200,432)"));
   assert.ok(source.includes("AI request limit reached (20 per minute)"));
   assert.ok(source.includes("Daily AI request limit reached (200 per day)"));
 });
@@ -67,11 +75,13 @@ test("admin AI overview and provider-health endpoints enforce Admin role", () =>
 });
 
 
-test("JSON request body is capped before full buffering and during streaming reads", () => {
+test("JSON request body limit accommodates four 4MiB base64 images without unbounded buffering", () => {
+  assert.ok(source.includes("const max=24*1024*1024"));
   assert.ok(source.includes("declared>max"));
   assert.ok(source.includes("const reader=r.body.getReader()"));
   assert.ok(source.includes("size>max"));
   assert.ok(source.includes("Request body too large"));
+  assert.ok(source.includes("Each image must be 4 MB or smaller"));
 });
 
 test("admin user management routes are implemented and role protected", () => {
@@ -133,7 +143,7 @@ test('AI provider overload errors include actionable retry guidance and do not c
 });
 
 
-test('private cloud chat uses metadata-only quota accounting and skips prompt/response persistence', () => { assert.ok(source.includes("action='AI_CHAT_REQUEST'")); assert.ok(source.includes("privacyMode?[]:db.query")); assert.ok(source.includes("Private cloud chat request; prompt and response are not stored by the app")); });
+test('private cloud chat uses metadata-only quota accounting and skips prompt/response persistence', () => { assert.ok(source.includes("audit(db,me,'AI_CHAT_REQUEST'")); assert.ok(source.includes("privacyMode?[]:db.query")); assert.ok(source.includes("Private cloud chat request; prompt and response are not stored by the app")); });
 
 test('ElevenLabs speech endpoint is authenticated through the shared session and CSRF gate', () => {
   assert.ok(source.includes("u.pathname==='/api/voice/speak'&&request.method==='POST'"));
