@@ -1,0 +1,38 @@
+name: Purge exposed key from Git history
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror repository and rewrite every branch and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --mirror "https://x-access-token:${GH_TOKEN}@github.com/sjalalhs7/AI-Syed-Jalal-Final-Master.git" repo.git
+          cd repo.git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python -m pip install --quiet git-filter-repo
+          printf '%s\n' 'regex:sk-[A-Za-z0-9_-]{20,}==>[REDACTED_OPENAI_API_KEY]' > /tmp/replace-rules.txt
+          git filter-repo --force --replace-text /tmp/replace-rules.txt
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/sjalalhs7/AI-Syed-Jalal-Final-Master.git"
+          # Verify the exact exposed dataset path is clean in every reachable branch/tag tip.
+          for ref in $(git for-each-ref --format='%(refname)' refs/heads refs/tags); do
+            git show "${ref}:source/AI-Syed-Jalal-FINAL-RECOVERED/integrations/upstream/MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl" 2>/dev/null | grep -Eiq 'sk-[A-Za-z0-9_-]{20,}' && { echo "Credential-like value remains in ${ref}"; exit 1; } || true
+          done
+          # Push only heads and tags; do not touch GitHub-managed pull refs.
+          git push --force origin 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
+          echo "History rewrite and branch/tag push completed."
+      - name: Resolve secret-scanning alert as revoked
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method PATCH repos/sjalalhs7/AI-Syed-Jalal-Final-Master/secret-scanning/alerts/1 \
+            -f state=resolved -f resolution=revoked \
+            && echo "Secret-scanning alert resolved as revoked." \
+            || echo "Alert resolution API denied; repository history was still rewritten. Resolve alert manually after verification."
