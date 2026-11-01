@@ -9,7 +9,6 @@ jobs:
       fail-fast: false
       matrix:
         branch:
-          - main
           - recovery/data-upgrade-2026-10-22
           - security/redact-exposed-openai-key-2026-11-01
     runs-on: ubuntu-latest
