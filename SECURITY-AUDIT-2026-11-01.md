@@ -1,38 +1,26 @@
-# JalalAI Security Audit — 2026-11-01
+# JalalAI Security Audit — Follow-up, 2026-11-01
 
-## Immediate status
+## Remediation status
 
-- Production deployment and basic read-only health checks pass.
-- GitHub secret-scanning alert #1 reports a publicly leaked OpenAI API key in `source/AI-Syed-Jalal-FINAL-RECOVERED/integrations/upstream/MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl`. Validity is unknown. The key owner must revoke it and issue a replacement immediately. Never paste the key into chat.
-- A replacement dataset was prepared in an isolated workspace: three OpenAI-key-shaped strings removed, all 1,000 JSONL records parsed successfully, and no matching key-shaped strings remain. GitHub rejected upload of the 4 MB replacement through the available integration with HTTP 413. Therefore the repository file is NOT yet redacted.
-- GitHub CodeQL default setup is now configured successfully. GitHub started its CodeQL setup workflow on the default branch; results are pending.
-- Dependabot vulnerability alerts/security updates remain disabled; the available connected GitHub actions do not expose the enable-vulnerability-alerts endpoint.
-- Production branch and production Cloudflare deployment were not changed.
+### Completed and verified
+- GitHub CodeQL default setup is now configured and its setup workflow completed successfully. GitHub auto-detected Actions and Python; this is setup success, not a claim that all source has been scanned or is clean.
+- Branch protection is enabled on `recovery/data-upgrade-2026-10-22` and `main`: administrators are covered, force pushes are disabled, branch deletion is disabled, and linear history is required. Ordinary direct commits remain allowed; pull-request review and required status checks are not yet enforced to avoid breaking current deployment flow.
+- Private vulnerability reporting is enabled for the public repository.
+- Existing source validation passed on the audit branch.
 
-## Other findings
+### Still open — critical credential exposure
+GitHub Secret Scanning alert #1 remains open and publicly leaked. Its validity is unknown. The owner must revoke the OpenAI key and replace it in Cloudflare Pages Production secrets. Do not mark the alert resolved until revocation is confirmed.
 
-- The repository is public; the production and default branches are not protected. Protecting them needs care because Cloudflare deploys from the production branch and a required review can block solo-owner merges.
-- Rate-limit counting is not atomic; concurrent requests can race. A proper fix requires an atomic edge/database limiter and tests.
-- CSP allows `unsafe-inline` and loopback origins. Hardening requires removing inline code and validating all browser API dependencies first.
-- The shared JSON body reader caps requests at 1 MiB while image validation advertises 4 MB per image and up to four images. Align the frontend/server contract before release.
-- Cloudflare masks provider secret values. OpenAI/Gemini actual authentication and successful AI generation were not tested with an authenticated prompt.
+A redacted candidate for the flagged 1,000-record JSONL file was generated and validated: three OpenAI-key-shaped strings removed, all 1,000 JSON records parse, no matching key-shaped strings remain in the candidate. GitHub's file-update integration rejected the 4.08 MB payload with HTTP 413, and its Git blob upload path also rejected the payload. Therefore the candidate is NOT committed and the exposed source/history is NOT fixed. Do not delete the dataset to work around this limit. A proper Git LFS/object-storage migration or a trusted local Git rewrite process is required, followed by coordinated history cleanup after key revocation.
 
-## Verified tests
+### Still open — dependency alerting
+Dependabot alerts and automated security updates remain disabled. The connected GitHub actions available in this workflow did not expose the required repository vulnerability-alerts/automated-security-fixes endpoint. No dependency-clean claim is made.
 
-- `/api/health`, `/api/ready`, `/api/version`: HTTP 200; Neon connected; expected schema tables reported.
-- Homepage and login interface load; SJ branding visible; no obvious initial browser-load errors.
-- Existing source-validation GitHub Actions workflow passed on the audit branch: https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41295136946
-- CodeQL setup enabled; first workflow pending: https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41295436364
+### Still open — application hardening
+- Rate limiting uses separate count and insert operations; concurrent requests can race. Replace with an atomic durable limiter and tests.
+- CSP allows inline scripts/styles and loopback connections. Tighten only after inline code is migrated and browser behavior is tested.
+- API request body cap (1 MiB) conflicts with advertised image size (4 MB each, up to four). Align server and client limits.
+- Authenticated login/role/CSRF tests and real AI provider tests remain unverified. Provider secret names exist in Cloudflare, but secret values are masked and were not validated.
 
-## Release gates
-
-1. Revoke the exposed OpenAI key and replace it in Cloudflare; update any other systems using it.
-2. Commit the validated dataset redaction via a Git-capable route, then coordinate Git history cleanup and assess forks/caches. Do not rewrite public history before revocation and coordination.
-3. Enable Dependabot alerts/security updates.
-4. Review CodeQL results when the scan finishes.
-5. Fix rate limiting, CSP and upload-size mismatch in separately tested changes.
-6. Run authenticated login/CSRF/role tests and a real AI-provider test with a dedicated non-production account.
-
-## Verdict
-
-JalalAI is deployed and basic checks pass, but it is NOT yet security-cleared or fully production-verified. No production secrets, database data, or live deployment settings were changed during this audit.
+## Production safety
+No production database rows, production secrets, application code, or live deployment were modified during this follow-up. Branch protection changes are repository controls only.
