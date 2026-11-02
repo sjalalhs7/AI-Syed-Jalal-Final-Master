@@ -63,7 +63,7 @@ Local verification on 2 November 2026 (after the clarity/usability update):
 
 Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e` database. They do not use the preview database. Tests are evidence for the local adapter, not a Neon/Cloudflare production certification.
 
-Hosted verification is recorded in the pull request checks. Earlier application CI run [41378841241](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841241) and recovery-control run [41378841342](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841342) passed before the final red-check remediation. The final commit adds the approval queue, restored Worker gateway/configuration, reconciled release gates and expanded server tests; see PR #13 for the latest hosted result.
+Hosted verification on final commit `c57d339`: [application CI run 41381021703](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41381021703) and [recovery-control run 41381021628](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41381021628) passed. Cloudflare Pages, Workers Builds, CodeQL and Windows merger checks also passed. CodeRabbit was skipped by configuration, not failed.
 
 ## Production deployment: still required
 

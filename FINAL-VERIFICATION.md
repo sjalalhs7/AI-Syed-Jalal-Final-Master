@@ -25,6 +25,8 @@ and adds worker-gateway tests. `wrangler deploy --dry-run` passes. The gateway i
 
 Cloudflare Pages deployment was already successful; Pages Functions remains the application API runtime. The Worker gateway is a separate deployment target and still needs its backend origin configured if used.
 
+After the fix, the hosted **Workers Builds: ai-syed-jalal** check passed on commit `c57d339`: https://dash.cloudflare.com/9d451193423162c72e1ba003f239c91d/workers/services/view/ai-syed-jalal/production/previews/arena-342bece0-ai-syed-jalal-final-master/builds/3f1643c4-dda0-4303-9ac4-1fb07e3686eb . Cloudflare Pages, CodeQL, application CI, recovery CI and Windows merger checks also passed. CodeRabbit was skipped by its own configuration, not failed.
+
 ## Other issues solved in this pass
 
 - Added a real workspace **Approval queue** for Admin/Manager: request, list, approve and reject recorded decisions through `/api/approvals`.
@@ -55,7 +57,7 @@ From repository root:
 
 These are not hidden as “solved”:
 
-- Cloudflare account-side Workers Builds settings/secrets must accept the restored Worker configuration. The repository-side dry-run passes; the hosted check is authoritative after push.
+- The hosted Workers Builds check now passes. If the gateway is used live, `BACKEND_API_URL` must still be configured in Cloudflare; the gateway intentionally returns 503 until then.
 - Production Neon/Cloudflare staging, migrations `005` and `006`, secrets, provider live tests, backup/restore rehearsal and release approval remain owner-controlled.
 - Open-ended cloud AI requires server-side provider credentials and a successful live request.
 - OpenJarvis desktop control, Gmail/Calendar, WhatsApp, scheduled briefings and autonomous external actions are not connected.
