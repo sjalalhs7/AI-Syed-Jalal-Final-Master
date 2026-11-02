@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/audit-v129-2026-11-02
+      - fix/dependency-audit-2026-11-02
   pull_request:
     branches:
       - main
@@ -34,6 +35,9 @@ jobs:
 
       - name: Install locked dependencies
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED ci --no-audit --no-fund
+
+      - name: Audit direct and transitive dependencies
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED audit --audit-level=high
 
       - name: Run frontend and server test suites
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED test
