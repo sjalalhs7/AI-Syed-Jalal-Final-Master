@@ -1,28 +1,40 @@
-# Production Readiness Audit — 2026-11-02
+# Production Readiness Audit — 2026-11-02 (Post-deployment)
 
 ## Verdict
 
-**Do not switch Cloudflare production to `main` until the database migrations are applied and the live readiness endpoint passes.** The newest unified application is in `main`, but the Cloudflare Pages project was observed configured to publish `recovery/data-upgrade-2026-10-22` instead.
+**The unified V129 application is deployed to Cloudflare production and the database readiness check passes.** One security follow-up remains: a key-like string was detected in a public recovery archive and has not been verified as revoked. A real authenticated AI-provider request was not performed, so provider functionality is not claimed as fully verified.
 
-## Verified facts
+## Verified production results
 
-- GitHub `main` commit audited: `7633be8431391f8e30d54be9100741678ebae326` (unified V129 app, including the workspace and SJ Agent Studio).
-- Cloudflare Pages project: `ai-syed-jalal-live`; configured production branch: `recovery/data-upgrade-2026-10-22`.
-- Latest canonical Cloudflare production deployment observed: commit `d5b08d71a68cd0030ccaa70bd6df230ef34a0a10`, from 2026-10-31. This is not the latest `main` commit.
-- The Neon project `ai-syed-jalal-db`, default database branch `main`, has 8 of the 13 tables required by the V129 readiness check.
-- Missing tables: `auth_rate_limits`, `assistant_tasks`, `assistant_notes`, `platform_conversations`, `platform_messages`. The V127–V129 additive migrations exist in GitHub `main`, but were not present in the inspected production database at audit time.
-- The recovery archive verifier passed: SHA-256 `21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c`, 172,636,153 bytes, 9,990 files, 12,156 ZIP entries, CRC pass.
-- Before installing project dependencies in this audit environment: all 71 frontend tests passed; the recovery verifier's 23 tests passed; all 22 static application checks passed. Two server test files could not start because `@electric-sql/pglite` was not installed in the audit sandbox. The new CI workflow installs the lockfile dependencies before running the complete test suite.
+- Cloudflare Pages project: `ai-syed-jalal-live`.
+- Production branch and Git source branch: `main`.
+- Successful production deployment: `829d495e-c4b9-45c8-abd4-4e762fa07fc8`.
+- Deployed commit: `443dcffb695855f38f8ca5a43bf726af52481949`.
+- Deployment stages queued, initialize, clone, build, and deploy all completed successfully.
+- Public homepage: HTTP 200; page title `Alsyed Jalal AI — Professional Workspace`.
+- `/api/health`: HTTP 200; Neon connection confirmed; version V129.
+- `/api/ready`: HTTP 200; all 13 required schema tables detected.
+- `/api/version`: HTTP 200; version V129.
+- Unauthenticated request to the private AI capabilities endpoint returns HTTP 401 as expected. API responses include `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cross-Origin-Opener-Policy: same-origin`.
+- Neon production database branch `main`: all 13 required tables are present. The V127–V129 additive migration was tested on an isolated temporary branch first, then applied successfully to production. The temporary migration branch was deleted.
+- GitHub Actions quality workflow passed locked dependency installation, `npm audit --audit-level=high`, frontend and server tests, static application checks, first-party JavaScript syntax checks, migration presence checks, and recovery archive integrity tests.
+- Recovery archive verification: SHA-256 `21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c`, 172,636,153 bytes, 9,990 files, 12,156 ZIP entries, CRC pass.
 
-## Security finding
+## Remaining security follow-up
 
-A secret-pattern scan found OpenAI-style key material inside the public recovery archive's upstream `MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl` file. The value is deliberately not reproduced here. Treat it as exposed until the provider confirms it is revoked. GitHub marking a secret-scanning alert “Fixed” does not by itself prove the credential was revoked. The archive was not rewritten during this audit because changing one part without rebuilding and re-verifying the complete archive would break the recovery checksum.
+A secret-pattern scan found OpenAI-style key material in the public recovery archive's upstream `MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl` file. The value is not reproduced here. The scan alone cannot establish whether it is a live credential, but it must be treated as exposed until verified.
 
-## Required deployment sequence
+1. Check the matching GitHub secret-scanning alert and revoke/rotate the credential in the provider dashboard if it is real.
+2. Remove the value from tracked files and any published recovery archive, then re-scan and verify the replacement archive checksum. Rewriting one archive part without rebuilding and re-verifying the full archive is unsafe.
+3. Do not paste any API key into issues, commits, screenshots, or chat.
 
-1. Run the locked dependency install and complete test workflow.
-2. Apply the reviewed additive migrations `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql`, and `007_v129_agent_platform.sql` to the Neon production branch.
-3. Verify the five required tables exist and `/api/ready` returns HTTP 200 with all 13 required tables.
-4. Only then switch Cloudflare Pages production branch to `main`, deploy, and recheck `/api/health`, `/api/ready`, `/api/version`, login, AI provider calls, and JalalAi voice.
+## Not claimed as verified
 
-No secrets are included in this report. Do not paste provider keys into issues, commits, screenshots, or chat.
+- A real authenticated AI-provider request was not run. The health endpoint's `cloudConfigured: true` confirms that at least one provider key is configured; it does not prove the key, model access, quota, or provider response works.
+- Login with the owner's credentials and voice playback were not exercised in this deployment check.
+
+## Deployment state
+
+The earlier branch mismatch is resolved: Cloudflare production now tracks `main`. Database readiness and public health endpoints pass. The remaining security follow-up is credential verification and archive sanitization, not a failed deployment.
+
+No secret values are included in this report.
