@@ -56,7 +56,12 @@ test('records CRUD, role protection, backup/merge restore and operations contrac
   assert.equal((await viewerClient('/admin/users', 'GET', undefined, viewerSession.data.csrfToken)).status, 403);
   assert.equal((await viewerClient('/records', 'POST', { name: 'Forbidden' }, viewerSession.data.csrfToken)).status, 403);
   assert.equal((await viewerClient('/assistant/chat', 'POST', { message: 'help' }, viewerSession.data.csrfToken)).status, 200);
+  assert.equal((await viewerClient('/approvals', 'POST', { action: 'Forbidden' }, viewerSession.data.csrfToken)).status, 403);
   assert.equal((await c('/admin/users/' + viewer.data.user.id, 'PATCH', { active: false }, token)).status, 200);
+  const approval = await c('/approvals', 'POST', { action: 'Integration approval', description: 'Review before release' }, token); assert.equal(approval.status, 201);
+  const approvalId = approval.data.approval.id;
+  assert.equal((await c('/approvals/' + approvalId, 'PATCH', { status: 'approved' }, token)).status, 200);
+  assert.equal((await c('/approvals/' + approvalId, 'PATCH', { status: 'approved' }, token)).status, 404);
   assert.equal((await c('/records/' + encodeURIComponent(id), 'DELETE', {}, token)).status, 200);
 });
 test('cloud failure is explicit and local fallback never pretends to be an AI answer', async () => {

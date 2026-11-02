@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const root = process.cwd();
+const root = new URL('..', import.meta.url).pathname;
 const frontend = path.join(root, 'frontend');
 const html = await fs.readFile(path.join(frontend, 'index.html'), 'utf8');
 const css = await fs.readFile(path.join(frontend, 'assets/v101-palette.css'), 'utf8');

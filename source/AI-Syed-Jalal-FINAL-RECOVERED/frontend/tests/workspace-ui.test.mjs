@@ -72,8 +72,10 @@ test('Workspace hides write, backup, and Admin-only controls according to role',
   assert.match(workspace, /const canWrite=\['Admin','Manager','Data Operator'\]\.includes\(state\.role\)/);
   assert.match(workspace, /\$\('#backupBtn'\)\.hidden=state\.role!=='Admin'/);
   assert.match(workspace, /\['operations','users'\]\.includes\(view\)&&state\.role!=='Admin'/);
-  assert.equal(workspace.includes('Approval queue'), false);
-  assert.equal(workspace.includes('renderApprovals'), false);
+  assert.match(workspace, /id="view-approvals"/);
+  assert.match(workspace, /async function renderApprovals\(\)/);
+  assert.match(workspace, /\['Admin','Manager'\]\.includes\(state\.role\)/);
+  assert.match(workspace, /data-approval-action/);
 });
 
 test('Operations Center labels only metrics the Pages runtime actually exposes', () => {

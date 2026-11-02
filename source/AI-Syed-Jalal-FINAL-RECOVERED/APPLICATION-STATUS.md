@@ -7,7 +7,7 @@ The recovered application is now tracked in this directory, rather than existing
 - **JalalAi:** authenticated chat, calculator, Pakistan clock, structured planning/critical-review/coding guidance, workspace-record search, private tasks and notes. Task/note creation requires explicit confirmation. Tasks can be completed/deleted; notes can be deleted; both can be exported.
 - **Voice:** user-triggered browser speech recognition with transcript review, stop/cancel and permission/error fallbacks; browser speech synthesis with voice selection and stop. Actual microphone recognition and audible output depend on the browser, OS, permissions and speech service. Automated tests verify fallback behavior, not a physical microphone or human listening quality.
 - **Cloud AI:** explicit opt-in through the existing server-side Gemini/OpenAI/Anthropic/DeepSeek adapters. Missing keys or provider failures are labeled; local guidance is not presented as a generated cloud answer. No provider credentials were supplied, so no live cloud model call is claimed.
-- **Workspace/dashboard:** local-tool mode works without a provider key; cloud mode remains gated on configuration. The universal dock and homepage widget use the authenticated assistant route. Record CRUD/import/export, admin user controls, diagnostics, print preview and themes are retained and repaired where tested.
+- **Workspace/dashboard:** local-tool mode works without a provider key; cloud mode remains gated on configuration. The universal dock and homepage widget use the authenticated assistant route. Record CRUD/import/export, admin user controls, diagnostics, print preview and themes are retained and repaired where tested. The approval queue now has a real Admin/Manager UI backed by `/api/approvals`; approval records a human decision and does not execute an external action by itself.
 - **Authentication/data:** HttpOnly sessions, CSRF, server-side roles, atomic quotas, account-scoped assistant tasks/notes, persistent preview database. Preview login is enabled only by the local server's in-process database adapter; a production environment variable alone cannot enable it or insecure cookies.
 - **PWA:** public-shell offline fallback; private workspace/assistant/dashboard pages and all API responses are not cached by the service worker.
 
@@ -54,14 +54,16 @@ npm audit --omit=dev
 Local verification on 2 November 2026 (after the clarity/usability update):
 
 - 62 frontend contract tests passed.
-- 9 server tests passed, including real PGlite/PostgreSQL queries, sessions/CSRF, account isolation, confirmed task persistence, records CRUD, backup/merge restore, admin operations and production preview-login denial.
-- 4 Chromium browser journeys passed, covering assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout, and the new guide/one-click preview/assistant record search.
+- 11 server tests passed, including real PGlite/PostgreSQL queries, sessions/CSRF, account isolation, confirmed task persistence, records CRUD, backup/merge restore, approval request/resolve role checks, worker-gateway behavior, admin operations and production preview-login denial.
+- 4 Chromium browser journeys passed, covering assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/approval request-approve/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout, and the guide/one-click preview/assistant record search.
+- The recovered backend release gate (`npm --prefix backend run test:release`) passed: V76 grand audit, V71 skills, V73 quality/final, V75 final/agency, Wikipedia adapter and capability contracts. Stale UI/palette/path gates were reconciled with the current approved UI instead of restoring retired controls.
+- Cloudflare Worker gateway dry-run (`wrangler deploy --dry-run`) passed; the gateway still requires `BACKEND_API_URL` for live proxying and is not a substitute for the Pages Functions API.
 - 94 JavaScript modules/inline scripts parsed; 17 static checks passed.
 - Production dependency audit: zero known advisories at the time of the check.
 
 Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e` database. They do not use the preview database. Tests are evidence for the local adapter, not a Neon/Cloudflare production certification.
 
-Hosted verification at application commit `d82663f` (including the clarity/usability update): [application CI run 41378841241](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841241) passed all steps, including the four Chromium journeys and the dependency audit. The [recovery-control run 41378841342](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841342) also passed. GitHub emitted non-blocking runner/action-version deprecation notices; the jobs themselves completed successfully.
+Hosted verification is recorded in the pull request checks. Earlier application CI run [41378841241](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841241) and recovery-control run [41378841342](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841342) passed before the final red-check remediation. The final commit adds the approval queue, restored Worker gateway/configuration, reconciled release gates and expanded server tests; see PR #13 for the latest hosted result.
 
 ## Production deployment: still required
 

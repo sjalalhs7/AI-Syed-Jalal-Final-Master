@@ -27,6 +27,8 @@ jobs:
       - run: npm test
       - run: npm run test:e2e
       - run: npm audit --omit=dev
+      - run: npm --prefix backend run test:release
+      - run: node --check worker/index.js
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

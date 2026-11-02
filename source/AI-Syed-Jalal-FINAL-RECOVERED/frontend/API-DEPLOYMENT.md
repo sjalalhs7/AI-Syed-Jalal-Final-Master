@@ -54,7 +54,8 @@ The current Pages Function contains these routes:
 | `/api/records/:id` | GET, PUT, DELETE | Record retrieval, update, and soft deletion |
 | `/api/meta` | GET | Record filter metadata |
 | `/api/stats` | GET | Record statistics |
-| `/api/approvals` | GET, POST, PATCH | Approval workflow |
+| `/api/approvals` | GET, POST | List pending approvals; Admin/Manager may request a recorded decision |
+| `/api/approvals/:id` | PATCH, POST | Admin/Manager may approve or reject a pending decision |
 
 Unknown or unmigrated routes return HTTP 501 with `ROUTE_NOT_IMPLEMENTED`. A route appearing in the recovered source tree is not proof that it is deployed or production-ready.
 
@@ -96,6 +97,6 @@ Do not run destructive tests against production data. Do not mark the release fu
 
 ## Known gaps requiring separate implementation
 
-The current Pages Function does not provide a complete backup/restore API or a complete administrative user-management API. The library endpoint currently returns empty collections. Unknown routes return 501. These capabilities must be designed against the actual UI and database contracts, implemented with authorization and audit coverage, and tested before being advertised as available.
+The current Pages Function includes records backup/merge restore, administrative user management and a skills/library catalogue. Restore is a records merge, not a full tenant/database disaster-recovery restore. Unknown routes return 501. Live production verification still requires the configured Neon database, migrations, secrets and staging checks below.
 
 The separate recovered backend directory is retained in the repository for reference; it is not automatically part of the Cloudflare Pages deployment. Cloudflare Pages is the production API runtime for this configuration. No Render service is required for the current architecture.

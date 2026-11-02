@@ -39,6 +39,8 @@ test('workspace: navigation, local AI, dock, records CRUD, admin, print and them
   await page.locator('#search').fill('Browser test'); await expect(page.locator('#dataBody tr')).toHaveCount(1);
   await page.locator('[data-edit]').click(); await page.locator('#fNotes').fill('Updated by browser test'); await page.locator('#recordForm button[type="submit"]').click();
   page.once('dialog', dialog => dialog.accept()); await page.locator('[data-del]').click(); await expect(page.locator('#dataBody')).toContainText('No records found');
+  await page.locator('.side [data-nav="approvals"]').click(); await page.locator('#approvalAction').fill('Browser approval'); await page.locator('#approvalDescription').fill('Review before release'); await page.locator('#approvalRequestForm button[type="submit"]').click();
+  await expect(page.locator('#approvalList')).toContainText('Browser approval'); await page.locator('[data-approval-action="approved"]').click(); await expect(page.locator('#approvalList')).toContainText('No pending approvals');
   await page.locator('.side [data-nav="users"]').click(); await expect(page.locator('#usersBody')).toContainText('Admin');
   await page.locator('.side [data-nav="operations"]').click(); await page.locator('#opsDiagnosticsBtn').click(); await expect(page.locator('#opsDiagnostics')).toContainText('healthy');
   await page.locator('.side [data-nav="documents"]').click(); await page.locator('#pvName').fill('Print test'); await expect(page.locator('#pvPrevName')).toHaveText('Print test');
