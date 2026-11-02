@@ -4,6 +4,20 @@
   const state = (id, text, kind = '') => { const node = $(id); node.textContent = text; node.className = 'guide-state ' + kind; };
   async function json(path, options = {}) { const response = await fetch('/api' + path, { ...options, credentials: 'same-origin', signal: AbortSignal.timeout(10000) }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`); return data; }
   async function load() {
+    if (window.AJ_STATIC_HOST) {
+      $('guideStatus').textContent = 'Static website preview';
+      state('appState', 'Backend not connected', 'warn');
+      state('cloudState', 'Unknown · needs server', 'warn');
+      state('sessionState', 'Sign-in unavailable here', 'warn');
+      $('startMessage').textContent = 'GitHub Pages hosts the static website files. Login, saved data and cloud AI require the secure application server or the local preview.';
+      $('sandboxNote').textContent = 'Run npm ci && npm run dev in the application folder, then open /guide.html locally. For production, deploy the frontend with Cloudflare Pages Functions and configure Neon.';
+      $('guidePreviewBtn').hidden = true;
+      const recognition = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+      const synthesis = Boolean(window.speechSynthesis);
+      state('voiceState', recognition || synthesis ? 'Browser speech APIs detected' : 'Typing available', recognition || synthesis ? 'ok' : 'warn');
+      $('sessionHelp').textContent = 'Open the secure app server or local preview to sign in.';
+      return;
+    }
     try {
       const [health, ready, session] = await Promise.all([json('/health'), json('/ready'), json('/me')]);
       $('guideStatus').textContent = health.localPreview ? 'Local preview · ready' : 'Application online';

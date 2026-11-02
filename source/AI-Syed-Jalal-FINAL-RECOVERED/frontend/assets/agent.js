@@ -299,10 +299,14 @@
   $('sidebarOpen').onclick = () => $('sidebar').classList.add('open');
   $('sidebarClose').onclick = closeSidebar;
   $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST', body: '{}' }); await signIn(); } catch (error) { setStatus(error.message); $('gateMessage').textContent = error.message; } finally { $('demoBtn').disabled = false; } };
-  $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; messages = []; conversations = []; currentId = null; stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
+  $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=agent.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; messages = []; conversations = []; currentId = null; stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
   document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); newConversation(); } if (event.key === 'Escape') { closeSidebar(); $('toolsPanel').hidden = true; $('studio').classList.remove('tools-open'); } });
   window.addEventListener('pagehide', () => { stopVoice(); requestController?.abort(); });
   const savedTheme = localStorage.getItem('sj-agent-theme'); if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
   setMode('chat', false);
-  signIn().catch(error => { $('authGate').hidden = false; $('conversationArea').hidden = true; $('gateMessage').textContent = 'The server could not be reached. Start the application server and reload. ' + error.message; });
+  if (window.AJ_STATIC_HOST) {
+    $('authGate').hidden = false; $('conversationArea').hidden = true; $('demoBtn').hidden = true; $('demoBtn').disabled = true; $('demoBtn').style.display = 'none';
+    $('gateMessage').textContent = 'Static website preview: Agent Studio needs the secure application server for sign-in, saved conversations and AI. Open the secure app, or run npm run dev locally. See Setup options in the banner.';
+    setStatus('Static preview · backend not connected'); updateControls();
+  } else signIn().catch(error => { $('authGate').hidden = false; $('conversationArea').hidden = true; $('gateMessage').textContent = 'The server could not be reached. Start the application server and reload. ' + error.message; });
 })();

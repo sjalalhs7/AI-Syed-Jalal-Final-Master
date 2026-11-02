@@ -13,6 +13,7 @@
   add('Assalam-o-Alaikum! Aap kis cheez mein help chahte hain?','b');
   w.querySelector('form').onsubmit=function(e){e.preventDefault();var t=inp.value.trim();if(!t||busy)return;
     add(t,'u');inp.value='';busy=true;var b=add('Typing\u2026','b');
+    if(window.AJ_STATIC_HOST){b.textContent='Static website preview: chat needs the secure application server. Open the secure app or local preview.';busy=false;return;}
     fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:t})})
       .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Chat failed');return d})})
       .then(function(d){b.textContent=d.reply||'No reply.'})
