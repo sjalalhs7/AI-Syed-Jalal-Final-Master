@@ -1,5 +1,5 @@
 const CACHE='aj-v128-shell';
-const ASSETS=['./','./index.html','./workspace.html','./jalalai.html','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./dashboard.html','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js'];
+const ASSETS=['./','./index.html','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
