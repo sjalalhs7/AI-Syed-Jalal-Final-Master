@@ -36,7 +36,7 @@ Provider secrets stay server-side. Do not commit API keys or production credenti
 
 ## Website and login status
 
-- **GitHub Pages website:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/ publishes the static frontend from `source/AI-Syed-Jalal-FINAL-RECOVERED/frontend` through `.github/workflows/pages.yml`.
+- **GitHub Pages website:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/ opens the static frontend. `.github/workflows/pages.yml` publishes `source/AI-Syed-Jalal-FINAL-RECOVERED/frontend` when the repository Pages source is set to GitHub Actions; the root `index.html` also provides a legacy-Pages launcher to the same frontend.
 - **Important:** GitHub Pages is static hosting. It can display the login page and public guides, but it cannot run the login API, database, saved conversations or server-side AI. The site detects this and shows setup guidance instead of pretending sign-in succeeded.
 - **Full application:** use the secure Cloudflare Pages + Neon deployment, or run locally from `source/AI-Syed-Jalal-FINAL-RECOVERED` with `npm ci` and `npm run dev`, then open `/guide.html`.
 - Production sign-in still requires owner-controlled `DATABASE_URL`, `CSRF_SECRET`, applied migrations and provider keys. No credentials are stored in this repository.
