@@ -1,40 +1,64 @@
-# Production Readiness Audit — 2026-11-02 (Post-deployment)
+# Production Readiness Audit — 2026-11-02 (verified current state)
 
 ## Verdict
 
-**The unified V129 application is deployed to Cloudflare production and the database readiness check passes.** One security follow-up remains: a key-like string was detected in a public recovery archive and has not been verified as revoked. A real authenticated AI-provider request was not performed, so provider functionality is not claimed as fully verified.
+**The canonical V129 application source is in this same repository on `main`, and the current Cloudflare production deployment and database readiness checks pass.** This does not mean every provider or external integration has passed a live end-to-end test. Arena-generated application changes are merged; Arena.ai proprietary backend/data, private models, paid-account state, and credentials are not present and must not be represented as imported.
 
 ## Verified production results
 
-- Cloudflare Pages project: `ai-syed-jalal-live`.
-- Production branch and Git source branch: `main`.
-- Successful production deployment: `829d495e-c4b9-45c8-abd4-4e762fa07fc8`.
-- Deployed commit: `443dcffb695855f38f8ca5a43bf726af52481949`.
-- Deployment stages queued, initialize, clone, build, and deploy all completed successfully.
-- Public homepage: HTTP 200; page title `Alsyed Jalal AI — Professional Workspace`.
-- `/api/health`: HTTP 200; Neon connection confirmed; version V129.
+- GitHub repository: `sjalalhs7/AI-Syed-Jalal-Final-Master`.
+- Canonical app source: `source/AI-Syed-Jalal-FINAL-RECOVERED/` on `main`; it is not maintained only on a separate branch.
+- Cloudflare Pages project: `ai-syed-jalal-live`; production branch `main`.
+- Latest successful production deployment observed on 2026-11-02: `c811bf9f-f355-4dd0-a369-02a5dae1d4c3`.
+- Deployed Git commit: `25a69a413ef0a709b737ae1aa32814af16f3765b`.
+- Production homepage: HTTP 200; title `Alsyed Jalal AI — Professional Workspace`.
+- `/api/health`: HTTP 200; database connectivity reported; version V129.
 - `/api/ready`: HTTP 200; all 13 required schema tables detected.
 - `/api/version`: HTTP 200; version V129.
-- Unauthenticated request to the private AI capabilities endpoint returns HTTP 401 as expected. API responses include `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cross-Origin-Opener-Policy: same-origin`.
-- Neon production database branch `main`: all 13 required tables are present. The V127–V129 additive migration was tested on an isolated temporary branch first, then applied successfully to production. The temporary migration branch was deleted.
-- GitHub Actions quality workflow passed locked dependency installation, `npm audit --audit-level=high`, frontend and server tests, static application checks, first-party JavaScript syntax checks, migration presence checks, and recovery archive integrity tests.
-- Recovery archive verification: SHA-256 `21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c`, 172,636,153 bytes, 9,990 files, 12,156 ZIP entries, CRC pass.
+- Unauthenticated access to private AI capabilities returns HTTP 401, as expected.
+- GitHub Actions `V129 unified app quality`, `Verify recovery controls`, and Pages deployment all passed for commit `25a69a413ef0a709b737ae1aa32814af16f3765b`.
+- Recovery controls include part checksums, archive checksum and inventory/CRC checks, safe extraction checks, regression tests and a read-only verification workflow. The recovery-control workflow passed on the current commit.
+- Neon production schema check passed with 13 required tables.
 
-## Remaining security follow-up
+## Four audit findings and disposition
 
-A secret-pattern scan found OpenAI-style key material in the public recovery archive's upstream `MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl` file. The value is not reproduced here. The scan alone cannot establish whether it is a live credential, but it must be treated as exposed until verified.
+### 1. Application source split from the canonical project — RESOLVED
 
-1. Check the matching GitHub secret-scanning alert and revoke/rotate the credential in the provider dashboard if it is real.
-2. Remove the value from tracked files and any published recovery archive, then re-scan and verify the replacement archive checksum. Rewriting one archive part without rebuilding and re-verifying the full archive is unsafe.
-3. Do not paste any API key into issues, commits, screenshots, or chat.
+The canonical application is tracked inside this repository at `source/AI-Syed-Jalal-FINAL-RECOVERED/` and Cloudflare deploys from that path on `main`. Keep this as the single canonical application folder; do not create a parallel app fork.
 
-## Not claimed as verified
+### 2. Unsafe or stale recovery automation — RESOLVED IN CURRENT MAIN
 
-- A real authenticated AI-provider request was not run. The health endpoint's `cloudConfigured: true` confirms that at least one provider key is configured; it does not prove the key, model access, quota, or provider response works.
-- Login with the owner's credentials and voice playback were not exercised in this deployment check.
+The current main branch contains the hardened recovery verifier and regression tests. The verification workflow is read-only and does not push recovered code over the application branch. The recovery-control workflow passed for the current main commit. Continue to verify the archive checksum before extraction and never overwrite an existing destination.
 
-## Deployment state
+### 3. “Arena AI data” merge — PARTIALLY VERIFIED; PROPRIETARY DATA NOT IMPORTED
 
-The earlier branch mismatch is resolved: Cloudflare production now tracks `main`. Database readiness and public health endpoints pass. The remaining security follow-up is credential verification and archive sanitization, not a failed deployment.
+The SJ Agent Studio, Direct/Agent/Compare workflows, skill catalogue, role catalogue and related application changes are in the canonical app. The source branches used for the Agent Studio and recovery integration were merged into `main`.
+
+This is **not** evidence that Arena.ai proprietary backend data, private models, paid-account state, or credentials were imported. The repository tree has no clearly named Arena AI data files, and no separate Arena AI export/source artifact was identified in the available project files. Do not invent or fabricate missing data. To merge any additional dataset, first supply or locate the exact export/source archive, then validate its licence, contents and secrets before importing it.
+
+### 4. Health checks mistaken for full integration tests — CLARIFIED; LIVE PROVIDER TEST STILL REQUIRED
+
+`/api/ready` verifies database connectivity and required schema tables; it does not test every integration. `/api/ai/capabilities` reports provider-key configuration, not successful authentication, model access, quota, or a real response. The current app's provider status text explicitly says a live call is not yet verified.
+
+A real authenticated provider prompt has not been executed as part of this audit. Gmail, Google Calendar and WhatsApp are explicitly not integrated in the current JalalAi assistant; do not mark them connected. Browser speech and the ElevenLabs endpoint are separate capabilities and also require an authenticated live test. No production credentials were exposed or copied into this report.
+
+## Security follow-up — still open
+
+A secret-pattern scan found OpenAI-style key material inside the public recovery archive's upstream file `MedicalGPT/data/sft/sharegpt_zh_1K_format.jsonl`. The value is intentionally not reproduced. The user reported that the key was revoked; that revocation has not been independently verified from the provider account. Revoking a key does not remove it from the public archive or Git history.
+
+Required before calling the repository security-clean:
+1. Verify the credential is revoked/invalid in the provider dashboard; never paste it into chat or issues.
+2. Rebuild a sanitized archive with the key-like value removed, verify its file inventory, CRC and new SHA-256, and replace the published archive and split parts consistently.
+3. Re-scan current files and the rebuilt archive for credential patterns. Do not delete or replace archive parts individually without rebuilding and validating the complete archive.
+
+## Final status
+
+- **Production deploy / database readiness:** passed.
+- **Canonical app source in same repository:** verified.
+- **Recovery integrity controls:** tests passed.
+- **Arena-style Agent Studio and catalogue integration:** present.
+- **Arena.ai proprietary data import:** not evidenced; source artifact missing.
+- **Live authenticated provider and external-integration E2E:** not verified.
+- **Public recovery archive sanitization after reported key revocation:** still required.
 
 No secret values are included in this report.
