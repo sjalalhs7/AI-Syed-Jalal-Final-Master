@@ -9,10 +9,12 @@ test("API explicitly reports missing Neon configuration instead of pretending re
   assert.ok(source.includes("if(!env.DB_ADAPTER&&!env.DATABASE_URL)"));
 });
 
-test("readiness requires the atomic rate-limit migration before declaring production ready", () => {
+test("readiness requires rate-limit and Agent Studio migrations before declaring production ready", () => {
   assert.ok(source.includes("auth_rate_limits"));
-  assert.ok(source.includes("ready:n>=11"));
-  assert.ok(source.includes("n>=11?200:503"));
+  assert.ok(source.includes("platform_conversations"));
+  assert.ok(source.includes("platform_messages"));
+  assert.ok(source.includes("ready:n>=13"));
+  assert.ok(source.includes("n>=13?200:503"));
 });
 
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {

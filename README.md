@@ -43,3 +43,8 @@ Use test data only in the local preview. See the [application status and verific
 ## Final red-check verification
 
 See [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) for the explanation of GitHub's 263 red deletion marks, the restored Cloudflare Worker gateway, approval-queue fix, reconciled release gates and final local test results.
+
+
+## Unified platform
+
+SJ Agent Studio (`source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/agent.html`) is the unified Arena-style workspace: Direct chat, bounded Agent workflows, side-by-side Compare, history, text/code attachments, voice and export. See `source/AI-Syed-Jalal-FINAL-RECOVERED/AGENT-STUDIO.md` and `PLATFORM-CONSOLIDATION.md`.

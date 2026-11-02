@@ -71,7 +71,7 @@ No production deployment, DNS change, PR merge or external-account mutation was 
 
 1. Use `frontend/` as the Cloudflare Pages output directory and retain `frontend/functions/` and `_headers`.
 2. Configure Neon `DATABASE_URL` and a strong `CSRF_SECRET` (at least 32 characters) as server secrets. Do not set `LOCAL_PREVIEW`, `COOKIE_SECURE=false`, or a database adapter in production.
-3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql` and `006_v128_assistant_tools.sql`, then verify `/api/ready` reports 11 required tables. `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
+3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql` and `007_v129_agent_platform.sql`, then verify `/api/ready` reports 13 required tables. `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
 4. Configure only the provider keys you intend to use. Verify model access and a real non-sensitive prompt for each provider. Key presence is not a live-provider test.
 5. Repeat registration/login/logout, password change, role restrictions, record CRUD/import/export, backup and a controlled merge restore, assistant confirmation/persistence, mobile voice and PWA checks against staging.
 6. Verify backup restoration and rollback before promoting the deployment. Production data migration and release approval remain owner responsibilities.
@@ -87,3 +87,11 @@ The restore feature is a **records merge**, not a full tenant/database disaster-
 - Physical microphone/speaker behavior across Safari/Firefox/Android/iOS, production load testing, independent penetration testing and legal/medical compliance certification.
 
 Local planning/review output is a structured template. It is not represented as an expert human review or an external model response. See `frontend/JALALAI-SETUP.md`, `frontend/API-DEPLOYMENT.md` and the repository audit for additional boundaries.
+
+
+## V129 Agent Studio update
+
+- Added `frontend/agent.html` with Direct / Agent / Compare modes, account-scoped history, text/code attachments, voice, export, tools panel and theme.
+- Added `/api/platform/*` routes and migration `007_v129_agent_platform.sql`; readiness now requires 13 tables.
+- Local engines work without keys. Cloud engines remain credential-gated and honestly labeled.
+- Verification: `npm run check`, `npm test`, `npm run test:e2e` (5 browser journeys), `npm audit --omit=dev` 0, backend release tests PASS.
