@@ -18,7 +18,7 @@
 ## Conversation features
 
 - Account-scoped conversation history with search, rename, delete and export (Markdown; Shift-click export for JSON).
-- History toggle. When off, message text is not stored; the conversation shell may remain so settings can be remembered.
+- History toggle. When off, message text is not stored and the conversation uses the generic title “Private conversation”; the conversation shell may remain so settings can be remembered.
 - Text/code attachments: `.txt`, `.md`, `.csv`, `.json`, `.js`, `.ts`, `.py`, `.html`, `.css`, `.xml`, `.yaml`, `.log`, `.sql`. Maximum four files, 120,000 characters each, 240,000 total. Local mode performs deterministic file inspection; cloud mode sends file text to the selected provider.
 - Browser voice input and read-aloud where supported. Microphone is requested only on button press.
 - Confirmed task/note creation through the existing assistant confirmation endpoint.

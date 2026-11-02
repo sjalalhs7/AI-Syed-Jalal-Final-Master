@@ -27,4 +27,5 @@ test('private Agent Studio shell and API responses are not cached by the service
 test('history control, attachments, vote and export are wired', () => {
   assert.match(page, /id="historyToggle"/); assert.match(page, /id="fileInput"/);
   assert.match(client, /\/vote/); assert.match(client, /exportConversation/); assert.match(client, /Confirm & save/);
+  assert.match(client, /Private conversation/); assert.match(routes, /Private conversation/);
 });

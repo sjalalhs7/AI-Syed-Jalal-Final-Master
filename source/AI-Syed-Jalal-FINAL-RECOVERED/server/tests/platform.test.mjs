@@ -66,12 +66,23 @@ test('compare mode returns two sides and records a vote', async () => {
 
 test('history off keeps messages transient and cloud gaps stay explicit', async () => {
   const { c, token } = await account();
-  const created = await c('/platform/conversations', 'POST', { history: false }, token); const id = created.data.conversation.id;
+  const created = await c('/platform/conversations', 'POST', { title: 'This title must not survive', history: false }, token); const id = created.data.conversation.id;
+  assert.equal(created.data.conversation.title, 'Private conversation');
   const result = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'calculate 2+2', history: false }, token);
   assert.equal(result.status, 200); assert.equal(result.data.history, false); assert.equal(result.data.messages.length, 2);
-  assert.equal((await c(`/platform/conversations/${id}`)).data.messages.length, 0);
+  const loaded = await c(`/platform/conversations/${id}`);
+  assert.equal(loaded.data.messages.length, 0); assert.equal(loaded.data.conversation.title, 'Private conversation');
   const cloud = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'Tell me a story', modelA: 'gemini', history: false }, token);
   assert.equal(cloud.status, 200); assert.match(cloud.data.messages.at(-1).content, /not configured/);
   const badFile = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'read', attachments: [{ name: 'image.png', text: 'x' }] }, token);
   assert.equal(badFile.status, 400);
+});
+
+test('disabling history removes stored messages and message-derived titles', async () => {
+  const { c, token } = await account();
+  const created = await c('/platform/conversations', 'POST', { title: 'Sensitive project title' }, token); const id = created.data.conversation.id;
+  await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'calculate 5+5' }, token);
+  const disabled = await c(`/platform/conversations/${id}`, 'PATCH', { history: false }, token);
+  assert.equal(disabled.status, 200); assert.equal(disabled.data.conversation.title, 'Private conversation');
+  const loaded = await c(`/platform/conversations/${id}`); assert.equal(loaded.data.messages.length, 0);
 });

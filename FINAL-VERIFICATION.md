@@ -1,5 +1,7 @@
 # Final verification and red-mark explanation
 
+> Historical report for PR #13. For the unified V129 platform handoff, see [FINAL-OK-REPORT.md](FINAL-OK-REPORT.md).
+
 Date: 2 November 2026  
 Branch: `arena/342bece0-ai-syed-jalal-final-master`  
 Pull request: #13

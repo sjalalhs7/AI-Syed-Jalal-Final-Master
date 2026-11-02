@@ -187,7 +187,7 @@
   }
   async function ensureConversation(firstMessage) {
     if (currentId) return currentId;
-    const data = await api('/platform/conversations', { method: 'POST', body: JSON.stringify({ title: firstMessage.slice(0, 80) || 'New conversation', mode, modelA, modelB, history }) });
+    const data = await api('/platform/conversations', { method: 'POST', body: JSON.stringify({ title: history ? (firstMessage.slice(0, 80) || 'New conversation') : 'Private conversation', mode, modelA, modelB, history }) });
     currentId = data.conversation.id; $('conversationTitle').textContent = data.conversation.title;
     await loadConversations($('conversationSearch').value.trim());
     return currentId;
@@ -259,7 +259,7 @@
   $('historyToggle').onchange = async () => {
     history = $('historyToggle').checked;
     if (!history && messages.length && !window.confirm('Turn history off? Existing messages in this conversation will be deleted from the server. Current screen text stays until you leave.')) { history = true; $('historyToggle').checked = true; return; }
-    if (currentId) { try { await api(`/platform/conversations/${currentId}`, { method: 'PATCH', body: JSON.stringify({ history }) }); if (!history) { messages = []; renderMessages(); } setStatus(history ? 'History enabled.' : 'History disabled. New messages are transient.'); } catch (error) { setStatus(error.message); } }
+    if (currentId) { try { await api(`/platform/conversations/${currentId}`, { method: 'PATCH', body: JSON.stringify({ history }) }); if (!history) { messages = []; $('conversationTitle').textContent = 'Private conversation'; renderMessages(); await loadConversations($('conversationSearch').value.trim()); } setStatus(history ? 'History enabled.' : 'History disabled. New messages are transient.'); } catch (error) { setStatus(error.message); } }
     else setStatus(history ? 'History enabled for the next conversation.' : 'History disabled. New messages are transient.');
   };
   $('newChatBtn').onclick = newConversation;

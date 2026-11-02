@@ -56,6 +56,8 @@ The current Pages Function contains these routes:
 | `/api/stats` | GET | Record statistics |
 | `/api/approvals` | GET, POST | List pending approvals; Admin/Manager may request a recorded decision |
 | `/api/approvals/:id` | PATCH, POST | Admin/Manager may approve or reject a pending decision |
+| `/api/assistant/*` | GET, POST, PATCH, DELETE | Authenticated local/cloud assistant, confirmed tasks/notes and state |
+| `/api/platform/*` | GET, POST, PATCH, DELETE | Agent Studio conversations, messages, transient history and compare votes |
 
 Unknown or unmigrated routes return HTTP 501 with `ROUTE_NOT_IMPLEMENTED`. A route appearing in the recovered source tree is not proof that it is deployed or production-ready.
 
@@ -88,8 +90,8 @@ npm run check
 After deployment, verify:
 
 1. `GET /api/health` returns a successful database connectivity result.
-2. `GET /api/ready` reports the expected schema readiness.
-3. Authentication, CSRF, record CRUD, approvals, and role restrictions pass against a non-production test account.
+2. `GET /api/ready` reports `ready: true` and `schemaTables: 13` after migrations 005, 006 and 007.
+3. Authentication, CSRF, record CRUD, approvals, role restrictions, Agent Studio history/transient mode, attachments and compare voting pass against a non-production test account.
 4. An authenticated prompt to `POST /api/ai/run` returns a real provider response with `status: "completed"` and `simulated: false`.
 5. Provider failures, missing configuration, rate limits, and unauthorised access return safe, explicit errors.
 
