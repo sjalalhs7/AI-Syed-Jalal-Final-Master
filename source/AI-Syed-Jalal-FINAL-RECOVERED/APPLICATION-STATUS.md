@@ -61,7 +61,7 @@ Local verification on 2 November 2026 (after the clarity/usability update):
 
 Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e` database. They do not use the preview database. Tests are evidence for the local adapter, not a Neon/Cloudflare production certification.
 
-Earlier hosted verification at application commit `57ecc4e` (before the clarity/usability update): [application CI run 41373225659](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225659) passed all steps, including Chromium journeys and the dependency audit. The [recovery-control run 41373225748](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225748) also passed. GitHub emitted non-blocking runner/action-version deprecation notices; the jobs themselves completed successfully.
+Hosted verification at application commit `d82663f` (including the clarity/usability update): [application CI run 41378841241](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841241) passed all steps, including the four Chromium journeys and the dependency audit. The [recovery-control run 41378841342](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41378841342) also passed. GitHub emitted non-blocking runner/action-version deprecation notices; the jobs themselves completed successfully.
 
 ## Production deployment: still required
 
