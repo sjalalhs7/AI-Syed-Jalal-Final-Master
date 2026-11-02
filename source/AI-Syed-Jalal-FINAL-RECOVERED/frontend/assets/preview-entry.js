@@ -12,7 +12,6 @@
       button.onclick = async () => {
         if (window.workspaceReady) await window.workspaceReady;
         button.disabled = true; button.textContent = 'Preparing your preview…';
-        button.disabled = true; button.textContent = 'Preparing your preview…';
         try {
           let csrf = '';
           if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); csrf = session.csrfToken || ''; }

@@ -1,41 +1,41 @@
-# AI-Syed Jalal application
+# AI-Syed-Jalal — Reconciled Recovery Master
 
-This is the recovered, runnable application source. The repository's original recovery archives and audit controls remain at the repository root.
+This repository is the documentation/control point for the recovered AI-Syed-Jalal project lineage. The full local recovery ZIP is currently validated in the working session, but has **not yet been attached to a GitHub Release**.
 
-## Run
+## Locked design rule
+The approved Login Page + Homepage + Logo identity, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Older concept boards remain historical references, not replacements for the approved design.
 
-Requires Node.js 22.13+:
+## Source lineage
+- V122-MERGED is the larger recovered source base: 9,950 files and 282,418,696 bytes uncompressed in its original archive.
+- V125-FULL is a smaller curated continuation: 1,226 files and 18,719,357 bytes uncompressed. It is not a complete replacement for V122.
+- The recovery master combines the V122 source lineage with selected V125 additions and verified engineering-baseline records.
+- The original historical V25 archive remains missing/unverified.
 
-```sh
-npm ci
-npm run dev
-```
+## Main user-facing surfaces in the recovery package
+- Public homepage and login entry
+- Dashboard and workspace shell
+- AI command console and agent catalog
+- Google Gemini / AI Studio provider adapter and optional Google Search grounding configuration
+- Bounded Supervisor and AutoGPT UI/API contracts
+- Skills/catalog, Agency profiles/tools, learning roadmaps and OSSU reference material
+- Profile/settings and OpenCode/Android IDE integration contracts
 
-Open port 3000. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard. Use the local-preview button for a disposable test account, or register through the homepage.
+## Verification summary
+Offline regression/source gates pass for the V76/V73/V75 lineage, 3,500 skills across 35 domains, 120 catalog roles, 303 Agency profiles, 16 Agency tool targets, bounded Supervisor/AutoGPT logic, roadmap data/page/menu, source audit, upstream references, and palette contract.
 
-**Use test data only in the preview.** It is a shared sandbox with Admin access, not production. Data persists in ignored `.data/postgres`. Production uses Cloudflare Pages Functions and Neon, not this local Node server.
+Not yet proven as live production: PostgreSQL E2E, real provider calls/fallback, live Google Search grounding, dedicated Wikipedia integration, medical safety E2E, physical browser/device and voice tests, Windows/VPS deployment, and exact V25 lineage recovery. Source presence or UI controls are not proof of live integration.
 
-## Working features
+See:
+- `docs/FINALIZATION-STATUS.md`
+- `docs/AGENT-CAPABILITY-ROADMAP.md`
+- `docs/RELEASE-ASSET-HANDOFF.md`
+- `docs/visual-history/` in the full recovery package
 
-- Local calculator, clock, planning/review templates, tasks/notes with confirmation and persistence.
-- Optional browser voice input/output; optional server-configured cloud AI.
-- Authenticated workspace, record CRUD/import/export, admin controls, diagnostics, print preview and themes.
-- Public-shell PWA fallback without caching private pages or API responses.
+## Security
+Provider secrets stay server-side. Do not commit API keys or production credentials. Medical features must be educational, source-grounded, and safety-gated. Microphone/camera/screen capabilities must be opt-in, permission-gated, visibly active, and revocable.
 
-Cloud AI needs your own server-side provider key and a live verification. OpenJarvis desktop control, Gmail/Calendar, WhatsApp and scheduled briefings are not connected. Browser speech support varies by device.
+## Runnable application and quick start (November 2026)
 
-## Verify
+The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard.
 
-```sh
-npm run check
-npm test
-npm run test:e2e
-npm audit --omit=dev
-```
-
-See [APPLICATION-STATUS.md](APPLICATION-STATUS.md) for verified results, limitations and production release gates. Do not treat local tests as production certification.
-
-
-## Runnable application (November 2026)
-
-The recovered application is now tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). Run `npm ci` and `npm run dev` in that directory. See its [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, local-preview instructions and remaining production/external-service gates. The original recovery archives remain unchanged.
+Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.

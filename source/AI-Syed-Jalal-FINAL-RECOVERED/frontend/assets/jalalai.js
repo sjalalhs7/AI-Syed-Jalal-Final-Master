@@ -26,10 +26,10 @@
   function speak(text) {
     if (!('speechSynthesis' in window)) { setStatus('Speech output is not supported by this browser. The reply remains available as text.'); return; }
     window.speechSynthesis.cancel();
-    speech = new SpeechSynthesisUtterance(text.slice(0, 5000)); speech.lang = 'en-US';
+    speech = new SpeechSynthesisUtterance(text.slice(0, 5000)); speech.lang = $('speechLanguage').value || 'en-US';
     const selected = $('voice').value;
     const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v => v.name === selected) || voices.find(v => v.lang.startsWith('en'));
+    const voice = voices.find(v => v.name === selected) || voices.find(v => v.lang.replace('_', '-').toLowerCase() === speech.lang.toLowerCase()) || voices.find(v => v.lang.startsWith(speech.lang.split('-')[0]));
     if (voice) speech.voice = voice;
     speech.onend = speech.onerror = () => { speech = null; updateControls(); };
     window.speechSynthesis.speak(speech); updateControls();
@@ -72,16 +72,16 @@
       }
     }
     $('taskCount').textContent = state.tasks.filter(t => t.status === 'open').length;
+    $('mode').querySelector('option[value="cloud"]').textContent = state.cloudConfigured ? 'Cloud AI (server key configured)' : 'Cloud AI (not configured)';
     $('cloudStatus').textContent = state.cloudConfigured ? 'A server provider key is configured. Cloud responses still require a successful live request.' : 'No cloud AI key is configured. Local tools work now; open-ended AI answers are not available.';
   }
   async function runTool(result) {
     if (result.tool === 'list_tasks') addMessage(state.tasks.length ? state.tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : 'No tasks yet. Try “add task: Review the proposal”.', 'assistant', 'JalalAi · your saved tasks');
     if (result.tool === 'list_notes') addMessage(state.notes.length ? state.notes.map(n => '• ' + n.content).join('\n') : 'No notes yet. Try “save note: Your note”.', 'assistant', 'JalalAi · your private notes');
     if (result.tool === 'search_records') {
-      const rows = await api('/records?limit=200');
-      const needle = result.query.toLowerCase();
-      const matches = rows.filter(row => JSON.stringify(row).toLowerCase().includes(needle));
-      addMessage(matches.length ? matches.map(row => `• ${row.module}: ${row.name || row.notes || row.id}`).join('\n') : `No workspace records match “${result.query}”.`, 'assistant', 'JalalAi · workspace search');
+      const response = await api('/records?limit=200&q=' + encodeURIComponent(result.query));
+      const matches = response.records || [];
+      addMessage(matches.length ? matches.map(row => `• ${row.name || row.id}: ${row.notes || row.status || 'Record'}`).join('\n') : `No workspace records match “${result.query}”.`, 'assistant', 'JalalAi · workspace search');
     }
   }
   async function send(text) {
@@ -105,13 +105,13 @@
   async function signIn() {
     const session = await api('/me'); csrf = session.csrfToken;
     if (!session.authenticated) {
-      user = null; $('loginBanner').hidden = false; $('sendBtn').disabled = true;
+      user = null; $('loginBanner').hidden = false; $('quickStart').hidden = false; $('sendBtn').disabled = true;
       const health = await api('/health'); $('demoBtn').hidden = !health.localPreview;
       $('loginMessage').textContent = health.localPreview ? 'Disposable preview: use test data only. Tasks and notes are account-scoped; workspace records are shared in this sandbox.' : 'Sign in with your account to use JalalAi and your private workspace.';
       $('connectionStatus').textContent = health.localPreview ? 'Local preview · not production' : 'Secure account required';
       setStatus(health.localPreview ? 'Choose “Try the local preview” to get started.' : 'Sign in to begin.'); updateControls(); return;
     }
-    user = session.user; $('loginBanner').hidden = true; await refreshState(); $('connectionStatus').textContent = 'Connected · ' + user.username; setStatus('Ready. Your microphone is off.'); updateControls();
+    user = session.user; $('loginBanner').hidden = true; $('quickStart').hidden = true; await refreshState(); $('connectionStatus').textContent = 'Connected · ' + user.username; setStatus('Ready. Your microphone is off.'); updateControls();
   }
   $('chatForm').onsubmit = event => { event.preventDefault(); send(); };
   $('prompt').addEventListener('input', updateControls);
@@ -122,7 +122,7 @@
     if (listening) { stopVoice(); setStatus('Microphone stopped.'); return; }
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Speech) { setStatus('Voice input is not supported in this browser. Type your message, or try a browser with Web Speech support.'); return; }
-    stopVoice(); recognition = new Speech(); recognition.lang = 'en-US'; recognition.interimResults = true; recognition.continuous = false;
+    stopVoice(); recognition = new Speech(); recognition.lang = $('speechLanguage').value || 'en-US'; recognition.interimResults = true; recognition.continuous = false;
     recognition.onstart = () => { listening = true; $('micBtn').textContent = '■ Stop mic'; $('micBtn').setAttribute('aria-pressed', 'true'); setStatus('Listening… press Stop mic to cancel. Your browser may use its speech service.'); updateControls(); };
     recognition.onresult = event => { const result = Array.from(event.results).map(r => r[0].transcript).join(' '); $('prompt').value = result; updateControls(); if (event.results[event.results.length - 1].isFinal) { stopVoice(); setStatus('Transcript ready. Review it, then press Send.'); } };
     recognition.onerror = event => { stopVoice(); setStatus(event.error === 'not-allowed' ? 'Microphone permission was denied. Allow it in browser settings or keep typing.' : `Voice input failed (${event.error}). You can still type.`); };

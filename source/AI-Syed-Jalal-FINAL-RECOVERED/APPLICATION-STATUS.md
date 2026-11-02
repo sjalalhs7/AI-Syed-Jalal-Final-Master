@@ -2,7 +2,7 @@
 
 ## What runs now
 
-The recovered application is now tracked in this directory, rather than existing only inside recovery archives. The original homepage, account identity and approved SJ crown asset are retained.
+The recovered application is now tracked in this directory, rather than existing only inside recovery archives. The original homepage, account identity and approved SJ crown asset are retained. A new **Start here** guide (`/guide.html`) gives one-click preview access, live capability status, working commands and clear troubleshooting; it is linked from the homepage, assistant, workspace and dashboard.
 
 - **JalalAi:** authenticated chat, calculator, Pakistan clock, structured planning/critical-review/coding guidance, workspace-record search, private tasks and notes. Task/note creation requires explicit confirmation. Tasks can be completed/deleted; notes can be deleted; both can be exported.
 - **Voice:** user-triggered browser speech recognition with transcript review, stop/cancel and permission/error fallbacks; browser speech synthesis with voice selection and stop. Actual microphone recognition and audible output depend on the browser, OS, permissions and speech service. Automated tests verify fallback behavior, not a physical microphone or human listening quality.
@@ -21,7 +21,7 @@ npm ci
 npm run dev
 ```
 
-Open port 3000, then `/jalalai.html`. Choose **Try the local preview**, or register/sign in through the homepage. The preview database is `.data/postgres`; its session-signing secret is `.data/session-secret`. Both are ignored by Git. Back up this directory before deleting it. Use `PORT` to change the port. `DATA_DIR` is available for disposable test databases and must remain under `.data/`.
+Open port 3000, then `/guide.html` for the simplest start. Choose **Start preview for me**, or open `/jalalai.html` and choose **Try the local preview**. You can also register/sign in through the homepage. The preview database is `.data/postgres`; its session-signing secret is `.data/session-secret`. Both are ignored by Git. Back up this directory before deleting it. Use `PORT` to change the port. `DATA_DIR` is available for disposable test databases and must remain under `.data/`.
 
 **The preview is a disposable shared sandbox, not a production tenant.** Preview accounts receive Admin to exercise the controls. Tasks/notes are account-scoped, but workspace records and user administration are shared. Do not enter sensitive or real personal data. The local Node server explicitly refuses `NODE_ENV=production`.
 
@@ -51,17 +51,17 @@ npm run test:e2e
 npm audit --omit=dev
 ```
 
-Local verification on 2 November 2026:
+Local verification on 2 November 2026 (after the clarity/usability update):
 
-- 61 frontend contract tests passed.
+- 62 frontend contract tests passed.
 - 9 server tests passed, including real PGlite/PostgreSQL queries, sessions/CSRF, account isolation, confirmed task persistence, records CRUD, backup/merge restore, admin operations and production preview-login denial.
-- 3 Chromium browser journeys passed, covering assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout.
-- 93 JavaScript modules/inline scripts parsed; 15 static checks passed.
+- 4 Chromium browser journeys passed, covering assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout, and the new guide/one-click preview/assistant record search.
+- 94 JavaScript modules/inline scripts parsed; 17 static checks passed.
 - Production dependency audit: zero known advisories at the time of the check.
 
 Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e` database. They do not use the preview database. Tests are evidence for the local adapter, not a Neon/Cloudflare production certification.
 
-Hosted verification at application commit `57ecc4e`: [application CI run 41373225659](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225659) passed all steps, including Chromium journeys and the dependency audit. The [recovery-control run 41373225748](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225748) also passed. GitHub emitted non-blocking runner/action-version deprecation notices; the jobs themselves completed successfully.
+Earlier hosted verification at application commit `57ecc4e` (before the clarity/usability update): [application CI run 41373225659](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225659) passed all steps, including Chromium journeys and the dependency audit. The [recovery-control run 41373225748](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41373225748) also passed. GitHub emitted non-blocking runner/action-version deprecation notices; the jobs themselves completed successfully.
 
 ## Production deployment: still required
 

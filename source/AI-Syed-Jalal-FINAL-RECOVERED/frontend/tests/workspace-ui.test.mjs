@@ -120,7 +120,7 @@ test('Homepage does not market unimplemented autonomous, voice or multi-model fe
       'unsupported homepage claim remains: ' + marker);
   }
   assert.ok(homepage.includes('AI WORKSPACE · PLAN · BUILD · ORGANIZE'));
-  assert.ok(homepage.includes('AI answers require an available configured provider.'));
+  assert.ok(homepage.includes('Open-ended cloud AI is optional and clearly labeled.'));
 });
 
 test('Workspace metadata points to Cloudflare and does not retain GitHub Pages SEO claims', () => {

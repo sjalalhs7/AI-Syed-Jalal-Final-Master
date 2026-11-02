@@ -39,3 +39,13 @@ test('setup guide records the mobile cloud design and explicit integration limit
   assert.match(guide, /does not store prompt or reply text/i);
   assert.match(guide, /ElevenLabs voice/i);
 });
+
+test('quick-start guide and assistant search use real contracts', () => {
+  const guide = readFileSync(new URL('guide.html', base), 'utf8');
+  const guideJs = readFileSync(new URL('assets/guide.js', base), 'utf8');
+  assert.match(guide, /Start preview for me/);
+  assert.match(guide, /Not connected:/);
+  assert.match(guideJs, /json\('\/health'\)/);
+  assert.match(client, /response\.records \|\| \[\]/);
+  assert.match(client, /encodeURIComponent\(result\.query\)/);
+});

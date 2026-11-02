@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
@@ -14,7 +14,10 @@ const html = read('index.html');
 const css = read('assets/v101-palette.css');
 const logo = read('assets/approved-sj-rainbow-crown.svg');
 const manifest = JSON.parse(read('manifest.webmanifest'));
+const guide = read('guide.html');
 const checks = [
+  ['quick-start guide is linked from homepage', /href=["']guide\.html["']/.test(html)],
+  ['quick-start guide explains local and cloud modes', /Local tools work now/.test(guide) && /server-side provider key/.test(guide)],
   ['homepage closes', /<\/html>\s*$/i.test(html)],
   ['viewport configured', /name=["']viewport["']/i.test(html)],
   ['canonical URL present', /rel=["']canonical["']/i.test(html)],
