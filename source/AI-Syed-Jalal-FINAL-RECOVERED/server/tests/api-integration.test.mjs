@@ -49,7 +49,13 @@ test('records CRUD, role protection, backup/merge restore and operations contrac
   const restore = await c('/restore', 'POST', backup.data, token); assert.equal(restore.data.mode, 'merge');
   for (const path of ['/stats', '/admin/metrics', '/admin/permissions', '/admin/system-snapshot', '/admin/data-integrity', '/admin/diagnostics', '/admin/users', '/security/events', '/auth/sessions', '/library', '/ai/capabilities']) assert.equal((await c(path)).status, 200, path);
   const diagnostics = await c('/admin/diagnostics'); assert.equal(diagnostics.data.checks.schema, true); assert.equal(diagnostics.data.pool.available, false);
-  const viewer = await c('/admin/users', 'POST', { username: 'test-viewer-' + Date.now(), password: 'Test-password-12345', role: 'Viewer' }, token); assert.equal(viewer.status, 201);
+  const username = 'test-viewer-' + Date.now();
+  const viewer = await c('/admin/users', 'POST', { username, password: 'Test-password-12345', role: 'Viewer' }, token); assert.equal(viewer.status, 201);
+  const login = await client()('/auth/login', 'POST', { username, password: 'Test-password-12345' }); assert.equal(login.status, 200);
+  const viewerClient = client(login.cookie), viewerSession = await viewerClient('/me');
+  assert.equal((await viewerClient('/admin/users', 'GET', undefined, viewerSession.data.csrfToken)).status, 403);
+  assert.equal((await viewerClient('/records', 'POST', { name: 'Forbidden' }, viewerSession.data.csrfToken)).status, 403);
+  assert.equal((await viewerClient('/assistant/chat', 'POST', { message: 'help' }, viewerSession.data.csrfToken)).status, 200);
   assert.equal((await c('/admin/users/' + viewer.data.user.id, 'PATCH', { active: false }, token)).status, 200);
   assert.equal((await c('/records/' + encodeURIComponent(id), 'DELETE', {}, token)).status, 200);
 });

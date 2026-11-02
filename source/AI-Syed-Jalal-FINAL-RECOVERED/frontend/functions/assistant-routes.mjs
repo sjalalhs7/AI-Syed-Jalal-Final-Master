@@ -13,7 +13,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
   if (path === '/api/assistant/chat' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-minute', me.id, 30, 2)) return reply({ error: 'Please wait a moment before sending another message.' }, 429, { 'Retry-After': '60' });
     const body = await readBody(request), message = String(body.message || '').trim(), profile = String(body.profile || 'general');
-    if (!message || message.length > 10000) return reply({ error: 'Enter a message between 1 and 10,000 characters.' }, 400);
+    if (!message || message.length > (body.mode === 'cloud' ? 9500 : 10000)) return reply({ error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).' }, 400);
     if (!PROFILE_IDS.includes(profile)) return reply({ error: 'Choose a supported assistant profile.' }, 400);
     const result = localAssistant(message, profile);
     if (body.mode !== 'cloud' || result.action || result.tool || !result.needsProvider && /^(hi|hello|salam|assalam|hey)\b/i.test(message)) return reply(result);
