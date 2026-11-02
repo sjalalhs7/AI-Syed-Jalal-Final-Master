@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   // Only the server can enable this button. The demo endpoint requires a local database adapter.
+  if (window.AJ_STATIC_HOST) return;
   fetch('/api/health', { credentials: 'same-origin', signal: AbortSignal.timeout(10000) })
     .then(response => response.ok ? response.json() : null).then(health => {
       if (!health?.localPreview) return;

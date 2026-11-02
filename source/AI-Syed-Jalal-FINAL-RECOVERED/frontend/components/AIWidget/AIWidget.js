@@ -27,7 +27,7 @@ class AIWidget extends HTMLElement {
     root.querySelector('.toggle').addEventListener('click', () => { root.querySelector('.ajw').classList.add('open'); this.input.focus(); });
     root.querySelector('.close').addEventListener('click', () => root.querySelector('.ajw').classList.remove('open'));
     root.querySelector('form').addEventListener('submit', (e) => this.send(e));
-    this.addMessage('Assalam-o-Alaikum! Local tools are ready after Workspace sign-in. Type help for commands. Open JalalAi for tasks, notes and voice.', false);
+    this.addMessage(window.AJ_STATIC_HOST ? 'Static website preview: open the secure app or local preview to sign in and use AI chat.' : 'Assalam-o-Alaikum! Local tools are ready after Workspace sign-in. Type help for commands. Open JalalAi for tasks, notes and voice.', false);
   }
   addMessage(text, user) {
     const row = document.createElement('div'); row.className = `message${user ? ' user' : ''}`;
@@ -39,6 +39,7 @@ class AIWidget extends HTMLElement {
     if (!prompt || this.busy) return;
     this.addMessage(prompt, true); this.input.value = ''; this.busy = true;
     const reply = this.addMessage('Typing…', false);
+    if (window.AJ_STATIC_HOST) { reply.textContent = 'Static website preview: chat needs the secure application server. Open the secure app or run the local preview. See Setup options in the banner.'; this.busy = false; return; }
     try {
       const csrfResponse = await fetch(new URL('/api/csrf', API.chat()), { method: 'GET', credentials: 'same-origin' });
       const csrfData = await csrfResponse.json().catch(() => ({}));

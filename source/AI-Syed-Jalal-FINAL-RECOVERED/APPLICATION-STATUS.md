@@ -97,3 +97,10 @@ Local planning/review output is a structured template. It is not represented as 
 - Local engines work without keys. Cloud engines remain credential-gated and honestly labeled.
 - Verification: `npm run check`, `npm test` (67 frontend + 16 server), `npm run test:e2e` (5 browser journeys), `npm audit --omit=dev` 0, backend release tests PASS.
 - Final handoff: see repository-root `FINAL-OK-REPORT.md`.
+
+
+## GitHub Pages static website (November 2026)
+
+The GitHub Pages workflow publishes the frontend directory so the website URL opens the actual homepage instead of the repository root. GitHub Pages is a static host: login, database-backed workspace features and cloud AI require the secure application server. The frontend detects `*.github.io` / `file:` hosting, shows a static-preview banner, blocks dead sign-in submissions with setup guidance, and keeps local preview access available only when a real local server enables it.
+
+Browser regression coverage now includes static-host login guidance and password visibility. This does not certify production authentication; Neon/Cloudflare configuration and live provider verification remain owner-controlled release gates.
