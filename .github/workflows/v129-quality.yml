@@ -1,0 +1,64 @@
+name: V129 unified app quality
+
+on:
+  push:
+    branches:
+      - main
+      - fix/audit-v129-2026-11-02
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v129-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: source/AI-Syed-Jalal-FINAL-RECOVERED/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED ci --no-audit --no-fund
+
+      - name: Run frontend and server test suites
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED test
+
+      - name: Run static application checks
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED run check
+
+      - name: Verify recovery archive safely
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Check first-party JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="source/AI-Syed-Jalal-FINAL-RECOVERED"
+          find "$root/backend" "$root/frontend/functions" "$root/worker" "$root/server" "$root/tests" "$root/scripts" -type f \( -name '*.mjs' -o -name '*.js' \) -print0 |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+
+      - name: Check SQL migrations are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(find source/AI-Syed-Jalal-FINAL-RECOVERED/backend/db/migrations -maxdepth 1 -type f -name '*.sql' -print -quit)"
+          for file in source/AI-Syed-Jalal-FINAL-RECOVERED/backend/db/migrations/*.sql; do
+            test -s "$file"
+          done
