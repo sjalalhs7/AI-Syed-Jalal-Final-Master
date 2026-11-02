@@ -118,7 +118,8 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
   }
   if (path === '/api/platform/conversations' && method === 'POST') {
     const body = await readBody(request);
-    const title = String(body.title || 'New conversation').trim().slice(0, 160) || 'New conversation';
+    const requestedTitle = String(body.title || 'New conversation').trim().slice(0, 160) || 'New conversation';
+    const title = body.history === false ? 'Private conversation' : requestedTitle;
     const mode = MODES.includes(body.mode) ? body.mode : 'chat';
     const modelA = [...LOCAL_MODELS, ...CLOUD_MODELS].includes(body.modelA) ? body.modelA : 'local';
     const modelB = [...LOCAL_MODELS, ...CLOUD_MODELS].includes(body.modelB) ? body.modelB : 'local-critic';
@@ -137,12 +138,13 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
   }
   if (!match[2] && method === 'PATCH') {
     const body = await readBody(request);
-    const title = body.title === undefined ? conversation.title : String(body.title).trim().slice(0, 160);
+    const history = typeof body.history === 'boolean' ? body.history : conversation.history;
+    const requestedTitle = body.title === undefined ? conversation.title : String(body.title).trim().slice(0, 160);
+    const title = history === false ? 'Private conversation' : requestedTitle;
     if (!title) return reply({ error: 'Title is required.' }, 400);
     const mode = MODES.includes(body.mode) ? body.mode : conversation.mode;
     const modelA = [...LOCAL_MODELS, ...CLOUD_MODELS].includes(body.modelA) ? body.modelA : conversation.modelA;
     const modelB = [...LOCAL_MODELS, ...CLOUD_MODELS].includes(body.modelB) ? body.modelB : conversation.modelB;
-    const history = typeof body.history === 'boolean' ? body.history : conversation.history;
     const rows = await db.query('UPDATE platform_conversations SET title=$2,mode=$3,model_a=$4,model_b=$5,history=$6,updated_at=now() WHERE id=$1 AND user_id=$7 RETURNING id,title,mode,model_a AS "modelA",model_b AS "modelB",history,created_at AS "createdAt",updated_at AS "updatedAt"', [conversation.id, title, mode, modelA, modelB, history, me.id]);
     if (!history) await db.query('DELETE FROM platform_messages WHERE conversation_id=$1', [conversation.id]);
     return reply({ conversation: rows[0] });
@@ -172,7 +174,7 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
   try { attachments = cleanAttachments(body.attachments); } catch (error) { return reply({ error: error.message }, error.status || 400); }
   const history = typeof body.history === 'boolean' ? body.history : conversation.history;
   if (history !== conversation.history) {
-    await db.query('UPDATE platform_conversations SET history=$2 WHERE id=$1', [conversation.id, history]);
+    await db.query('UPDATE platform_conversations SET history=$2, title=CASE WHEN $2 THEN title ELSE $3 END WHERE id=$1', [conversation.id, history, 'Private conversation']);
     if (!history) await db.query('DELETE FROM platform_messages WHERE conversation_id=$1', [conversation.id]);
   }
   let context = '';

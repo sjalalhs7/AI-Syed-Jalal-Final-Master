@@ -1,6 +1,6 @@
 # AI-Syed-Jalal — Reconciled Recovery Master
 
-This repository is the documentation/control point for the recovered AI-Syed-Jalal project lineage. The full local recovery ZIP is currently validated in the working session, but has **not yet been attached to a GitHub Release**.
+This repository contains the unified AI-Syed Jalal platform on `main`: the recovered source lineage, the repaired runnable application, and **SJ Agent Studio** (`/agent.html`). Historical recovery archives are preserved unchanged and are also available in the published `v1.0.0` GitHub Release.
 
 ## Locked design rule
 The approved Login Page + Homepage + Logo identity, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Older concept boards remain historical references, not replacements for the approved design.
@@ -23,7 +23,7 @@ The approved Login Page + Homepage + Logo identity, theme language, and hierarch
 ## Verification summary
 Offline regression/source gates pass for the V76/V73/V75 lineage, 3,500 skills across 35 domains, 120 catalog roles, 303 Agency profiles, 16 Agency tool targets, bounded Supervisor/AutoGPT logic, roadmap data/page/menu, source audit, upstream references, and palette contract.
 
-Not yet proven as live production: PostgreSQL E2E, real provider calls/fallback, live Google Search grounding, dedicated Wikipedia integration, medical safety E2E, physical browser/device and voice tests, Windows/VPS deployment, and exact V25 lineage recovery. Source presence or UI controls are not proof of live integration.
+Local PostgreSQL-compatible integration and Chromium browser journeys now pass. Not yet proven as live production: owner-controlled Neon/Cloudflare staging, real provider calls, live Google Search grounding, physical device/voice tests, production load/penetration tests, and exact V25 lineage recovery. Source presence or UI controls are not proof of live integration.
 
 See:
 - `docs/FINALIZATION-STATUS.md`
@@ -40,9 +40,9 @@ The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
 
-## Final red-check verification
+## Final OK report
 
-See [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) for the explanation of GitHub's 263 red deletion marks, the restored Cloudflare Worker gateway, approval-queue fix, reconciled release gates and final local test results.
+See [FINAL-OK-REPORT.md](FINAL-OK-REPORT.md) for the final handoff status, test evidence, package checksum and remaining production gates. [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) preserves the historical explanation of GitHub's 263 red deletion marks and the Worker gateway repair.
 
 
 ## Unified platform

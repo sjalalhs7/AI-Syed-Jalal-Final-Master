@@ -4,6 +4,7 @@
 
 The recovered application is now tracked in this directory, rather than existing only inside recovery archives. The original homepage, account identity and approved SJ crown asset are retained. A new **Start here** guide (`/guide.html`) gives one-click preview access, live capability status, working commands and clear troubleshooting; it is linked from the homepage, assistant, workspace and dashboard.
 
+- **SJ Agent Studio:** unified Direct / Agent / Compare workspace with account-scoped history, transient mode, engine selection, text/code attachments, voting, export, voice controls and links to the existing tools.
 - **JalalAi:** authenticated chat, calculator, Pakistan clock, structured planning/critical-review/coding guidance, workspace-record search, private tasks and notes. Task/note creation requires explicit confirmation. Tasks can be completed/deleted; notes can be deleted; both can be exported.
 - **Voice:** user-triggered browser speech recognition with transcript review, stop/cancel and permission/error fallbacks; browser speech synthesis with voice selection and stop. Actual microphone recognition and audible output depend on the browser, OS, permissions and speech service. Automated tests verify fallback behavior, not a physical microphone or human listening quality.
 - **Cloud AI:** explicit opt-in through the existing server-side Gemini/OpenAI/Anthropic/DeepSeek adapters. Missing keys or provider failures are labeled; local guidance is not presented as a generated cloud answer. No provider credentials were supplied, so no live cloud model call is claimed.
@@ -51,23 +52,23 @@ npm run test:e2e
 npm audit --omit=dev
 ```
 
-Local verification on 2 November 2026 (after the clarity/usability update):
+Final local verification on 2 November 2026 (unified V129 platform):
 
-- 62 frontend contract tests passed.
-- 11 server tests passed, including real PGlite/PostgreSQL queries, sessions/CSRF, account isolation, confirmed task persistence, records CRUD, backup/merge restore, approval request/resolve role checks, worker-gateway behavior, admin operations and production preview-login denial.
-- 4 Chromium browser journeys passed, covering assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/approval request-approve/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout, and the guide/one-click preview/assistant record search.
+- 67 frontend contract tests passed.
+- 16 server tests passed, including real PGlite/PostgreSQL queries, sessions/CSRF, account isolation, confirmed task persistence, records CRUD, backup/merge restore, approval request/resolve role checks, worker-gateway behavior, admin operations and production preview-login denial.
+- 5 Chromium browser journeys passed, covering Agent Studio sign-in/direct/agent/compare/vote/history/mobile, plus assistant persistence/voice fallback/sign-out, workspace AI/dock/record CRUD/approval request-approve/admin/diagnostics/print/theme, dashboard/library/homepage login/mobile layout, and the guide/one-click preview/assistant record search.
 - The recovered backend release gate (`npm --prefix backend run test:release`) passed: V76 grand audit, V71 skills, V73 quality/final, V75 final/agency, Wikipedia adapter and capability contracts. Stale UI/palette/path gates were reconciled with the current approved UI instead of restoring retired controls.
 - Cloudflare Worker gateway dry-run (`wrangler deploy --dry-run`) passed; the gateway still requires `BACKEND_API_URL` for live proxying and is not a substitute for the Pages Functions API.
-- 94 JavaScript modules/inline scripts parsed; 17 static checks passed.
+- 100 JavaScript modules/inline scripts parsed; 20 static checks passed.
 - Production dependency audit: zero known advisories at the time of the check.
 
 Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e` database. They do not use the preview database. Tests are evidence for the local adapter, not a Neon/Cloudflare production certification.
 
-Hosted verification on final commit `c57d339`: [application CI run 41381021703](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41381021703) and [recovery-control run 41381021628](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41381021628) passed. Cloudflare Pages, Workers Builds, CodeQL and Windows merger checks also passed. CodeRabbit was skipped by configuration, not failed.
+Hosted verification for the unified platform: [application CI run 41392227632](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392227632), [recovery-control run 41392419328](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392419328) and [CodeQL run 41392418993](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392418993) passed. Cloudflare Pages and Workers Builds checks also passed. CodeRabbit was skipped by configuration, not failed. The application workflow now runs on `main`, Arena work branches and pull requests.
 
 ## Production deployment: still required
 
-No production deployment, DNS change, PR merge or external-account mutation was performed.
+PRs #13 and #14 were merged into `main`; historical superseded PRs #1, #2 and #12 were closed. No manual production deployment, DNS change, provider-key configuration or production database migration was performed. Hosted build/deployment checks are recorded separately from owner-controlled production certification.
 
 1. Use `frontend/` as the Cloudflare Pages output directory and retain `frontend/functions/` and `_headers`.
 2. Configure Neon `DATABASE_URL` and a strong `CSRF_SECRET` (at least 32 characters) as server secrets. Do not set `LOCAL_PREVIEW`, `COOKIE_SECURE=false`, or a database adapter in production.
@@ -94,4 +95,5 @@ Local planning/review output is a structured template. It is not represented as 
 - Added `frontend/agent.html` with Direct / Agent / Compare modes, account-scoped history, text/code attachments, voice, export, tools panel and theme.
 - Added `/api/platform/*` routes and migration `007_v129_agent_platform.sql`; readiness now requires 13 tables.
 - Local engines work without keys. Cloud engines remain credential-gated and honestly labeled.
-- Verification: `npm run check`, `npm test`, `npm run test:e2e` (5 browser journeys), `npm audit --omit=dev` 0, backend release tests PASS.
+- Verification: `npm run check`, `npm test` (67 frontend + 16 server), `npm run test:e2e` (5 browser journeys), `npm audit --omit=dev` 0, backend release tests PASS.
+- Final handoff: see repository-root `FINAL-OK-REPORT.md`.

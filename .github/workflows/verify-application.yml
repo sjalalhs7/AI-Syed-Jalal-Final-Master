@@ -1,7 +1,7 @@
 name: Verify application
 on:
   push:
-    branches: [arena/342bece0-ai-syed-jalal-final-master]
+    branches: [main, "arena/**"]
     paths: ['source/AI-Syed-Jalal-FINAL-RECOVERED/**', '.github/workflows/verify-application.yml']
   pull_request:
     paths: ['source/AI-Syed-Jalal-FINAL-RECOVERED/**', '.github/workflows/verify-application.yml']
