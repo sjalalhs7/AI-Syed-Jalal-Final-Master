@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+
+test('Agent Studio: preview sign-in, direct chat, agent workflow, compare vote, history and mobile layout', async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/agent.html');
+  await page.getByRole('button', { name: 'Try the local preview' }).click();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await page.locator('#prompt').fill('calculate (1200 + 350) * 15%'); await page.locator('#sendBtn').click();
+  await expect(page.locator('#messages')).toContainText('232.5');
+  await page.locator('#modeAgent').click();
+  await page.locator('#prompt').fill('plan: Launch the unified platform'); await page.locator('#sendBtn').click();
+  await expect(page.locator('#messages')).toContainText('Agent workflow');
+  await page.locator('#modeCompare').click();
+  await page.locator('#modelA').selectOption('local-planner'); await page.locator('#modelB').selectOption('local-critic');
+  await page.locator('#prompt').fill('plan: Compare two approaches'); await page.locator('#sendBtn').click();
+  await expect(page.locator('.compare-card')).toHaveCount(2);
+  await page.getByRole('button', { name: 'A is better' }).click();
+  await expect(page.locator('#status')).toContainText('Vote saved');
+  await page.reload();
+  await expect(page.locator('#conversationList .conversation-item').first()).toBeVisible();
+  await page.locator('#conversationList .conversation-item').first().click();
+  await expect(page.locator('#messages')).toContainText('232.5');
+  await page.locator('#newChatBtn').click();
+  await page.locator('#historyToggle').uncheck();
+  await page.locator('#prompt').fill('calculate 9*9'); await page.locator('#sendBtn').click();
+  await expect(page.locator('#messages')).toContainText('81');
+  await page.reload(); await page.locator('#conversationList .conversation-item').first().click();
+  await expect(page.locator('#messages')).not.toContainText('81');
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/agent.html');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.locator('#sidebarOpen').click(); await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  expect(errors).toEqual([]);
+});

@@ -27,3 +27,8 @@ npm audit --omit=dev
 ```
 
 See [APPLICATION-STATUS.md](APPLICATION-STATUS.md) for verified results, limitations and production release gates.
+
+
+## Unified platform
+
+SJ Agent Studio (`source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/agent.html`) is the unified Arena-style workspace. See `AGENT-STUDIO.md` and `PLATFORM-CONSOLIDATION.md` in the app folder.

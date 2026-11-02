@@ -67,8 +67,8 @@ test('quick-start guide, one-click preview and assistant record search', async (
   await expect(page.locator('#appState')).toContainText('Ready');
   await expect(page.locator('#cloudState')).toContainText('Not configured');
   await page.locator('#guidePreviewBtn').click();
-  await expect(page).toHaveURL(/jalalai\.html/);
-  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await expect(page).toHaveURL(/agent\.html/);
+  await expect(page.locator('#status')).toContainText('Ready');
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/workspace.html#data'); await expect(page.locator('#app')).toBeVisible();
   await page.locator('.side [data-nav="data"]').click(); await page.locator('#addBtn').click(); await page.locator('#fName').fill('Guide search record'); await page.locator('#fRegion').fill('North'); await page.locator('#fSector').fill('QA'); await page.locator('#recordForm button[type="submit"]').click();
   await expect(page.locator('#dataBody')).toContainText('Guide search record');

@@ -1,11 +1,11 @@
-const CACHE='aj-v129-shell';
-const ASSETS=['./','./index.html','./guide.html','./assets/guide.js','./assets/guide.css','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js'];
+const CACHE='aj-v130-shell';
+const ASSETS=['./','./index.html','./guide.html','./assets/guide.js','./assets/guide.css','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js','./assets/agent.js','./assets/agent.css'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
   const req=e.request,url=new URL(req.url);
   // Never touch non-GET, cross-origin (API on another origin) or /api traffic: authenticated data must not be cached.
-  if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.endsWith('/jalalai.html')||url.pathname.endsWith('/workspace.html')||url.pathname.endsWith('/dashboard.html'))return;
+  if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.endsWith('/jalalai.html')||url.pathname.endsWith('/workspace.html')||url.pathname.endsWith('/dashboard.html')||url.pathname.endsWith('/agent.html'))return;
   // Pages: network first so deployments show up immediately; cache is offline fallback only.
   if(url.searchParams.has('token')||url.searchParams.has('session'))return;
   const publicPage=['/','/index.html','/guide.html','/roadmaps.html','/visual-styles.html'].includes(url.pathname);
