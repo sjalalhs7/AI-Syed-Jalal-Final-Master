@@ -1,3 +1,5 @@
+> Quick start: open `/guide.html` in the running app for live status, one-click preview, working commands and troubleshooting.
+
 # JalalAi setup and permissions
 
 JalalAi is part of the existing AI-Syed Jalal website. The approved homepage, login identity and rainbow SJ crown logo are retained.
