@@ -1,0 +1,27 @@
+{
+  "name": "ai-syed-jalal-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "node server/dev.mjs",
+    "start": "node server/dev.mjs",
+    "build": "node server/build.mjs",
+    "test": "npm --prefix frontend test && node --test server/tests/*.test.mjs",
+    "test:e2e": "node server/test-browser.mjs",
+    "check": "node server/check.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.14",
+    "@neondatabase/serverless": "1.2.0",
+    "scrypt-js": "3.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@sparticuz/chromium": "153.0.0",
+    "esbuild": "0.25.12"
+  }
+}

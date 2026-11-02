@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+const base=process.env.SMOKE_URL||`http://127.0.0.1:${process.env.PORT||8787}`;
+const get=async(path)=>{const r=await fetch(base+path);const body=await r.json();return {status:r.status,body,requestId:r.headers.get('x-request-id')}};
+const health=await get('/api/health');
+assert.equal(health.status,200);
+assert.equal(health.body.ok,true);
+assert.match(health.body.version,/^V[0-9]+/);
+const ready=await get('/api/ready');
+assert.ok([200,503].includes(ready.status));
+assert.ok(ready.requestId);
+console.log(JSON.stringify({ok:true,health:health.body,ready:ready.body},null,2));

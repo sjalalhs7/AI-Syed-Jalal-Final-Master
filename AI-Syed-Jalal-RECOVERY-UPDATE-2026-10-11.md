@@ -1,5 +1,7 @@
 # Recovery Master Update — 2026-10-11
 
+> **Historical report.** The results below describe the October recovery workspace, not a fresh audit of every later source revision. For current evidence, artifact distinctions and open release blockers, read `docs/AUDIT-2026-11-01.md`. The updated release ZIP and the original split archive have different SHA-256 fingerprints.
+
 ## Input archive verified
 
 - Input: `AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip`

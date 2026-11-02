@@ -1,0 +1,13 @@
+# Local recovery/verification outputs (never replace the tracked input parts).
+/AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
+/.recovery-*/
+/.extract-*/
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+
+# Local app database and browser-test output
+.data/
+test-results/
+playwright-report/

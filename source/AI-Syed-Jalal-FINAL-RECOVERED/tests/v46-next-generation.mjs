@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+const root=new URL('..',import.meta.url).pathname;
+const server=fs.readFileSync(`${root}/backend/server.mjs`,'utf8');
+const runtime=fs.readFileSync(`${root}/backend/ai-runtime-v46.mjs`,'utf8');
+const html=fs.readFileSync(`${root}/frontend/index.html`,'utf8');
+assert.match(server,/\/api\/admin\/diagnostics/);
+assert.match(server,/version:'V46'/);
+assert.match(runtime,/runAgentV46/);
+assert.match(runtime,/maxConcurrent/);
+assert.match(html,/V46 NEXT GENERATION/);
+assert.match(html,/Next-Gen Diagnostics/);
+assert.match(html,/SHA-256/);
+execFileSync(process.execPath,['--check',`${root}/backend/server.mjs`],{stdio:'ignore'});
+execFileSync(process.execPath,['--check',`${root}/backend/ai-runtime-v46.mjs`],{stdio:'ignore'});
+console.log('V46 next-generation test: PASS');

@@ -33,3 +33,13 @@ See:
 
 ## Security
 Provider secrets stay server-side. Do not commit API keys or production credentials. Medical features must be educational, source-grounded, and safety-gated. Microphone/camera/screen capabilities must be opt-in, permission-gated, visibly active, and revocable.
+
+## Runnable application and quick start (November 2026)
+
+The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard.
+
+Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
+
+## Final red-check verification
+
+See [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) for the explanation of GitHub's 263 red deletion marks, the restored Cloudflare Worker gateway, approval-queue fix, reconciled release gates and final local test results.

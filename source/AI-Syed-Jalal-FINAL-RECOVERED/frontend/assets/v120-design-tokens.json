@@ -1,0 +1,14 @@
+{
+  "version": "V120-CONSOLIDATED",
+  "palette": {
+    "coral": "#FF6F61",
+    "deepBlue": "#0B1F3A",
+    "emerald": "#18B981",
+    "gold": "#F4C95D"
+  },
+  "rule": "Use these four brand colors for the V120 visual layer. Preserve semantic neutrals only where required for readability/accessibility.",
+  "source_layers": [
+    "V101 palette overlay",
+    "V120 UX/UI module"
+  ]
+}

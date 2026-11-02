@@ -1,0 +1,64 @@
+name: Verify recovery controls
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out recovery parts
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Run offline regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Verify every part, archive checksum, ZIP CRC and inventory
+        run: python scripts/verify_recovery.py
+      - name: Check Python syntax
+        run: python -m compileall -q scripts tests
+
+  windows-merger:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out recovery parts
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Rebuild and enforce checksum
+        shell: cmd
+        run: call AI-Syed-Jalal-GitHub-MERGE-PARTS-WINDOWS.bat --no-pause
+      - name: Check output and refusal to overwrite
+        shell: python
+        run: |
+          import hashlib, json, pathlib, subprocess
+          root = pathlib.Path.cwd()
+          manifest = json.loads((root / 'recovery-manifest.json').read_text())
+          output = root / manifest['artifact']
+          with output.open('rb') as stream:
+              assert hashlib.file_digest(stream, 'sha256').hexdigest() == manifest['sha256']
+          before = output.read_bytes()
+          result = subprocess.run(['cmd', '/d', '/c', 'call', 'AI-Syed-Jalal-GitHub-MERGE-PARTS-WINDOWS.bat', '--no-pause'])
+          assert result.returncode != 0, 'Existing output must not be overwritten'
+          assert output.read_bytes() == before
+          print('WINDOWS MERGER PASS: checksum enforced and existing output preserved')

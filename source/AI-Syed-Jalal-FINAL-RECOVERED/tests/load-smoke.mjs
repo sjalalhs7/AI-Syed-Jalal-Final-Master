@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+const base=process.env.SMOKE_URL||`http://127.0.0.1:${process.env.PORT||8787}`;
+const samples=Number(process.env.LOAD_SAMPLES||50);
+const t0=performance.now();
+const results=await Promise.all(Array.from({length:samples},()=>fetch(base+'/api/health')));
+const elapsed=performance.now()-t0;
+assert.equal(results.length,samples);
+assert.ok(results.every(r=>r.status===200));
+const ids=results.map(r=>r.headers.get('x-request-id'));
+assert.equal(new Set(ids).size,samples);
+console.log(JSON.stringify({ok:true,samples,elapsedMs:Math.round(elapsed),avgMs:Math.round(elapsed/samples*100)/100},null,2));

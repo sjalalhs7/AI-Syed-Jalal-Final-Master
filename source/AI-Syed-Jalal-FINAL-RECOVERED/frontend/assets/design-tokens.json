@@ -1,0 +1,19 @@
+{
+  "primitive": {
+    "color": {"ink":"#02050b","navy":"#061020","cyan":"#63e7ff","violet":"#aa8cff","gold":"#ffd66b","green":"#6fffb0","text":"#f3f8ff","muted":"#91a5b5"},
+    "space": {"1":"4px","2":"8px","3":"12px","4":"16px","5":"20px","6":"24px","7":"32px","8":"40px"},
+    "radius": {"sm":"10px","md":"14px","lg":"18px","xl":"26px"},
+    "shadow": {"panel":"0 25px 90px rgba(0,0,0,.30)","focus":"0 0 0 3px rgba(99,231,255,.22)"},
+    "font": {"sans":"Inter,system-ui,-apple-system,Segoe UI,sans-serif","mono":"ui-monospace,SFMono-Regular,Menlo,monospace"}
+  },
+  "semantic": {
+    "surface": {"canvas":"#02050b","elevated":"rgba(8,15,29,.78)","interactive":"rgba(255,255,255,.025)"},
+    "content": {"primary":"#f3f8ff","secondary":"#aebdca","muted":"#718899","accent":"#63e7ff","success":"#6fffb0","warning":"#ffd66b"},
+    "border": {"default":"rgba(105,214,255,.22)","subtle":"rgba(99,231,255,.14)","focus":"rgba(99,231,255,.60)"}
+  },
+  "component": {
+    "button": {"radius":"14px","padding":"13px 16px","focus":"0 0 0 3px rgba(99,231,255,.22)"},
+    "card": {"radius":"26px","border":"rgba(105,214,255,.22)","shadow":"0 25px 90px rgba(0,0,0,.30)"},
+    "nav": {"height":"70px","radius":"20px"}
+  }
+}

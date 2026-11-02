@@ -1,0 +1,85 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 8787
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?set Neon DATABASE_URL in .env.production}
+      PGSSL: "true"
+      PGSSL_REJECT_UNAUTHORIZED: "true"
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env.production}
+      CSRF_SECRET: ${CSRF_SECRET:?set CSRF_SECRET in .env.production}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_NAME: aj_session
+      TRUST_PROXY: "true"
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6}
+      OMNIROUTE_KEY: ${OMNIROUTE_KEY:-}
+      OMNIROUTE_URL: ${OMNIROUTE_URL:-}
+      PUBLIC_CHAT_ENABLED: ${PUBLIC_CHAT_ENABLED:-false}
+      PUBLIC_CHAT_DAILY_MAX: ${PUBLIC_CHAT_DAILY_MAX:-300}
+      PUBLIC_CHAT_PROVIDER: ${PUBLIC_CHAT_PROVIDER:-deepseek}
+    command: sh -c "node scripts/migrate.mjs && node server.mjs"
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    profiles: ["seed"]
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set Neon DATABASE_URL in .env.production}
+      NODE_ENV: production
+      PGSSL: "true"
+      PGSSL_REJECT_UNAUTHORIZED: "true"
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.production}
+    command: ["node", "scripts/seed.mjs"]
+    networks: [internal]
+
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env.production}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../frontend:/srv/frontend:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

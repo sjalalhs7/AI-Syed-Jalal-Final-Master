@@ -1,0 +1,36 @@
+{
+  "version": "V75.0.0",
+  "name": "AI-Syed-Jalal Android Agent Workspace",
+  "status": "integration-contract-ready",
+  "capabilities": [
+    "Android project planning",
+    "Kotlin/Java assistance",
+    "Gradle/build workflow",
+    "UI/accessibility review",
+    "API integration",
+    "debugging",
+    "testing",
+    "release checklist"
+  ],
+  "workflow": [
+    "plan",
+    "generate/change",
+    "build",
+    "test",
+    "verify",
+    "critic",
+    "repair",
+    "release-gate"
+  ],
+  "api": {
+    "basePath": "/api/ai",
+    "capabilities": "/api/ai/capabilities",
+    "run": "/api/ai/run",
+    "runs": "/api/ai/runs"
+  },
+  "security": [
+    "backend-only provider keys",
+    "least-privilege tool approvals",
+    "no device actions without explicit permission"
+  ]
+}
