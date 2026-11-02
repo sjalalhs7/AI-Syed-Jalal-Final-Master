@@ -1,63 +1,41 @@
-# AI-Syed-Jalal — Recovery Control Repository
+# AI-Syed Jalal application
 
-This branch stores the original split recovery archive, its verification controls, and audit documentation. **The ZIP parts are a historical snapshot, not the latest application source.** Application development continues on the recovery/source branches; see [the audit](docs/AUDIT-2026-11-01.md) for the exact revisions inspected and remaining release blockers.
+This is the recovered, runnable application source. The repository's original recovery archives and audit controls remain at the repository root.
 
-## Locked design rule
+## Run
 
-The approved Login Page, Homepage, Logo, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Historical concept boards are references, not replacements for the approved design.
-
-## Verify before extracting
-
-Requires Python 3.11 or newer; no third-party Python packages are needed.
+Requires Node.js 22.13+:
 
 ```sh
-# Check all nine part hashes, reconstructed ZIP hash, CRCs, and safe inventory.
-# Does not retain a ZIP or execute any recovered code.
-python scripts/verify_recovery.py
-
-# Optionally retain the verified original ZIP and extract into NEW directories.
-python scripts/verify_recovery.py \
-  --output ../AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip \
-  --extract ../recovered-source
-
-# Offline regression tests for the recovery controls.
-python -m unittest discover -s tests -v
+npm ci
+npm run dev
 ```
 
-On Windows, double-click `AI-Syed-Jalal-GitHub-MERGE-PARTS-WINDOWS.bat`. It now **fails closed on a checksum mismatch** and refuses to replace an existing output. The batch merger verifies integrity but does not inspect or extract ZIP entries; prefer the Python verifier for safe extraction.
+Open port 3000. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard. Use the local-preview button for a disposable test account, or register through the homepage.
 
-Do not run recovered installers, dependency lifecycle scripts, or imported upstream applications merely to verify an archive. The original archive contains known historical security and portability issues described in the audit.
+**Use test data only in the preview.** It is a shared sandbox with Admin access, not production. Data persists in ignored `.data/postgres`. Production uses Cloudflare Pages Functions and Neon, not this local Node server.
 
-## Two different ZIP fingerprints
+## Working features
 
-| Artifact | Size | SHA-256 |
-|---|---:|---|
-| Original ZIP reconstructed from `AI-Syed-Jalal-Master.part00`–`part08` | 172,636,153 bytes | `21dc9b76289706ea12640cd6579e7efedb8215ca50d7c70f411b2fe09649369c` |
-| Updated ZIP published as `AI-Syed-Jalal-MASTER-RECOVERY-UPDATED-2026-10-11-2.zip` on release `v1.0.0` | 165,413,942 bytes | `19333acbe525cbdbc1c048840679a3d47927a27eeafb2fe025f9dca94b21f712` |
+- Local calculator, clock, planning/review templates, tasks/notes with confirmation and persistence.
+- Optional browser voice input/output; optional server-configured cloud AI.
+- Authenticated workspace, record CRUD/import/export, admin controls, diagnostics, print preview and themes.
+- Public-shell PWA fallback without caching private pages or API responses.
 
-`AI-Syed-Jalal-Master.sha256` and `recovery-manifest.json` describe the **original** parts. The older `AI-Syed-Jalal-MASTER-RECOVERY-UPDATED-2026-10-11.sha256` describes the **updated release asset**, not these parts. Do not interchange the checksums.
+Cloud AI needs your own server-side provider key and a live verification. OpenJarvis desktop control, Gmail/Calendar, WhatsApp and scheduled briefings are not connected. Browser speech support varies by device.
 
-## Source lineage
+## Verify
 
-- V122-MERGED: 9,950 files; 282,418,696 uncompressed bytes in its original archive.
-- V125-FULL: 1,226 files; 18,719,357 uncompressed bytes; a curated continuation, not a complete replacement for V122.
-- The original recovery combines V122 lineage with selected V125 additions and engineering records.
-- The original V25 archive remains missing/unverified.
-- The original ZIP has 9,990 file entries. It includes 75 byte-identical case-variant files under upstream `Superpowers`/`superpowers`; portable extraction yields 9,915 unique files without losing distinct content.
+```sh
+npm run check
+npm test
+npm run test:e2e
+npm audit --omit=dev
+```
 
-## Verification boundary
+See [APPLICATION-STATUS.md](APPLICATION-STATUS.md) for verified results, limitations and production release gates. Do not treat local tests as production certification.
 
-The original archive's checksum, ZIP CRCs, inventory, and historical package regression gates pass. At the inspected later application revision, all 59 frontend tests and 80 first-party JavaScript syntax checks pass, but the aggregate `test:release` command fails on obsolete UI assertions. That failure is **not** hidden or counted as a pass.
 
-No live PostgreSQL, provider/fallback, research grounding, medical safety, physical device/voice, production deployment, or exact V25 lineage verification is claimed. See the audit before publishing or deploying.
+## Runnable application (November 2026)
 
-## Documents
-
-- [Audit and remediation — 2026-11-01](docs/AUDIT-2026-11-01.md)
-- [Finalization status](docs/FINALIZATION-STATUS.md)
-- [Agent capability roadmap](docs/AGENT-CAPABILITY-ROADMAP.md)
-- [Release asset handoff](docs/RELEASE-ASSET-HANDOFF.md)
-- [Historical update report](AI-Syed-Jalal-RECOVERY-UPDATE-2026-10-11.md)
-- [Security handling](SECURITY.md)
-
-Provider secrets stay server-side. Never commit API keys or production credentials. Medical features must be educational, source-grounded, and safety-gated. Microphone/camera/screen access must be opt-in, permission-gated, visibly active, and revocable.
+The recovered application is now tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). Run `npm ci` and `npm run dev` in that directory. See its [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, local-preview instructions and remaining production/external-service gates. The original recovery archives remain unchanged.

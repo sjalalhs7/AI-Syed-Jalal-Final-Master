@@ -1,0 +1,728 @@
+{
+  "version": "V41",
+  "purpose": "Agent role catalog; not a claim of 120 active AI models",
+  "runtime_agents": 3,
+  "catalog_roles": 120,
+  "roles": [
+    {
+      "id": "planning-01",
+      "name": "Mission Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-02",
+      "name": "Task Decomposer",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-03",
+      "name": "Workflow Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-04",
+      "name": "Priority Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-05",
+      "name": "Dependency Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-06",
+      "name": "Schedule Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-07",
+      "name": "Resource Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-08",
+      "name": "Scenario Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-09",
+      "name": "Objective Mapper",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "planning-10",
+      "name": "Decision Planner",
+      "group": "planning",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-01",
+      "name": "Data Intake",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-02",
+      "name": "Data Cleaner",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-03",
+      "name": "Data Normalizer",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-04",
+      "name": "Data Validator",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-05",
+      "name": "Data Mapper",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-06",
+      "name": "Duplicate Detector",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-07",
+      "name": "Record Merger",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-08",
+      "name": "Schema Guard",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-09",
+      "name": "Import Planner",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "data-10",
+      "name": "Export Planner",
+      "group": "data",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-01",
+      "name": "Policy Checker",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-02",
+      "name": "Compliance Reviewer",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-03",
+      "name": "Evidence Checker",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-04",
+      "name": "Retention Monitor",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-05",
+      "name": "Consent Checker",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-06",
+      "name": "Access Reviewer",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-07",
+      "name": "Control Tester",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-08",
+      "name": "Exception Reviewer",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-09",
+      "name": "Governance Monitor",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "compliance-10",
+      "name": "Compliance Reporter",
+      "group": "compliance",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-01",
+      "name": "Threat Monitor",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-02",
+      "name": "Session Guard",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-03",
+      "name": "Auth Monitor",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-04",
+      "name": "Rate Limit Guard",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-05",
+      "name": "Anomaly Detector",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-06",
+      "name": "Audit Guard",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-07",
+      "name": "Credential Monitor",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-08",
+      "name": "Permission Guard",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-09",
+      "name": "Security Reporter",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "security-10",
+      "name": "Incident Triage",
+      "group": "security",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-01",
+      "name": "Document Builder",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-02",
+      "name": "Template Resolver",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-03",
+      "name": "PDF Formatter",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-04",
+      "name": "A4 Layout Agent",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-05",
+      "name": "Print QA Agent",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-06",
+      "name": "Document Validator",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-07",
+      "name": "Attachment Manager",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-08",
+      "name": "Archive Agent",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-09",
+      "name": "Metadata Agent",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "documents-10",
+      "name": "Document Exporter",
+      "group": "documents",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-01",
+      "name": "Metrics Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-02",
+      "name": "Trend Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-03",
+      "name": "KPI Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-04",
+      "name": "Performance Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-05",
+      "name": "Capacity Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-06",
+      "name": "Query Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-07",
+      "name": "Data Quality Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-08",
+      "name": "Operational Analyst",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-09",
+      "name": "Report Builder",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "analytics-10",
+      "name": "Insight Summarizer",
+      "group": "analytics",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-01",
+      "name": "Operations Coordinator",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-02",
+      "name": "Queue Manager",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-03",
+      "name": "Job Monitor",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-04",
+      "name": "Health Monitor",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-05",
+      "name": "Release Monitor",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-06",
+      "name": "Backup Monitor",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-07",
+      "name": "Restore Coordinator",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-08",
+      "name": "Deployment Guard",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-09",
+      "name": "Rollback Coordinator",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "operations-10",
+      "name": "Service Watcher",
+      "group": "operations",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-01",
+      "name": "Notification Router",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-02",
+      "name": "Alert Composer",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-03",
+      "name": "Status Reporter",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-04",
+      "name": "Summary Writer",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-05",
+      "name": "Escalation Router",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-06",
+      "name": "Approval Notifier",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-07",
+      "name": "Operator Assistant",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-08",
+      "name": "Briefing Agent",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-09",
+      "name": "Handoff Agent",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "communication-10",
+      "name": "Message Validator",
+      "group": "communication",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-01",
+      "name": "Quality Gate",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-02",
+      "name": "Regression Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-03",
+      "name": "E2E Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-04",
+      "name": "Load Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-05",
+      "name": "Import Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-06",
+      "name": "Export Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-07",
+      "name": "Print Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-08",
+      "name": "API Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-09",
+      "name": "Schema Tester",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "quality-10",
+      "name": "Release Auditor",
+      "group": "quality",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-01",
+      "name": "Approval Coordinator",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-02",
+      "name": "Review Queue Manager",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-03",
+      "name": "Risk Gate",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-04",
+      "name": "Human Handoff",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-05",
+      "name": "Escalation Reviewer",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-06",
+      "name": "Approval Evidence",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-07",
+      "name": "Decision Logger",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-08",
+      "name": "Override Monitor",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-09",
+      "name": "Review Summarizer",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "human_approval-10",
+      "name": "Approval Reporter",
+      "group": "human_approval",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-01",
+      "name": "Backup Verifier",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-02",
+      "name": "Restore Tester",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-03",
+      "name": "Recovery Planner",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-04",
+      "name": "Disaster Drill Agent",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-05",
+      "name": "Integrity Checker",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-06",
+      "name": "Snapshot Auditor",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-07",
+      "name": "Recovery Monitor",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-08",
+      "name": "Continuity Planner",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-09",
+      "name": "Failover Observer",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "recovery-10",
+      "name": "Recovery Reporter",
+      "group": "recovery",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-01",
+      "name": "Knowledge Indexer",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-02",
+      "name": "Search Planner",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-03",
+      "name": "Context Builder",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-04",
+      "name": "Reference Resolver",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-05",
+      "name": "Source Tracker",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-06",
+      "name": "Knowledge Summarizer",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-07",
+      "name": "Fact Checker",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-08",
+      "name": "Context Auditor",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-09",
+      "name": "Retrieval Router",
+      "group": "knowledge",
+      "status": "catalog-role"
+    },
+    {
+      "id": "knowledge-10",
+      "name": "Knowledge Reporter",
+      "group": "knowledge",
+      "status": "catalog-role"
+    }
+  ]
+}

@@ -2,8 +2,12 @@
 /AI-Syed-Jalal-FINAL-RECOVERED-MASTER.zip
 /.recovery-*/
 /.extract-*/
-/source/
 __pycache__/
 *.py[cod]
 .venv/
 node_modules/
+
+# Local app database and browser-test output
+.data/
+test-results/
+playwright-report/

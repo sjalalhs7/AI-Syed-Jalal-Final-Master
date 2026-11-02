@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root = new URL('..', import.meta.url);
+const runtime = fs.readFileSync(new URL('../backend/ai-runtime.mjs', import.meta.url), 'utf8');
+const registry = JSON.parse(fs.readFileSync(new URL('../config/ai-skill-registry-v71-3500.json', import.meta.url), 'utf8'));
+assert.equal(registry.count, 3500);
+assert.match(runtime, /function findSkills\(query, limit=20\)/);
+assert.match(runtime, /routingScore/);
+assert.match(runtime, /function verifyOutput/);
+assert.match(runtime, /unsupported_tool_execution_claim/);
+assert.match(runtime, /selectedSkills/);
+console.log('V72 PASS: ranked skill routing + deterministic output verification markers present');

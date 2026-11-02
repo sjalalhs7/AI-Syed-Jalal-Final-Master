@@ -1,0 +1,19 @@
+# Alsyed Jalal AI
+
+> Alsyed Jalal AI is a web-based AI workspace project focused on chat, research, coding, data analysis, documents, and agent workflows.
+
+Primary website: https://ai-syed-jalal-live.pages.dev/
+
+## Public entry points
+- Homepage: https://ai-syed-jalal-live.pages.dev/
+- Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
+- Robots policy: https://ai-syed-jalal-live.pages.dev/robots.txt
+
+## Project areas
+- AI workspace and multi-model workflow interface
+- Research, coding, data analysis, and document workflows
+- Agent orchestration and provider/API integration work
+- Security, operations, and audit interfaces
+
+## Important availability note
+The presence of an interface or integration source file does not guarantee that a live provider is connected. Some capabilities require a separately deployed backend, a configured PostgreSQL database, provider API credentials, and server-side environment variables. Do not assume live authentication, database persistence, or provider execution unless the relevant endpoint reports healthy and the workflow has been tested.

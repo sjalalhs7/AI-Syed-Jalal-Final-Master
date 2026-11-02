@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root=new URL('..',import.meta.url);
+const server=fs.readFileSync(new URL('backend/server.mjs',root),'utf8');
+const runtime=fs.readFileSync(new URL('backend/ai-runtime.mjs',root),'utf8');
+const html=fs.readFileSync(new URL('frontend/index.html',root),'utf8');
+const pkg=JSON.parse(fs.readFileSync(new URL('backend/package.json',root),'utf8'));
+assert.match(server,/version:'V50'/);
+assert.match(server,/professional-ui-engineering-release/);
+assert.match(runtime,/consolidated active runtime/);
+assert.match(html,/Professional AI Workspace · V50/);
+assert.match(html,/assets\/alsyed-jalal-logo\.svg/);
+assert.match(html,/One workspace/);
+assert.equal(pkg.version,'50.0.0');
+console.log('V50 final release validation: PASS');
