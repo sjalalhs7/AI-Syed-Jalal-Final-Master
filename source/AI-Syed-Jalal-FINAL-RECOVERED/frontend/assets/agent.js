@@ -221,7 +221,9 @@
   function speak(text) {
     if (!('speechSynthesis' in window)) { setStatus('Speech output is not supported by this browser.'); return; }
     window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(String(text).slice(0, 5000)); speech.lang = 'en-US';
+    const speech = new SpeechSynthesisUtterance(String(text).slice(0, 5000));
+    speech.lang = window.navigator?.language || 'en-US';
+    if (window.AJSpeech) window.AJSpeech.apply(speech, { lang: speech.lang });
     speech.onend = speech.onerror = updateControls;
     window.speechSynthesis.speak(speech); updateControls();
   }
