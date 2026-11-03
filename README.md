@@ -47,6 +47,13 @@ The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
 
+## Latest audit
+
+[AUDIT-2026-11-03-EXPERT-LEVELUP.md](docs/AUDIT-2026-11-03-EXPERT-LEVELUP.md) continues from the
+`85eeee7` premium-theme/voice-selector update: one shared browser-voice preference across JalalAi,
+the Workspace dock, the Agent console and Agent Studio, removal of orphaned Workspace wiring, and a
+hardened V129 quality gate. It also lists what remains owner-controlled.
+
 ## Final OK report
 
 See [FINAL-OK-REPORT.md](FINAL-OK-REPORT.md) for the final handoff status, test evidence, package checksum and remaining production gates. [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) preserves the historical explanation of GitHub's 263 red deletion marks and the Worker gateway repair.

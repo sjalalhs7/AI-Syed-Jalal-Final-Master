@@ -27,10 +27,12 @@
     if (!('speechSynthesis' in window)) { setStatus('Speech output is not supported by this browser. The reply remains available as text.'); return; }
     window.speechSynthesis.cancel();
     speech = new SpeechSynthesisUtterance(text.slice(0, 5000)); speech.lang = $('speechLanguage').value || 'en-US';
-    const selected = $('voice').value;
-    const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v => v.name === selected) || voices.find(v => v.lang.replace('_', '-').toLowerCase() === speech.lang.toLowerCase()) || voices.find(v => v.lang.startsWith(speech.lang.split('-')[0]));
-    if (voice) speech.voice = voice;
+    if (window.AJSpeech) window.AJSpeech.apply(speech, { lang: speech.lang });
+    else {
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang.replace('_', '-').toLowerCase() === speech.lang.toLowerCase()) || voices.find(v => v.lang.startsWith(speech.lang.split('-')[0]));
+      if (voice) speech.voice = voice;
+    }
     speech.onend = speech.onerror = () => { speech = null; updateControls(); };
     window.speechSynthesis.speak(speech); updateControls();
   }
@@ -135,7 +137,14 @@
   $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST' }); await signIn(); } catch (error) { setStatus(error.message); } finally { $('demoBtn').disabled = false; } };
   $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=jalalai.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; lastReply = ''; state = { tasks: [], notes: [] }; $('chatlog').replaceChildren(); for (const id of ['tasks', 'notes']) $(id).replaceChildren(); stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
   $('exportBtn').onclick = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), tasks: state.tasks, notes: state.notes }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = 'jalalai-private-export.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
-  function loadVoices() { if (!('speechSynthesis' in window)) return; const voices = window.speechSynthesis.getVoices(); $('voice').replaceChildren(new Option('System default', '')); for (const voice of voices) $('voice').add(new Option(`${voice.name} (${voice.lang})`, voice.name)); }
+  function loadVoices() {
+    if (!('speechSynthesis' in window)) return;
+    // One shared catalogue + remembered choice across JalalAi, Workspace and Agent Studio.
+    if (window.AJSpeech) { window.AJSpeech.populate($('voice')); window.AJSpeech.refresh(); return; }
+    const voices = window.speechSynthesis.getVoices();
+    $('voice').replaceChildren(new Option('System default', ''));
+    for (const voice of voices) $('voice').add(new Option(`${voice.name} (${voice.lang})`, `${voice.name}|${voice.lang}`));
+  }
   if ('speechSynthesis' in window) { loadVoices(); window.speechSynthesis.addEventListener('voiceschanged', loadVoices); }
   window.addEventListener('pagehide', () => { stopVoice(); requestController?.abort(); });
   if (window.AJ_STATIC_HOST) {

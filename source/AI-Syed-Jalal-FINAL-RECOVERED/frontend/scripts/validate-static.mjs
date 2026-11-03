@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
@@ -38,6 +38,8 @@ const checks = [
   ['Agent Studio has Direct/Agent/Compare modes', /data-mode="chat"/.test(agent) && /data-mode="agent"/.test(agent) && /data-mode="compare"/.test(agent)],
   ['Agent Studio keeps private shell out of precache', !read('sw.js').includes("'./agent.html'") && read('sw.js').includes("url.pathname.endsWith('/agent.html')")],
   ['static-host login guard is shipped', read('assets/host-mode.js').includes('window.AJ_STATIC_HOST') && html.includes('assets/host-mode.js')],
+  ['one shared speech voice preference reaches every read-aloud surface', ['workspace.html', 'jalalai.html', 'agent.html'].every(p => read(p).includes('assets/speech-preferences.js') && read(p).includes('data-aj-voice')) && read('assets/jalalai.js').includes('window.AJSpeech.apply') && read('assets/agent.js').includes('window.AJSpeech.apply')],
+  ['no orphaned main-prompt wiring remains in the workspace', !read('workspace.html').includes('mainPrompt')],
   ['GitHub Pages workflow publishes the frontend', existsSync(join(root, '../../../.github/workflows/pages.yml')) && readFileSync(join(root, '../../../.github/workflows/pages.yml'), 'utf8').includes('source/AI-Syed-Jalal-FINAL-RECOVERED/frontend')],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
