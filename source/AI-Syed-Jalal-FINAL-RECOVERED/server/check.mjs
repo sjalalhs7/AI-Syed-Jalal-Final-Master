@@ -19,7 +19,7 @@ async function walk(dir) {
     if (entry.isDirectory()) await walk(path);
     else if (entry.name.endsWith('.html')) {
       const html = await readFile(path, 'utf8');
-      for (const match of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+      for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
         if (match[1].includes('src=') || /type=["']application\/(?:ld\+)?json/.test(match[1])) continue;
         check(match[2], path, match[1].includes('type="module"'));
       }
