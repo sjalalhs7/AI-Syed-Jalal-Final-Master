@@ -14,5 +14,5 @@ const salt=crypto.randomBytes(16).toString('hex');
 const hash=crypto.scryptSync(password,salt,64).toString('hex');
 try {
   await pool.query(`INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING`,[id,username,salt,hash]);
-  console.log(`Seed checked for user ${username}. If the account already exists, its password was not changed.`);
+  console.log('Seed check complete. Existing account passwords are not changed.');
 } finally { await pool.end(); }

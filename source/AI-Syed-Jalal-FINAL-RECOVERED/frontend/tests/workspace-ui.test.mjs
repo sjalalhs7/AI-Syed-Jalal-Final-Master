@@ -126,8 +126,9 @@ test('Homepage does not market unimplemented autonomous, voice or multi-model fe
 });
 
 test('Workspace metadata points to Cloudflare and does not retain GitHub Pages SEO claims', () => {
-  assert.equal(workspace.includes('github.io'), false);
+  const absoluteUrls = [...workspace.matchAll(/https?:\/\/[^"'\s<>]+/g)].map(([value]) => new URL(value));
+  assert.equal(absoluteUrls.some(url => url.hostname === 'github.io' || url.hostname.endsWith('.github.io')), false);
   assert.equal(workspace.includes('class=\"seo-discovery\"'), false);
-  assert.ok(workspace.includes('https://ai-syed-jalal-live.pages.dev/workspace.html'));
+  assert.ok(absoluteUrls.some(url => url.origin === 'https://ai-syed-jalal-live.pages.dev' && url.pathname === '/workspace.html'));
   assert.ok(workspace.includes('central Neon records'));
 });

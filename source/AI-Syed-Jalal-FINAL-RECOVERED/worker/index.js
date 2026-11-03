@@ -50,7 +50,7 @@ export default {
     }
 
     const target = new URL(origin.origin);
-    target.pathname = incoming.pathname.replace(/^\/api/, "/api");
+    target.pathname = incoming.pathname;
     target.search = incoming.search;
 
     const headers = new Headers(request.headers);
