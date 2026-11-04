@@ -44,6 +44,24 @@ test('skill search ranks relevant results and is deterministic', () => {
   assert.deepEqual(searchSkills('zzzq-xylophone-quasar', index, 5), []);
 });
 
+test('ordinary language finds the right skills (synonyms, plurals, empty results)', () => {
+  const cases = [
+    ['launch a website', /deployment|web|release/i],
+    ['make my app faster', /performance|application architecture/i],
+    ['secure my login', /security|identity/i],
+    ['doctor notes', /medical|healthcare/i],
+    ['sql', /database/i]
+  ];
+  for (const [query, expected] of cases) {
+    const hits = searchSkills(query, index, 3);
+    assert.ok(hits.length > 0, `no skill matched "${query}"`);
+    assert.ok(hits.every(hit => hit.score > 0));
+    assert.ok(expected.test(hits[0].name + ' ' + hits[0].family + ' ' + hits[0].domain), `"${query}" ranked an irrelevant skill first: ${hits[0].name}`);
+  }
+  assert.deepEqual(searchSkills('zzzq xylophone quasar nimbus', index, 3), []);
+  assert.deepEqual(searchSkills('a', index, 3), []);
+});
+
 test('grading and verdicts are bounded and explicit', () => {
   const allPass = [{ weight: 5, ok: true, severity: 'critical' }, { weight: 5, ok: true, severity: 'standard' }];
   assert.equal(gradeChecks(allPass), 100);
@@ -152,20 +170,19 @@ test('built-in checks never claim a live provider call', async () => {
 });
 
 test('the first self-check on a fresh database fills the skill library itself', async () => {
-  // Fresh isolated database with the migration applied but no skill rows yet.
+  // A fresh database behind the already-built handler: no second buildApi() call,
+  // because test files run in parallel and would race on the shared bundle.
   const fresh = new PGlite();
   await fresh.exec(await readFile(resolve(root, 'backend/db/schema.sql'), 'utf8'));
   await fresh.exec(await readFile(resolve(root, 'backend/db/migrations/009_v133_agent_skills.sql'), 'utf8'));
-  await buildApi();
-  const { onRequest: freshRequest } = await import('../../.data/api.mjs?fresh=' + Date.now());
-  const call = (path, method = 'GET', body, token = '', cookie = '') => freshRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.40', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env: { DB_ADAPTER: { query: async (sql, params = []) => (await fresh.query(sql, params)).rows }, LOCAL_PREVIEW: 'true', CSRF_SECRET: 'fresh-db-secret-at-least-32-characters-long', COOKIE_SECURE: 'false' } });
+  const env = { DB_ADAPTER: { query: async (sql, params = []) => (await fresh.query(sql, params)).rows }, LOCAL_PREVIEW: 'true', CSRF_SECRET: 'fresh-db-secret-at-least-32-characters-long', COOKIE_SECURE: 'false' };
+  const call = (path, method = 'GET', body, token = '', cookie = '') => onRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.40', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env });
   const demo = await call('/demo', 'POST', {});
   const cookie = demo.headers.get('set-cookie')?.split(';')[0] || '';
   const me = await (await call('/me', 'GET', undefined, '', cookie)).json();
   const before = await fresh.query('SELECT count(*)::int AS n FROM agent_skills');
   assert.equal(Number(before.rows[0].n), 0);
-  const run = await call('/agent/self-check', 'POST', {}, me.csrfToken, cookie);
-  const data = await run.json();
+  const data = await (await call('/agent/self-check', 'POST', {}, me.csrfToken, cookie)).json();
   const catalog = data.results.find(item => item.id === 'catalog.skills');
   assert.equal(catalog.ok, true, catalog.detail);
   assert.match(catalog.detail, /3500 skills/);

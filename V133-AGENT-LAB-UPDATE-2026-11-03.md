@@ -65,6 +65,15 @@ re-merging old branches — re-merging them would reintroduce pre-hardening code
 | Dependency audit | `npm audit --omit=dev` | 0 vulnerabilities |
 | Self-check on a live local server | `POST /api/agent/self-check` | **15/15 checks, score 100, verdict `pass`** |
 
+## Merge and hosted verification
+
+- PR **#25** squash-merged into `main` as `329221e` (2026-11-04T02:35:55Z). The repository does not
+  allow merge commits, so squash was used; the source branch is retained for audit.
+- All hosted gates on the PR and on `main` passed: `application`, `validate`, `verify`,
+  `windows-merger`, `Analyze (actions|javascript-typescript|python)`, `CodeQL`, `Cloudflare Pages`,
+  `Workers Builds`, `Deploy website to GitHub Pages`, `pages build and deployment`.
+  CodeRabbit is skipped by configuration, not failing.
+
 ## What V133 deliberately does not claim
 
 - No live Gemini / OpenAI / Anthropic / DeepSeek call: no provider key was supplied, and an
@@ -83,3 +92,13 @@ npm run dev     # http://localhost:3000
 ```
 
 Open `/agent-lab.html`, choose **Try the local preview**, then **Run self-check**.
+
+## Follow-up refinement after the merge (same V133 line)
+
+Plain-language queries were the weakest part of the first pass: "launch a website" matched nothing
+because the catalogue speaks in families (`deployment automation`, `responsive web`) rather than
+product language. `searchSkills` now expands ordinary words through a small synonym map
+(website→web, launch→release/deployment, app→application, doctor→healthcare, money→finance, …) and
+adds a prefix match so plurals resolve. The catalogue check in the self-check engine asserts this
+behaviour on every run, and the server suite covers six natural-language queries plus a nonsense
+query that must return nothing.
