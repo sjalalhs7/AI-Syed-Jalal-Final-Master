@@ -140,6 +140,16 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
+      id: 'studio.reply-actions', title: 'Copy and Regenerate are backed by stored replies', group: 'agents', weight: 4,
+      async run({ db, me }) {
+        if (!me) return 'Skipped: reply actions are account-scoped and this run is anonymous';
+        const rows = await db.query('SELECT count(*)::int AS n FROM platform_messages WHERE status=\'failed\' AND role=\'assistant\'');
+        const columns = await db.query("SELECT column_name FROM information_schema.columns WHERE table_name='platform_messages' AND column_name IN ('reply_to','status')");
+        if (columns.length !== 2) throw new Error('platform_messages is missing the V134 reply_to/status columns');
+        return `Reply actions supported: platform_messages has reply_to + status (${Number(rows[0]?.n || 0)} flagged reply/replies pending retry)`;
+      }
+    }),
+    defineCheck({
       id: 'agent.no-fake-cloud', title: 'Unconfigured cloud models are labelled, not simulated', group: 'honesty', weight: 6, severity: 'critical',
       async run({ env }) {
         const configured = ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY'].filter(key => Boolean(env[key]));

@@ -53,7 +53,7 @@ async function cloudRun({ request, env, onRequest, provider, prompt, profile }) 
   const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ prompt, provider, agentId: profile, privacyMode: true }) }), env });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(data.error || 'Cloud provider is unavailable.'), { status: response.status });
-  return { content: String(data.output || ''), provider, mode: 'cloud', steps: [], action: null };
+  return { content: String(data.output || ''), provider, mode: 'cloud', steps: [], action: null, replyTo: null };
 }
 async function runModel({ request, env, onRequest, db, me, model, content, attachments, mode, context = '' }) {
   const profile = profileFor(model);
@@ -80,7 +80,7 @@ async function runModel({ request, env, onRequest, db, me, model, content, attac
     }
     output += localFileInsights(attachments);
     if (mode === 'agent' && !result.action && !result.tool) output = `Agent workflow completed with local guidance.\n\n${output}\n\nNo external action was executed. Connect a cloud provider for open-ended generation, or confirm a proposed task/note.`;
-    return { content: output, provider: model, mode: 'local', steps, action: result.action || null, needsProvider: Boolean(result.needsProvider) };
+    return { content: output, provider: model, mode: 'local', steps, action: result.action || null, needsProvider: Boolean(result.needsProvider), replyTo: null };
   }
   if (!configured(env, model)) return { content: `${modelLabel(model)} is not configured. No cloud request was made. Add the provider key in server environment variables, or choose SJ Local Tools.`, provider: model, mode: 'not-configured', steps: [], action: null, needsProvider: true };
   const prompt = promptWithFiles(content, attachments, context);
@@ -93,6 +93,7 @@ async function runModel({ request, env, onRequest, db, me, model, content, attac
       { title: 'Review', status: 'completed', output: localAssistant('critic: ' + content, 'critic').output }
     ];
   }
+  result.replyTo = null;
   return result;
 }
 async function ownedConversation(db, me, id) {
@@ -100,8 +101,14 @@ async function ownedConversation(db, me, id) {
   const rows = await db.query('SELECT id,title,mode,model_a AS "modelA",model_b AS "modelB",history,created_at AS "createdAt",updated_at AS "updatedAt" FROM platform_conversations WHERE id=$1 AND user_id=$2', [id, me.id]);
   return rows[0] || null;
 }
+// Written before generation so a failure leaves a retryable row instead of losing
+// the prompt. The placeholder is replaced by the real reply on success.
+async function savePlaceholder(db, conversationId, message) {
+  const rows = await db.query('INSERT INTO platform_messages(id,conversation_id,role,content,provider,profile,mode,side,comparison_id,steps,attachments,action,reply_to,status) VALUES($1,$2,\'assistant\',$3,$4,$5,$6,$7,$8,\'[]\'::jsonb,\'[]\'::jsonb,NULL,$9,\'failed\') RETURNING id,reply_to AS "replyTo",status', [message.id, conversationId, message.content, message.provider || 'local', message.profile || 'general', message.mode || 'chat', message.side || null, message.comparisonId || null, message.replyTo || null]);
+  return rows[0];
+}
 async function saveMessage(db, conversationId, message) {
-  const rows = await db.query('INSERT INTO platform_messages(id,conversation_id,role,content,provider,profile,mode,side,comparison_id,steps,attachments,action) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb) RETURNING id,role,content,provider,profile,mode,side,comparison_id AS "comparisonId",steps,attachments,action,vote,created_at AS "createdAt"', [crypto.randomUUID(), conversationId, message.role, String(message.content).slice(0, 60000), message.provider || 'local', message.profile || 'general', message.mode || 'chat', message.side || null, message.comparisonId || null, JSON.stringify(message.steps || []), JSON.stringify(message.attachments || []), message.action ? JSON.stringify(message.action) : null]);
+  const rows = await db.query('INSERT INTO platform_messages(id,conversation_id,role,content,provider,profile,mode,side,comparison_id,steps,attachments,action,reply_to) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13) RETURNING id,role,content,provider,profile,mode,side,comparison_id AS "comparisonId",steps,attachments,action,vote,reply_to AS "replyTo",created_at AS "createdAt"', [message.id || crypto.randomUUID(), conversationId, message.role, String(message.content).slice(0, 60000), message.provider || 'local', message.profile || 'general', message.mode || 'chat', message.side || null, message.comparisonId || null, JSON.stringify(message.steps || []), JSON.stringify(message.attachments || []), message.action ? JSON.stringify(message.action) : null, message.replyTo || null]);
   return rows[0];
 }
 export async function platformRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
@@ -133,7 +140,7 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
   const conversation = await ownedConversation(db, me, match[1]);
   if (!conversation) return reply({ error: 'Conversation not found.' }, 404);
   if (!match[2] && method === 'GET') {
-    const messages = conversation.history ? await db.query('SELECT id,role,content,provider,profile,mode,side,comparison_id AS "comparisonId",steps,attachments,action,vote,created_at AS "createdAt" FROM platform_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT 500', [conversation.id]) : [];
+    const messages = conversation.history ? await db.query('SELECT id,role,content,provider,profile,mode,side,comparison_id AS "comparisonId",steps,attachments,action,vote,reply_to AS "replyTo",created_at AS "createdAt" FROM platform_messages WHERE conversation_id=$1 ORDER BY created_at ASC LIMIT 500', [conversation.id]) : [];
     return reply({ conversation, messages });
   }
   if (!match[2] && method === 'PATCH') {
@@ -172,6 +179,11 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
   if (!content || content.length > 10000) return reply({ error: 'Enter a message between 1 and 10,000 characters.' }, 400);
   let attachments;
   try { attachments = cleanAttachments(body.attachments); } catch (error) { return reply({ error: error.message }, error.status || 400); }
+  // Budget the prompt before the transcript is touched: a rejected request must not
+  // leave a user turn with no reply behind it.
+  if (attachments.length) {
+    try { promptWithFiles(content, attachments); } catch (error) { return reply({ error: error.message }, error.status || 400); }
+  }
   const history = typeof body.history === 'boolean' ? body.history : conversation.history;
   if (history !== conversation.history) {
     await db.query('UPDATE platform_conversations SET history=$2, title=CASE WHEN $2 THEN title ELSE $3 END WHERE id=$1', [conversation.id, history, 'Private conversation']);
@@ -182,25 +194,56 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
     const previous = await db.query("SELECT role,content FROM platform_messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT 10", [conversation.id]);
     context = previous.reverse().map(m => `${m.role}: ${String(m.content).slice(0, 800)}`).join('\n').slice(0, 4000);
   }
+  // Copy / regenerate: the caller names the assistant reply (or the comparison
+  // anchor) it is replacing. Every row sharing that anchor is swapped for a fresh
+  // reply, so a compare pair is replaced as a pair and the prompt is never duplicated.
+  // A reply row may be written before generation; if that generation failed the row
+  // is flagged 'failed' and the client retries with the same row id.
+  const replaceAnchors = Array.isArray(body.replace) ? body.replace.filter(id => UUID.test(String(id))).slice(0, 4) : [];
+  let anchors = replaceAnchors;
+  if (replaceAnchors.length === 1) {
+    const retried = await db.query('SELECT reply_to AS "replyTo", status FROM platform_messages WHERE id=$1 AND conversation_id=$2 AND role=\'assistant\'', [replaceAnchors[0], conversation.id]);
+    if (retried.length === 1 && retried[0].status === 'failed') anchors = [...new Set([retried[0].replyTo, replaceAnchors[0]].filter(Boolean))];
+  }
+  let replaced = [];
+  if (anchors.length) {
+    replaced = await db.query('SELECT id,side,reply_to AS "replyTo" FROM platform_messages WHERE conversation_id=$1 AND role=\'assistant\' AND reply_to = ANY($2::uuid[])', [conversation.id, anchors]);
+    if (!replaced.length) return reply({ error: 'The reply you asked to replace is no longer in this conversation.' }, 404);
+    await db.query('DELETE FROM platform_messages WHERE conversation_id=$1 AND role=\'assistant\' AND reply_to = ANY($2::uuid[])', [conversation.id, anchors]);
+  }
+  // A regeneration reuses the existing user turn: only the reply is replaced, so
+  // the transcript never grows a duplicate prompt.
   const userMessage = { role: 'user', content, provider: 'user', profile: 'general', mode, attachments };
   const saved = [];
-  if (history) saved.push(await saveMessage(db, conversation.id, userMessage));
-  else saved.push({ ...userMessage, id: crypto.randomUUID(), createdAt: new Date().toISOString(), vote: null });
+  if (!anchors.length) {
+    if (history) saved.push(await saveMessage(db, conversation.id, userMessage));
+    else saved.push({ ...userMessage, id: crypto.randomUUID(), createdAt: new Date().toISOString(), vote: null });
+  }
   try {
     if (mode === 'compare') {
-      const comparisonId = crypto.randomUUID();
+      const comparisonId = (replaced.length === 2 && replaced[0].replyTo === replaced[1].replyTo) ? replaced[0].replyTo : crypto.randomUUID();
       const [a, b] = await Promise.all([
         runModel({ request, env, onRequest, db, me, model: modelA, content, attachments, mode: 'chat', context }),
         runModel({ request, env, onRequest, db, me, model: modelB, content, attachments, mode: 'chat', context })
       ]);
       for (const [side, result] of [['a', a], ['b', b]]) {
-        const message = { role: 'assistant', content: result.content, provider: result.provider, profile: profileFor(result.provider), mode, side, comparisonId, steps: result.steps, action: result.action };
-        if (history) saved.push(await saveMessage(db, conversation.id, message)); else saved.push({ ...message, id: crypto.randomUUID(), comparisonId, createdAt: new Date().toISOString(), vote: null });
+        const message = { role: 'assistant', content: result.content, provider: result.provider, profile: profileFor(result.provider), mode, side, comparisonId, steps: result.steps, action: result.action, replyTo: comparisonId };
+        if (history) saved.push(await saveMessage(db, conversation.id, message)); else saved.push({ ...message, id: message.id || crypto.randomUUID(), comparisonId, createdAt: new Date().toISOString(), vote: null });
       }
     } else {
-      const result = await runModel({ request, env, onRequest, db, me, model: modelA, content, attachments, mode, context });
-      const message = { role: 'assistant', content: result.content, provider: result.provider, profile: profileFor(result.provider), mode, steps: result.steps, action: result.action };
-      if (history) saved.push(await saveMessage(db, conversation.id, message)); else saved.push({ ...message, id: crypto.randomUUID(), createdAt: new Date().toISOString(), vote: null });
+      const replyId = crypto.randomUUID();
+      const placeholder = { id: replyId, role: 'assistant', content: 'Regenerating this reply…', provider: modelA, profile: profileFor(modelA), mode, replyTo: replyId };
+      if (history) await savePlaceholder(db, conversation.id, placeholder);
+      try {
+        const result = await runModel({ request, env, onRequest, db, me, model: modelA, content, attachments, mode, context });
+        const message = { id: replyId, role: 'assistant', content: result.content, provider: result.provider, profile: profileFor(result.provider), mode, steps: result.steps, action: result.action, replyTo: replyId };
+        if (history) { await db.query('DELETE FROM platform_messages WHERE id=$1', [replyId]); saved.push(await saveMessage(db, conversation.id, message)); }
+        else saved.push({ ...message, createdAt: new Date().toISOString(), vote: null });
+      } catch (error) {
+        // Keep the row, flagged, so the client can retry the same reply id.
+        if (history) await db.query('UPDATE platform_messages SET content=$2, provider=$3, status=\'failed\' WHERE id=$1', [replyId, String(error.message || 'The reply could not be generated.').slice(0, 2000), modelA]);
+        throw error;
+      }
     }
     if (history) {
       const title = conversation.title === 'New conversation' ? content.slice(0, 80) : conversation.title;
@@ -210,7 +253,12 @@ export async function platformRoute({ request, env, db, me, url, readBody, reply
     return reply({ ok: true, history, messages: saved, conversation: { ...conversation, mode, modelA, modelB, history } });
   } catch (error) {
     const message = { role: 'assistant', content: error.message || 'The request could not complete.', provider: 'system', profile: 'general', mode, steps: [] };
-    if (history) saved.push(await saveMessage(db, conversation.id, message)); else saved.push({ ...message, id: crypto.randomUUID(), createdAt: new Date().toISOString(), vote: null });
+    // Compare/earlier failures keep a normal error row; a flagged placeholder is
+    // returned instead of saving a duplicate so the retry can target it.
+    const flagged = history ? await db.query('SELECT id,content,reply_to AS "replyTo",status FROM platform_messages WHERE conversation_id=$1 AND status=\'failed\' ORDER BY created_at DESC LIMIT 2', [conversation.id]) : [];
+    if (flagged.length) saved.push(...flagged);
+    else if (history) saved.push(await saveMessage(db, conversation.id, message));
+    else saved.push({ ...message, id: crypto.randomUUID(), createdAt: new Date().toISOString(), vote: null });
     return reply({ ok: false, history, messages: saved, error: error.message || 'The request could not complete.' }, error.status || 500);
   }
 }

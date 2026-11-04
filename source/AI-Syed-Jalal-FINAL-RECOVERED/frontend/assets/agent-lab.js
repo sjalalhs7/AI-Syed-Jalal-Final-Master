@@ -101,12 +101,31 @@
     }
   }
 
+  const SKILL_PROMPTS = {
+    plan: skill => `plan: Apply the "${skill.name}" skill (${skill.domain} · ${skill.family}) to my next project`,
+    critique: skill => `critic: Review how well I have applied the "${skill.name}" skill (${skill.domain})`
+  };
   function skillCard(skill) {
     const card = document.createElement('article'); card.className = 'skill';
     const name = document.createElement('strong'); name.textContent = skill.name;
     const meta = document.createElement('span'); meta.textContent = `${skill.domain} · ${skill.family || 'general'}`;
     const code = document.createElement('code'); code.textContent = skill.id;
-    card.append(name, meta, code);
+    const actions = document.createElement('div'); actions.className = 'skill-actions';
+    for (const [label, build] of [['Use in Studio', SKILL_PROMPTS.plan], ['Critique with it', SKILL_PROMPTS.critique]]) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn small'; button.textContent = label;
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          // Rare? no. Stage the prompt in the shared slot first so Studio can open with it.
+          try { localStorage.setItem('aj-agent-draft', build(skill).slice(0, 10000)); } catch { /* private mode */ }
+          await navigator.clipboard?.writeText(build(skill)).catch(() => {});
+          $('skillsStatus').textContent = `Prompt copied. Opening Agent Studio with it staged for “${skill.name}”.`;
+          location.href = 'agent.html?draft=1';
+        } catch (error) { $('skillsStatus').textContent = error.message; button.disabled = false; }
+      };
+      actions.appendChild(button);
+    }
+    card.append(name, meta, code, actions);
     return card;
   }
 
@@ -157,6 +176,7 @@
         clearInterval(ticker);
         lastResult = data;
         $('downloadBtn').disabled = false;
+        $('csvBtn').disabled = false;
         paintScore(data.score, data.verdict, `${data.checksPassed}/${data.checksTotal} checks · ${data.engine} engine · just now`);
         renderResults(data);
         setStatus(data.verdict === 'pass' ? 'All checks passed. Read each observation below — passing here is not a production certificate.' : data.verdict === 'warn' ? 'Some checks need attention. The observation shows exactly what failed.' : 'Critical checks failed. Fix the observed errors before trusting this deployment.', data.verdict);
@@ -195,7 +215,7 @@
         $('skillsStatus').textContent = 'Sign in to search the skill library.';
         return;
       }
-      $('runHint').textContent = 'Runs 15 weighted checks against this deployment and stores the evidence on your account. Nothing is sent to a provider in local mode.';
+      $('runHint').textContent = 'Runs 16 weighted checks against this deployment and stores the evidence on your account. Nothing is sent to a provider in local mode.';
       await Promise.all([loadHistory(), loadSkills()]);
       setStatus(`Ready · signed in as ${user.username} (${user.role}).`);
     } catch (error) {
@@ -206,6 +226,17 @@
   $('engine').onchange = () => { $('provider').disabled = $('engine').value !== 'cloud'; };
   $('runBtn').onclick = runSelfCheck;
   $('refreshHistory').onclick = loadHistory;
+  $('csvBtn').onclick = () => {
+    if (!lastResult) return;
+    const cell = value => '"' + String(value ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"';
+    const rows = [['check_id', 'title', 'group', 'weight', 'severity', 'passed', 'detail', 'duration_ms'], ...(lastResult.results || []).map(result => [result.id, result.title, result.group, result.weight, result.severity, result.ok ? 'yes' : 'no', result.detail, result.ms])];
+    const csv = rows.map(row => row.map(cell).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob), anchor = document.createElement('a');
+    anchor.href = url; anchor.download = 'sj-agent-lab-evidence.csv'; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus('Evidence CSV downloaded — one row per check, ready for a spreadsheet or audit trail.');
+  };
   $('downloadBtn').onclick = () => {
     if (!lastResult) return;
     const evidence = {

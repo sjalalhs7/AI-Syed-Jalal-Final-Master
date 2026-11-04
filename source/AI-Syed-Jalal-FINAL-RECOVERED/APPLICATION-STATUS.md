@@ -72,7 +72,7 @@ PRs #13 and #14 were merged into `main`; historical superseded PRs #1, #2 and #1
 
 1. Use `frontend/` as the Cloudflare Pages output directory and retain `frontend/functions/` and `_headers`.
 2. Configure Neon `DATABASE_URL` and a strong `CSRF_SECRET` (at least 32 characters) as server secrets. Do not set `LOCAL_PREVIEW`, `COOKIE_SECURE=false`, or a database adapter in production.
-3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql` and `007_v129_agent_platform.sql`, then verify `/api/ready` reports 15 required tables (V133 adds `agent_skills` and `agent_self_checks`). `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
+3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql`, `007_v129_agent_platform.sql`, `009_v133_agent_skills.sql` and `010_v134_message_actions.sql`, then verify `/api/ready` reports 15 required tables (V133 adds `agent_skills` and `agent_self_checks`; V134 adds columns, not tables). `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
 4. Configure only the provider keys you intend to use. Verify model access and a real non-sensitive prompt for each provider. Key presence is not a live-provider test.
 5. Repeat registration/login/logout, password change, role restrictions, record CRUD/import/export, backup and a controlled merge restore, assistant confirmation/persistence, mobile voice and PWA checks against staging.
 6. Verify backup restoration and rollback before promoting the deployment. Production data migration and release approval remain owner responsibilities.
@@ -94,6 +94,18 @@ Local planning/review output is a structured template. It is not represented as 
 
 - Added `frontend/agent.html` with Direct / Agent / Compare modes, account-scoped history, text/code attachments, voice, export, tools panel and theme.
 - Added `/api/platform/*` routes and migration `007_v129_agent_platform.sql`; V133 raised the readiness requirement to 15 tables by adding the Agent Lab tables.
+
+## V134 reply-action update (4 November 2026)
+
+- Agent Studio: **Copy** copies and saves the text as a new Direct turn; **Regenerate** re-runs the same
+  prompt on the same engine and replaces the stored reply (compare pairs swap together). Replies carry a
+  `reply_to` anchor and a `status`; a failed generation keeps one flagged row so the prompt is not lost.
+- Attachment/prompt limits are validated before anything is persisted, so a rejected request no longer
+  leaves a prompt with no reply.
+- Agent Lab: evidence **CSV** export, clickable skill cards that stage a prompt into Agent Studio, and a
+  16th self-check (`studio.reply-actions`).
+- Migration `010_v134_message_actions.sql` is additive; readiness still requires 15 tables.
+- Verification: `npm run check` 27/27, frontend 80/80, server 32/32, browser 11/11, backend release PASS.
 
 ## V133 Agent Lab update (3 November 2026)
 

@@ -18,6 +18,7 @@ await db.exec(await readFile(resolve(root, 'backend/db/migrations/002_v43_ai_run
   await db.exec(await readFile(resolve(root, 'backend/db/migrations/005_v127_auth_rate_limits.sql'), 'utf8'));
   await db.exec(await readFile(resolve(root, 'backend/db/migrations/007_v129_agent_platform.sql'), 'utf8'));
 await db.exec(await readFile(resolve(root, 'backend/db/migrations/009_v133_agent_skills.sql'), 'utf8'));
+await db.exec(await readFile(resolve(root, 'backend/db/migrations/010_v134_message_actions.sql'), 'utf8'));
 await db.exec(await readFile(resolve(root, 'server/assistant-schema.sql'), 'utf8'));
 let localSecret = process.env.CSRF_SECRET;
 if (!localSecret) { const secretPath = resolve(root, '.data/session-secret'); try { localSecret = (await readFile(secretPath, 'utf8')).trim(); } catch { localSecret = randomBytes(32).toString('hex'); await writeFile(secretPath, localSecret, { mode: 0o600 }); } }

@@ -154,6 +154,12 @@ CREATE INDEX IF NOT EXISTS idx_platform_messages_conversation ON platform_messag
 ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS comparison_id uuid;
 CREATE INDEX IF NOT EXISTS idx_platform_messages_comparison ON platform_messages(comparison_id);
 
+-- V134: copy / regenerate support (see migrations/010_v134_message_actions.sql).
+ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS reply_to uuid;
+CREATE INDEX IF NOT EXISTS idx_platform_messages_reply_to ON platform_messages(reply_to);
+ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed'));
+CREATE INDEX IF NOT EXISTS idx_platform_messages_failed ON platform_messages(conversation_id) WHERE status = 'failed';
+
 -- V133: agent skill library and durable self-check evidence (fresh-database copy).
 CREATE TABLE IF NOT EXISTS agent_skills (
   id text PRIMARY KEY CHECK (length(id) BETWEEN 3 AND 120),

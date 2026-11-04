@@ -37,4 +37,4 @@ The cloud agent catalogue contains prompt profiles, not independent autonomous a
 
 ## Verify and deploy
 
-Run `npm run check`, `npm test`, `npm run test:e2e` and `npm audit --omit=dev` from the application directory. See `../APPLICATION-STATUS.md` for the exact local verification scope and production gates. Apply migrations 005, 006, 007 and 009 to staging, configure Neon and CSRF secrets, verify 15 readiness tables, then repeat account/data/assistant checks on Cloudflare. Do not claim production readiness from local tests alone.
+Run `npm run check`, `npm test`, `npm run test:e2e` and `npm audit --omit=dev` from the application directory. See `../APPLICATION-STATUS.md` for the exact local verification scope and production gates. Apply migrations 005, 006, 007, 009 and 010 to staging, configure Neon and CSRF secrets, verify 15 readiness tables, then repeat account/data/assistant checks on Cloudflare. Do not claim production readiness from local tests alone.
