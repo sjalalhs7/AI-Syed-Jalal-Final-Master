@@ -77,6 +77,36 @@
     $('mode').querySelector('option[value="cloud"]').textContent = state.cloudConfigured ? 'Cloud AI (server key configured)' : 'Cloud AI (not configured)';
     $('cloudStatus').textContent = state.cloudConfigured ? 'A server provider key is configured. Cloud responses still require a successful live request.' : 'No cloud AI key is configured. Local tools work now; open-ended AI answers are not available.';
   }
+  function agentTrace(result) {
+    // Renders the real tool trace: what ran, how long, and what it returned.
+    const box = document.createElement('div');
+    box.className = 'agent-trace';
+    const head = document.createElement('div');
+    head.className = 'agent-trace-head';
+    head.textContent = `Agent trace · ${result.steps.length} step(s) · ${result.trace?.toolCalls ?? 0} tool call(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms`;
+    box.appendChild(head);
+    for (const step of result.steps) {
+      const row = document.createElement('div');
+      row.className = 'agent-step' + (step.ok ? '' : ' failed');
+      const title = document.createElement('strong');
+      title.textContent = `${step.ok ? '✓' : '✕'} ${step.title} · ${step.tool} · ${step.ms} ms`;
+      const body = document.createElement('p');
+      body.textContent = step.observation;
+      row.append(title, body);
+      box.appendChild(row);
+    }
+    const note = document.createElement('p');
+    note.className = 'hint';
+    note.textContent = 'These are the only tools that ran. Writes (tasks, notes) still need your explicit confirmation.';
+    box.appendChild(note);
+    return box;
+  }
+  async function loadAgentTools() {
+    try {
+      const data = await api('/assistant/agent/tools');
+      $('agentTools').textContent = 'Tools available: ' + data.tools.map(tool => tool.label).join(', ') + '. Every call is shown with its result.';
+    } catch { $('agentTools').textContent = 'Tool list unavailable right now.'; }
+  }
   async function runTool(result) {
     if (result.tool === 'list_tasks') addMessage(state.tasks.length ? state.tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : 'No tasks yet. Try “add task: Review the proposal”.', 'assistant', 'JalalAi · your saved tasks');
     if (result.tool === 'list_notes') addMessage(state.notes.length ? state.notes.map(n => '• ' + n.content).join('\n') : 'No notes yet. Try “save note: Your note”.', 'assistant', 'JalalAi · your private notes');
@@ -94,8 +124,15 @@
     requestController = new AbortController();
     try {
       const result = await api('/assistant/chat', { method: 'POST', signal: requestController.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value }) });
-      if (result.cloudError) setStatus(result.cloudError); else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Local tools completed the request.');
-      addMessage(result.output, 'assistant', result.mode === 'cloud' ? `JalalAi · cloud ${result.provider}` : result.mode === 'local-fallback' ? 'JalalAi · local fallback (cloud unavailable)' : 'JalalAi · local tools / guidance', result);
+      const label = result.mode === 'agent' ? 'JalalAi · agent runtime (real tool trace)'
+        : result.mode === 'cloud' ? `JalalAi · cloud ${result.provider}`
+        : result.mode === 'local-fallback' ? 'JalalAi · local fallback (cloud unavailable)'
+        : 'JalalAi · local tools / guidance';
+      if (result.cloudError) setStatus(result.cloudError);
+      else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Agent finished with ${result.trace.failures} failed step(s) — see the trace.` : `Agent finished · ${result.trace?.toolCalls ?? 0} tool call(s) in ${result.trace?.totalMs ?? 0} ms.`);
+      else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Local tools completed the request.');
+      const node = addMessage(result.output, 'assistant', label, result);
+      if (result.mode === 'agent' && Array.isArray(result.steps)) node.appendChild(agentTrace(result));
       await runTool(result); await refreshState();
       if ($('voiceReply').checked) speak(result.output);
     } catch (error) {
@@ -119,7 +156,16 @@
   $('prompt').addEventListener('input', updateControls);
   $('prompt').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
   document.querySelectorAll('[data-prompt]').forEach(button => button.onclick = () => send(button.dataset.prompt));
-  $('mode').onchange = () => { $('providerField').hidden = $('mode').value !== 'cloud'; $('modeLabel').textContent = $('mode').value === 'cloud' ? 'Cloud AI · sends your message to the selected provider' : 'Local tools · no AI key required'; };
+  $('mode').onchange = () => {
+    const mode = $('mode').value;
+    $('providerField').hidden = mode !== 'cloud';
+    $('agentField').hidden = !['agent', 'research'].includes(mode);
+    if (['agent', 'research'].includes(mode)) loadAgentTools();
+    $('modeLabel').textContent = mode === 'cloud' ? 'Cloud AI · sends your message to the selected provider'
+      : mode === 'agent' ? 'Agent runtime · bounded tool calls with a visible trace'
+      : mode === 'research' ? 'Research · live Wikipedia search with cited links'
+      : 'Local tools · no AI key required';
+  };
   $('micBtn').onclick = () => {
     if (listening) { stopVoice(); setStatus('Microphone stopped.'); return; }
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;

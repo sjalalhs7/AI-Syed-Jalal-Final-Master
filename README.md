@@ -53,6 +53,14 @@ Start with **[FINAL-HANDOFF-V135.md](FINAL-HANDOFF-V135.md)** — one page cover
 the one-command proof, the exact gate results, what is deliberately not built, and the owner-only steps
 that remain.
 
+## V136 — real agent runtime (4 November 2026)
+
+JalalAi gained **Agent mode**: a bounded, four-tool runtime (`calculator`, live `Wikipedia research`,
+`records`, `tasks`) that renders an **agent trace** — every step with its tool, duration and real output,
+and `FAILED` when a tool could not run. Runs are stored in `agent_runs` and readable at
+`/api/assistant/agent/runs`. Readiness now requires **20** tables; the self-check runs 18 checks.
+See [V136-AGENT-RUNTIME-2026-11-04.md](V136-AGENT-RUNTIME-2026-11-04.md).
+
 ## V135 — SJ Arena, the Arena.ai-style battle clone (4 November 2026)
 
 `/arena.html` runs **2–4 engines on one prompt**, hides which engine wrote which answer until you vote,

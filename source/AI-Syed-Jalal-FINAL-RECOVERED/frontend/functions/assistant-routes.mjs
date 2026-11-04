@@ -1,4 +1,5 @@
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
+import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 
 export async function assistantRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
   const path = url.pathname, method = request.method;
@@ -8,13 +9,31 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    return reply({ ok: true, tasks, notes, cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
+    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
   }
   if (path === '/api/assistant/chat' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-minute', me.id, 30, 2)) return reply({ error: 'Please wait a moment before sending another message.' }, 429, { 'Retry-After': '60' });
     const body = await readBody(request), message = String(body.message || '').trim(), profile = String(body.profile || 'general');
     if (!message || message.length > (body.mode === 'cloud' ? 9500 : 10000)) return reply({ error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).' }, 400);
     if (!PROFILE_IDS.includes(profile)) return reply({ error: 'Choose a supported assistant profile.' }, 400);
+
+    // Agent mode: a bounded, multi-step tool run whose trace is stored as evidence.
+    if (body.mode === 'agent') {
+      if (!await consumeRateLimit(db, 'assistant-agent', me.id, 12, 5)) return reply({ error: 'Agent runs are limited to twelve per minute.' }, 429, { 'Retry-After': '60' });
+      const run = await runAgent({ prompt: message, db, me, env });
+      try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
+      await audit(db, me, 'ASSISTANT_AGENT_RUN', `${run.steps.length} step(s), tools: ${run.trace.tools.join(',') || 'none'}`, request);
+      return reply(run);
+    }
+
+    // Research: a real, attributed Wikipedia lookup rather than an invented answer.
+    if (body.mode === 'research' || /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message)) {
+      const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) ? message : `research: ${message}`, db, me, env });
+      try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
+      await audit(db, me, 'ASSISTANT_RESEARCH', 'Wikipedia research run', request);
+      return reply(run);
+    }
+
     const result = localAssistant(message, profile);
     if (body.mode !== 'cloud' || result.action || result.tool || !result.needsProvider && /^(hi|hello|salam|assalam|hey)\b/i.test(message)) return reply(result);
     const provider = String(body.provider || 'gemini');
@@ -47,6 +66,19 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       return reply({ ok: true, note: rows[0], output: 'Note saved to your private workspace.' });
     }
     return reply({ error: 'Unsupported action. No external action was executed.' }, 400);
+  }
+  if (path === '/api/assistant/agent/tools' && method === 'GET') {
+    return reply({ ok: true, tools: AGENT_TOOLS, limits: { maxSteps: 4, timeoutMs: 9000, perMinute: 12 }, note: 'These are the only tools that exist. Writes (tasks, notes) always require an explicit confirmation call.' });
+  }
+  if (path === '/api/assistant/agent/runs' && method === 'GET') {
+    const rows = await db.query('SELECT id,prompt,surface,steps,tools,failures,duration_ms AS "durationMs",needs_provider AS "needsProvider",created_at AS "createdAt" FROM agent_runs WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20', [me.id]);
+    return reply({ ok: true, total: rows.length, runs: rows });
+  }
+  const runMatch = path.match(/^\/api\/assistant\/agent\/runs\/([a-f0-9-]{36})$/);
+  if (runMatch && method === 'GET') {
+    const rows = await db.query('SELECT id,prompt,surface,steps,tools,failures,duration_ms AS "durationMs",needs_provider AS "needsProvider",created_at AS "createdAt" FROM agent_runs WHERE id=$1 AND user_id=$2', [runMatch[1], me.id]);
+    if (!rows.length) return reply({ error: 'Agent run not found.' }, 404);
+    return reply({ ok: true, run: rows[0] });
   }
   if (path === '/api/assistant/tasks' && method === 'GET') return reply({ tasks: await db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]) });
   const taskMatch = path.match(/^\/api\/assistant\/tasks\/([a-f0-9-]{36})$/);

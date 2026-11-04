@@ -84,10 +84,10 @@ test('a throwing or hung check is recorded as a failure, not an exception', asyn
   assert.equal(outcome.verdict, 'fail');
 });
 
-test('readiness requires the V135 tables and health reports the current version', async () => {
+test('readiness requires the V136 tables and health reports the current version', async () => {
   const ready = await client()('/ready');
   assert.equal(ready.status, 200);
-  assert.equal(ready.data.schemaTables, 19);
+  assert.equal(ready.data.schemaTables, 20);
   const { c } = await account();
   const diagnostics = await c('/admin/diagnostics');
   assert.ok(diagnostics.data.tables.includes('agent_skills'));
@@ -95,7 +95,7 @@ test('readiness requires the V135 tables and health reports the current version'
   assert.ok(diagnostics.data.tables.includes('arena_battles'));
   assert.ok(diagnostics.data.tables.includes('arena_ratings'));
   assert.equal(diagnostics.data.status, 'healthy');
-  assert.equal((await client()('/health')).data.version, 'V135');
+  assert.equal((await client()('/health')).data.version, 'V136');
 });
 
 test('skill catalogue API syncs, lists, searches and is account gated', async () => {
@@ -119,7 +119,7 @@ test('skill catalogue API syncs, lists, searches and is account gated', async ()
 test('capabilities advertise real checks and honest providers', async () => {
   const { c } = await account();
   const data = (await c('/agent/capabilities')).data;
-  assert.equal(data.version, 'V135');
+  assert.equal(data.version, 'V136');
   assert.ok(data.selfCheck.checks.length >= 14);
   assert.ok(data.selfCheck.checks.every(check => check.id && check.weight > 0));
   assert.ok(data.providers.every(provider => provider.configured === false && /not configured/.test(provider.status)));
@@ -133,7 +133,7 @@ test('self-check runs every check on a real database and persists evidence', asy
   assert.equal(run.data.verdict, 'pass', JSON.stringify(run.data.results.filter(item => !item.ok), null, 1));
   assert.equal(run.data.score, 100);
   assert.equal(run.data.checksPassed, run.data.checksTotal);
-  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /19\/19/.test(item.detail)));
+  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /20\/20/.test(item.detail)));
   const history = await c('/agent/self-check');
   assert.equal(history.status, 200);
   assert.equal(history.data.latest.score, 100);

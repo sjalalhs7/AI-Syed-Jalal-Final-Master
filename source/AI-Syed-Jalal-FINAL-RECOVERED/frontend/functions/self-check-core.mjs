@@ -15,6 +15,7 @@
 // preview build (esbuild entry frontend/functions/api/[[path]].js).
 import { localAssistant, calculate } from './assistant-core.mjs';
 import { JUDGE, judgeVerdict } from './arena.mjs';
+import { AGENT_TOOLS, planFor } from './agent-runtime.mjs';
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -72,7 +73,7 @@ export function builtInChecks() {
         const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
         const names = new Set(rows.map(row => String(row.table_name)));
         // Must match the readiness list in frontend/functions/api/[[path]].js exactly.
-        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings'];
+        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings', 'agent_runs'];
         const missing = required.filter(name => !names.has(name));
         if (missing.length) throw new Error(`Missing tables: ${missing.join(', ')}`);
         return `${required.length}/${required.length} required tables present (${names.size} total)`;
@@ -213,6 +214,29 @@ export function builtInChecks() {
         const noise = searchSkills('zzzq xylophone quasar', index, 3);
         if (noise.length) throw new Error('Search returned results for a meaningless query');
         return `${hits.length} match(es) for "security review" → ${truncate(hits[0].name, 50)}; plain language "make my website faster" → ${truncate(natural[0].name, 50)}; nonsense query correctly returns nothing`;
+      }
+    }),
+    defineCheck({
+      id: 'agent.tool-runtime', title: 'Agent runtime uses a finite tool list and a bounded plan', group: 'agents', weight: 5,
+      async run({ db, me }) {
+        if (AGENT_TOOLS.length !== 4) throw new Error('The published agent tool list changed size unexpectedly');
+        for (const tool of AGENT_TOOLS) {
+          if (!tool.id || !tool.label || !tool.kind) throw new Error('A published agent tool is incomplete');
+        }
+        // A plan must only reference published tools, and must be bounded.
+        for (const prompt of ['calculate 40 * 3', 'research the printing press', 'show my tasks', 'write a poem']) {
+          const plan = planFor(prompt);
+          if (plan.length < 1 || plan.length > 4) throw new Error(`Plan for "${prompt}" is not bounded`);
+          for (const item of plan) {
+            if (item.tool !== 'none' && !AGENT_TOOLS.some(tool => tool.id === item.tool)) throw new Error(`Plan used an unpublished tool: ${item.tool}`);
+          }
+        }
+        // The calculator must be deterministic and correct.
+        const calcPlan = planFor('calculate (1200 + 350) * 15% * 3');
+        const outcome = await calcPlan[0].run({ db, me, env: {} });
+        if (!/= 697\.5$/.test(outcome.observation)) throw new Error('The calculator tool returned an unexpected result');
+        const runs = await db.query('SELECT count(*)::int AS n FROM agent_runs');
+        return `${AGENT_TOOLS.length} published tools, bounded plans, calculator verified; ${Number(runs[0]?.n || 0)} stored agent run(s)`;
       }
     }),
     defineCheck({

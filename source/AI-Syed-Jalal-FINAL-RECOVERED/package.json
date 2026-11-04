@@ -10,7 +10,7 @@
     "dev": "node server/dev.mjs",
     "start": "node server/dev.mjs",
     "build": "node server/build.mjs",
-    "test": "npm --prefix frontend test && node --test server/tests/*.test.mjs",
+    "test": "npm --prefix frontend test && node --test --test-concurrency=1 server/tests/*.test.mjs",
     "test:e2e": "node server/test-browser.mjs",
     "check": "node server/check.mjs",
     "skills:index": "node scripts/build-skill-index.mjs"

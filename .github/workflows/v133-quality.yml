@@ -40,8 +40,12 @@ jobs:
       - name: Audit direct and transitive dependencies
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED audit --audit-level=high
 
-      - name: Run frontend and server test suites
-        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED test
+      # Split on purpose: when one suite fails, the failing step names it.
+      - name: Run frontend contract tests
+        run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED/frontend test
+
+      - name: Run server and integration tests
+        run: cd source/AI-Syed-Jalal-FINAL-RECOVERED && node --test --test-concurrency=1 server/tests/*.test.mjs
 
       - name: Run static application checks
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED run check
