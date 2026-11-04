@@ -99,7 +99,7 @@ export function extractArtifacts(text) {
 
 /** A judge must never treat "provider not configured" as an answer. */
 function isNonAnswer(text) {
-  return /not configured|no cloud request was made|no external ai call|could not reach|provider is unavailable|needsprovider/i.test(String(text || '')) && String(text || '').length < 900;
+  return /not configured|not connected yet|no cloud request was made|no external ai call|could not reach|provider is unavailable|needsprovider/i.test(String(text || '')) && String(text || '').length < 900;
 }
 
 function scoreStructure(text) {
@@ -210,7 +210,14 @@ export function updateRatings(ratingA, ratingB, outcome, k = K_FACTOR) {
 
 /** Aggregate a battle's responses into a winner when the user does not vote. */
 export function judgeVerdict(responses) {
-  const scored = responses.map(item => ({ side: item.side, engine: item.engine, score: item.score ?? 0, nonAnswer: Boolean(item.nonAnswer) }));
+  // "Stored status" is authoritative: a failed or not-configured call is not an
+  // answer even if its stored error text could look like prose.
+  const scored = responses.map(item => ({
+    side: item.side,
+    engine: item.engine,
+    score: item.status && item.status !== 'ok' ? 0 : (item.score ?? 0),
+    nonAnswer: Boolean(item.nonAnswer) || (Boolean(item.status) && item.status !== 'ok')
+  }));
   const answered = scored.filter(item => !item.nonAnswer);
   if (answered.length < 2) return { winner: null, reason: 'Fewer than two contenders produced an answer, so the judge withheld a verdict.' };
   const ranked = [...answered].sort((a, b) => b.score - a.score);

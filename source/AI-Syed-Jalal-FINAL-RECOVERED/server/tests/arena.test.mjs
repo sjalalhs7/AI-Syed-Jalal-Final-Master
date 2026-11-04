@@ -67,6 +67,32 @@ test('judge never turns a missing provider key into a tie or a win', () => {
   assert.match(clear.reason, /rubric score/i);
 });
 
+
+test('each local contender answers in its own voice instead of copying one template', async () => {
+  const { c, token } = await account();
+  const created = await c('/arena/battles', 'POST', { prompt: 'Review this launch plan for an internal analytics dashboard', contenders: ['local-planner', 'local-critic', 'local-coding', 'local-analysis'], blind: false }, token);
+  assert.equal(created.status, 201);
+  const contents = created.data.responses.map(response => response.content);
+  assert.equal(new Set(contents).size, contents.length, 'four engines must not return the same text');
+  assert.match(contents[0], /^Plan:/);
+  assert.match(contents[1], /^Critical review:/);
+  assert.match(contents[2], /^Implementation checklist/);
+});
+
+test('a failed or unconfigured status is never judged as an answer', () => {
+  // A stored engine error can read like prose; the status must win.
+  const verdict = judgeVerdict([
+    { side: 'a', score: 0, status: 'failed', nonAnswer: false },
+    { side: 'b', score: 55, status: 'ok', nonAnswer: false }
+  ]);
+  assert.equal(verdict.winner, null, 'one real answer plus one failed call is not a contest');
+  const both = judgeVerdict([
+    { side: 'a', score: 40, status: 'not_configured' },
+    { side: 'b', score: 30, status: 'ok' }
+  ]);
+  assert.equal(both.winner, null);
+});
+
 test('judge is described as deterministic tooling, not a person or a second model', () => {
   assert.equal(JUDGE.kind, 'deterministic');
   assert.match(JUDGE.disclaimer, /not a human reviewer/);
@@ -170,11 +196,22 @@ test('revealing before the vote is recorded as no longer blind', async () => {
   assert.ok(revealed.data.responses.every(response => response.engine));
 });
 
+test('the general local tool refuses open-ended prompts instead of scoring a template', async () => {
+  const { c, token } = await account();
+  const created = await c('/arena/battles', 'POST', { prompt: 'design a marketing campaign for a coffee shop', contenders: ['local', 'local-critic'] }, token);
+  assert.equal(created.status, 201);
+  const general = created.data.responses.find(response => response.side === 'a');
+  assert.equal(general.status, 'needs_provider');
+  assert.equal(general.score, 0);
+  const score = created.data.judge.scores.find(item => item.side === 'a');
+  assert.equal(score.nonAnswer, true);
+});
+
 test('an unconfigured engine is stored as a non-answer and scores zero', async () => {
   const { c, token } = await account();
-  const created = await c('/arena/battles', 'POST', { prompt: 'explain why evidence matters', contenders: ['local', 'anthropic'] }, token);
+  const created = await c('/arena/battles', 'POST', { prompt: 'explain why evidence matters', contenders: ['local-critic', 'anthropic'] }, token);
   assert.equal(created.status, 201);
-  const cloud = created.data.responses.find(response => response.score === 0);
+  const cloud = created.data.responses.find(response => response.side === 'b');
   assert.ok(cloud, 'the unconfigured engine scores zero');
   assert.ok(['not_configured', 'failed'].includes(cloud.status));
   const judgeScore = created.data.judge.scores.find(item => item.side === cloud.side);

@@ -60,10 +60,19 @@ async function runContender({ request, env, onRequest, engine, prompt, mode }) {
   const profile = engine === 'local-planner' ? 'planner' : engine === 'local-critic' ? 'critic' : engine === 'local-coding' ? 'coding' : engine === 'local-analysis' ? 'analysis' : 'general';
   if (contenderFor(engine)?.kind === 'local') {
     try {
-      const result = localAssistant(mode === 'code' ? `code: ${prompt}` : prompt, profile);
+      // Each contender runs its own profile. The prefix makes the local tool take
+      // that profile deterministically instead of letting the prompt's first word
+      // (e.g. "Review…") decide for every engine and collapse the battle into copies.
+      const profiled = profile === 'general' ? prompt : `${profile === 'planner' ? 'plan' : profile === 'critic' ? 'critic' : profile === 'coding' ? 'code' : 'analyze'}: ${prompt}`;
+      const result = localAssistant(profiled, profile);
       const output = String(result?.output || '');
       const latencyMs = Date.now() - started;
       if (!output.trim()) return { engine, side: null, status: 'empty', content: 'The local engine returned no text.', latencyMs, error: 'empty output' };
+      // A local tool that declares it needs a provider for open-ended work has not
+      // answered. Recorded as a non-answer so it cannot win or score by template.
+      if (result?.needsProvider) {
+        return { engine, side: null, status: 'needs_provider', content: output, latencyMs, error: 'local tools cannot answer open-ended prompts without a provider' };
+      }
       return { engine, side: null, status: 'ok', content: output, latencyMs, error: null };
     } catch (error) {
       return { engine, side: null, status: 'failed', content: String(error?.message || 'The local engine failed.'), latencyMs: Date.now() - started, error: String(error?.message || 'local engine failed') };
@@ -224,7 +233,11 @@ export async function arenaRoute({ request, env, db, me, url, readBody, reply, a
       const side = SIDES[index];
       const judgement = result.status === 'ok'
         ? judgeResponse({ content: result.content, prompt, mode, latencyMs: result.latencyMs, isLocal: contenderFor(result.engine)?.kind === 'local' })
-        : { score: 0, subscores: { structure: 0, specificity: 0, coverage: 0, safety: 0, code: 0 }, notes: [result.status === 'not_configured' ? 'No answer: provider key is not configured, so no cloud request was made.' : 'No usable answer was produced.'], nonAnswer: true };
+        : { score: 0, subscores: { structure: 0, specificity: 0, coverage: 0, safety: 0, code: 0 }, notes: [result.status === 'not_configured'
+          ? 'No answer: provider key is not configured, so no cloud request was made.'
+          : result.status === 'needs_provider'
+            ? 'No answer: local tools refuse open-ended questions, so this was not counted as an answer.'
+            : 'No usable answer was produced.'], nonAnswer: true };
       return { ...result, side, ...judgement };
     });
 
@@ -276,6 +289,7 @@ export async function arenaRoute({ request, env, db, me, url, readBody, reply, a
     const vote = String(body.vote || '').toLowerCase();
     if (vote !== 'tie' && !SIDES.slice(0, (battle.contenders || []).length).includes(vote)) return reply({ error: `Vote must be one of ${[...SIDES.slice(0, (battle.contenders || []).length), 'tie'].join(', ')}.` }, 400);
     const responses = await db.query('SELECT id,side,engine,status FROM arena_responses WHERE battle_id=$1 ORDER BY side ASC', [battle.id]);
+    // Never credit an engine that produced no answer, whatever the vote says.
     const answered = responses.filter(row => row.status === 'ok');
     if (vote !== 'tie' && !answered.some(row => row.side === vote)) return reply({ error: 'You cannot vote for an engine that produced no answer.' }, 400);
 
@@ -290,12 +304,18 @@ export async function arenaRoute({ request, env, db, me, url, readBody, reply, a
     }
     await audit(db, me, 'ARENA_VOTE', `${vote} · decided by user (judge said ${battle.judge_winner || 'no verdict'})`, request);
     const refreshed = await db.query('SELECT id,prompt,mode,contenders,blind,judge_winner,judge_reason,vote,decided_by,created_at FROM arena_battles WHERE id=$1', [battle.id]);
+    // Keep the judge's reasoning visible after the vote instead of dropping it.
+    const judgeScores = await db.query('SELECT side,status,score,subscores,notes FROM arena_responses WHERE battle_id=$1 ORDER BY side ASC', [battle.id]);
     return reply({
       ok: true,
       vote,
       decidedBy: vote === 'tie' ? 'tie' : 'user',
       agreements: battle.judge_winner ? { judge: battle.judge_winner, user: vote, agree: battle.judge_winner === vote } : null,
       ratings: changes,
+      judge: {
+        ...JUDGE, winner: battle.judge_winner, reason: battle.judge_reason,
+        scores: judgeScores.map(row => ({ side: row.side, score: Number(row.score), subscores: row.subscores || {}, notes: row.notes || [], nonAnswer: row.status !== 'ok' }))
+      },
       ...(await battlePayload(db, refreshed[0], { reveal: true }))
     });
   }

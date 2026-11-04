@@ -82,7 +82,7 @@
     const winner = current?.judge?.winner === item.side;
     const head = el('div', { class: 'card-head' },
       el('strong', { text: item.label || `Engine ${String(item.side).toUpperCase()}` }),
-      el('span', { class: 'tag', text: item.status === 'ok' ? `${item.latencyMs} ms` : item.status === 'not_configured' ? 'Not configured' : item.status }),
+      el('span', { class: 'tag', text: item.status === 'ok' ? `${item.latencyMs} ms` : item.status === 'not_configured' ? 'Not configured' : item.status === 'needs_provider' ? 'Needs cloud key' : item.status }),
       el('span', { class: 'score', text: item.status === 'ok' ? `${item.score}/100` : '—' }),
       winner ? el('span', { class: 'tag ok', text: 'Judge pick' }) : null);
     const bodyClass = item.status === 'ok' ? 'card-body' : 'card-body notice';
@@ -90,7 +90,9 @@
     if (item.status === 'ok') body.textContent = item.content;
     else body.textContent = item.status === 'not_configured'
       ? `No answer. ${item.content} The rubric counts this as a non-answer, never as a tie, and no credit is given on the leaderboard.`
-      : `Engine did not answer: ${item.content}`;
+      : item.status === 'needs_provider'
+        ? `No answer. This local tool only runs deterministic commands; it refuses open-ended prompts instead of inventing one.\n\n${item.content}`
+        : `Engine did not answer: ${item.content}`;
     const foot = el('div', { class: 'card-foot' });
     if (judgeScore) {
       const bars = el('div', { class: 'bars' });
@@ -131,9 +133,10 @@
     }
     const detail = $('judgeDetail'); detail.replaceChildren();
     detail.append(
-      el('p', { text: `Judge: ${judge.label || 'Deterministic rubric'} v${judge.version || ''} — ${judge.kind || 'tooling'}, not a human reviewer and not a second AI model.` }),
+      el('p', { text: `Judge: ${judge.label || 'SJ Rubric Judge'} (${judge.id || 'sj-rubric-v1'}) — deterministic tooling, not a human reviewer and not a second AI model.` }),
       el('p', { text: 'Scoring bands: structure, specificity, coverage, honesty, and code quality. Scores are reproducible for the same answer; they are not a measure of factual truth.' })
     );
+    if (judge.disclaimer) detail.append(el('p', { class: 'hint', text: judge.disclaimer }));
     const list = el('ul');
     for (const score of judge.scores || []) list.append(el('li', { text: `Engine ${String(score.side).toUpperCase()}: ${score.nonAnswer ? 'no score (non-answer)' : score.score + '/100'}` }));
     detail.append(list);
@@ -205,6 +208,7 @@
     $('voteButtons').querySelectorAll('button').forEach(node => { node.disabled = true; });
     try {
       const payload = await api(`/arena/battles/${current.battle.id}/vote`, { method: 'POST', body: JSON.stringify({ vote: value }) });
+      if (!payload.judge) payload.judge = current.judge;
       showBattle(payload);
       const agree = payload.agreements;
       const rating = (payload.ratings || []).map(item => `${item.engine} ${item.delta >= 0 ? '+' : ''}${item.delta} → ${item.rating}`).join(' · ');
@@ -239,7 +243,7 @@
       data.entries.forEach((entry, index) => {
         body.append(el('tr', { class: index === 0 && entry.rated ? 'top' : '' },
           el('td', { class: 'num', text: String(index + 1) }),
-          el('td', {}, entry.label, entry.kind === 'cloud' && !entry.configured ? el('span', { class: 'tag warn', text: 'not configured' }) : null),
+          el('td', { class: 'engine-cell' }, el('span', { text: entry.label }), entry.kind === 'cloud' && !entry.configured ? el('span', { class: 'tag warn', text: 'not configured' }) : null),
           el('td', { class: 'num', text: entry.rated ? String(entry.rating) : '1200' }),
           el('td', { class: 'num', text: String(entry.wins) }),
           el('td', { class: 'num', text: String(entry.losses) }),

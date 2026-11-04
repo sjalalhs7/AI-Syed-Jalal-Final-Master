@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS arena_responses (
   side text NOT NULL CHECK (side IN ('a','b','c','d')),
   engine text NOT NULL CHECK (length(engine) BETWEEN 1 AND 60),
   content text NOT NULL DEFAULT '' CHECK (length(content) <= 60000),
-  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed','not_configured','empty')),
+  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed','not_configured','empty','needs_provider')),
   latency_ms integer NOT NULL DEFAULT 0 CHECK (latency_ms >= 0),
   score integer NOT NULL DEFAULT 0 CHECK (score BETWEEN 0 AND 100),
   subscores jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -62,3 +62,13 @@ CREATE TABLE IF NOT EXISTS arena_ratings (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, engine)
 );
+
+-- A local tool that refuses an open-ended prompt is a distinct outcome from a
+-- missing cloud key: both are non-answers, but they explain different things.
+-- Replayed safely so an already-created table also accepts the new status.
+DO $$
+BEGIN
+  ALTER TABLE arena_responses DROP CONSTRAINT IF EXISTS arena_responses_status_check;
+  ALTER TABLE arena_responses ADD CONSTRAINT arena_responses_status_check
+    CHECK (status IN ('ok','failed','not_configured','empty','needs_provider'));
+END $$;

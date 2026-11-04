@@ -10,7 +10,11 @@ test('Arena: blind battle of real local engines, vote, reveal, leaderboard and h
   // Unconfigured cloud engines must be labelled, not hidden and not faked.
   await expect(page.locator('#engineGrid')).toContainText('Not configured');
 
-  await page.locator('#prompt').fill('Design a launch plan for a small internal dashboard');
+  // Case 2 of the honesty rules: the general local tool refuses open-ended prompts.
+  // Pick engines that really produce an answer so the vote is meaningful.
+  await page.locator('#engineGrid input[value="local"]').uncheck();
+  await page.locator('#engineGrid input[value="local-coding"]').check();
+  await page.locator('#prompt').fill('Write a critical review of an analytics dashboard launch plan with risks');
   await expect(page.locator('#runBtn')).toBeEnabled({ timeout: 20000 });
   await page.locator('#runBtn').click();
   await expect(page.locator('#battlePanel')).toBeVisible({ timeout: 40000 });
@@ -40,10 +44,13 @@ test('Arena: blind battle of real local engines, vote, reveal, leaderboard and h
   // Code mode extracts artifacts and previews them in a sandboxed frame.
   await page.locator('#newBattleBtn').click();
   await page.locator('#mode').selectOption('code');
-  await page.locator('#prompt').fill('Write a responsive pricing card as one HTML file with inline CSS');
+  await page.locator('#prompt').fill('Write the implementation checklist for a responsive pricing card');
   await page.locator('#runBtn').click();
   await expect(page.locator('#battlePanel')).toBeVisible({ timeout: 40000 });
   await expect(page.locator('#responses .card')).toHaveCount(2);
+  // Code mode must say what it produced; an empty artifact list is not claimed.
+  const artifactCount = await page.locator('#artifactBox .artifact').count();
+  if (artifactCount) await expect(page.locator('#artifactBox .artifact iframe, #artifactBox .artifact pre').first()).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();

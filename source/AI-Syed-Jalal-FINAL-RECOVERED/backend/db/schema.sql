@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS arena_responses (
   side text NOT NULL CHECK (side IN ('a','b','c','d')),
   engine text NOT NULL CHECK (length(engine) BETWEEN 1 AND 60),
   content text NOT NULL DEFAULT '' CHECK (length(content) <= 60000),
-  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed','not_configured','empty')),
+  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed','not_configured','empty','needs_provider')),
   latency_ms integer NOT NULL DEFAULT 0 CHECK (latency_ms >= 0),
   score integer NOT NULL DEFAULT 0 CHECK (score BETWEEN 0 AND 100),
   subscores jsonb NOT NULL DEFAULT '{}'::jsonb,
