@@ -21,8 +21,10 @@ test("readiness requires rate-limit, Agent Studio and Arena migrations before de
   assert.ok(source.includes("arena_responses"));
   assert.ok(source.includes("arena_artifacts"));
   assert.ok(source.includes("arena_ratings"));
-  assert.ok(source.includes("ready:n>=19"));
-  assert.ok(source.includes("n>=19?200:503"));
+  // V136 adds the agent run trace table.
+  assert.ok(source.includes("agent_runs"));
+  assert.ok(source.includes("ready:n>=20"));
+  assert.ok(source.includes("n>=20?200:503"));
 });
 
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {
