@@ -196,7 +196,12 @@ export function builtInChecks() {
       async run({ searchSkills, index }) {
         const hits = searchSkills('security review', index, 5);
         if (!hits.length) throw new Error('Skill search returned no matches for "security review"');
-        return `${hits.length} ranked match(es); first: ${truncate(hits[0].name, 60)}`;
+        // Natural language must now work too, not only catalogue vocabulary.
+        const natural = searchSkills('make my website faster', index, 3);
+        if (!natural.length) throw new Error('Plain-language search returned no matches for "make my website faster"');
+        const noise = searchSkills('zzzq xylophone quasar', index, 3);
+        if (noise.length) throw new Error('Search returned results for a meaningless query');
+        return `${hits.length} match(es) for "security review" → ${truncate(hits[0].name, 50)}; plain language "make my website faster" → ${truncate(natural[0].name, 50)}; nonsense query correctly returns nothing`;
       }
     }),
     defineCheck({
@@ -270,11 +275,35 @@ export function summarizeGroups(results) {
  * Deterministic, ranked skill search over the generated index.
  * Scoring favours exact phrase, then token coverage, then domain/family hits.
  */
+// Ordinary language people actually type, mapped onto the catalogue's vocabulary.
+const SYNONYMS = {
+  website: ['web', 'frontend', 'site'], website_build: ['web'],
+  launch: ['release', 'deployment', 'deploy', 'ship'],
+  ship: ['release', 'deployment'], deploy: ['deployment', 'release'], deployment: ['deploy'],
+  app: ['application'], application: ['app'],
+  bug: ['debugging', 'defect'], bugs: ['debugging'], fix: ['debugging', 'refactoring'],
+  fast: ['performance'], slow: ['performance'], speed: ['performance'],
+  doctor: ['healthcare', 'medical'], health: ['healthcare'], medical: ['healthcare'],
+  money: ['finance', 'budget'], cost: ['finance', 'budget'], budget: ['finance'],
+  secure: ['security'], safety: ['security'], hack: ['security', 'cybersecurity'],
+  test: ['testing', 'qa'], tests: ['testing'], qa: ['testing'],
+  data: ['analytics', 'data'], database: ['database'], sql: ['database'],
+  design: ['ui', 'ux', 'design'], ui: ['interface'], writing: ['content', 'editing'],
+  translate: ['localization', 'translation'], language: ['localization'],
+  teach: ['education', 'learning'], learn: ['education', 'learning'],
+  plan: ['planning', 'project management'], roadmap: ['planning'],
+  team: ['project management', 'operations'], office: ['productivity', 'operations'],
+  ai: ['reasoning', 'meta-agent'], agent: ['meta-agent']
+};
+
 export function searchSkills(query, index, limit = 20) {
   const text = String(query || '').toLowerCase().trim().slice(0, 120);
   if (!text || !index?.skills?.length) return [];
   const tokens = text.split(/[^a-z0-9+]+/).filter(token => token.length > 2).slice(0, 8);
   const phrase = text;
+  if (!tokens.length) return [];
+  // Expand each token with its synonyms once, so the scan stays linear.
+  const expansions = tokens.map(token => ({ token, related: SYNONYMS[token] || [] }));
   const scored = [];
   for (const row of index.skills) {
     const name = row[1].toLowerCase(), domain = row[2].toLowerCase(), family = row[3].toLowerCase();
@@ -283,11 +312,19 @@ export function searchSkills(query, index, limit = 20) {
     if (name === phrase) score += 40;
     if (name.includes(phrase)) score += 18;
     if (haystack.includes(phrase)) score += 8;
-    for (const token of tokens) {
+    // Cheap prefix match so "websites" or "testing" still lands on "web"/"test".
+    const prefixable = tokens.filter(token => token.length >= 4);
+    for (const token of prefixable) if (haystack.includes(token.slice(0, Math.max(4, token.length - 1)))) score += 1;
+    for (const { token, related } of expansions) {
       if (name.includes(token)) score += 6;
       else if (family.includes(token)) score += 3;
       else if (domain.includes(token)) score += 2;
       else if (haystack.includes(token)) score += 1;
+      for (const alternate of related) {
+        if (name.includes(alternate)) score += 4;
+        else if (family.includes(alternate)) score += 3;
+        else if (domain.includes(alternate)) score += 1;
+      }
     }
     if (score > 0) scored.push({ score, id: row[0], name: row[1], domain: row[2], family: row[3], capability: row[4] });
   }
