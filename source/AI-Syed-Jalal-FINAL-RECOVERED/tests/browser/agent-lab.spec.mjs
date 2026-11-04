@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Agent Lab: preview sign-in, graded self-check, history, skill search and mobile layout', async ({ page }) => {
+test('Agent Lab: preview sign-in, graded self-check, evidence export, history and skill search', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/agent-lab.html');
   await expect(page.getByRole('button', { name: 'Try the local preview' })).toBeVisible();
@@ -11,19 +11,23 @@ test('Agent Lab: preview sign-in, graded self-check, history, skill search and m
   await page.locator('#runBtn').click();
   await expect(page.locator('#verdict')).toHaveText('Passing', { timeout: 30000 });
   await expect(page.locator('#scoreValue')).toHaveText('100');
-  await expect(page.locator('.result')).toHaveCount(15);
-  await expect(page.locator('#runSummary')).toContainText('15/15');
+  await expect(page.locator('.result')).toHaveCount(16);
+  await expect(page.locator('#runSummary')).toContainText('16/16');
   await expect(page.locator('#groups .group-chip.good')).toHaveCount(7);
   await expect(page.locator('#runStatus')).toContainText('not a production certificate');
   await expect(page.locator('#trend .trend-bar')).toHaveCount(1);
+  expect(await page.locator('#runHint')).toContainText('16 weighted checks');
 
-  // The evidence export must be a real download, not a dead control.
-  const download = page.waitForEvent('download');
+  // Evidence exports: JSON for machines, CSV for a spreadsheet/audit trail.
+  const jsonDownload = page.waitForEvent('download');
   await page.locator('#downloadBtn').click();
-  const file = await download;
-  expect(file.suggestedFilename()).toBe('sj-agent-lab-evidence.json');
+  const jsonFile = await jsonDownload;
+  expect(jsonFile.suggestedFilename()).toBe('sj-agent-lab-evidence.json');
   await expect(page.locator('#runStatus')).toContainText('Evidence JSON downloaded');
-  expect(await page.locator('#runHint')).toContainText('15 weighted checks');
+  const csvDownload = page.waitForEvent('download');
+  await page.locator('#csvBtn').click();
+  expect((await csvDownload).suggestedFilename()).toBe('sj-agent-lab-evidence.csv');
+  await expect(page.locator('#runStatus')).toContainText('Evidence CSV downloaded');
 
   // A second run must append evidence instead of replacing history.
   await page.locator('#runBtn').click();
@@ -47,6 +51,11 @@ test('Agent Lab: preview sign-in, graded self-check, history, skill search and m
   await page.reload();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator('#runBtn')).toBeEnabled();
+
+  // A skill card is actionable: it stages a real prompt and opens Agent Studio with it.
+  await page.locator('#skills .skill').first().getByRole('button', { name: 'Use in Studio' }).click();
+  await page.waitForURL(/agent\.html\?draft=1/);
+  await expect(page.locator('#prompt')).toHaveValue(/Apply the ".+" skill/);
   expect(errors).toEqual([]);
 });
 

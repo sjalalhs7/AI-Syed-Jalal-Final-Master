@@ -47,6 +47,16 @@ The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
 
+## V134 — working reply actions (4 November 2026)
+
+Agent Studio's reply buttons now do real work: **Copy** saves the text as a new Direct turn with its own
+answer, and **Regenerate** re-runs the same prompt on the same engine and *replaces* the stored reply
+(compare pairs are swapped together). A failed generation keeps one flagged, retryable row instead of
+losing the prompt. Agent Lab gained an **evidence CSV** export and **clickable skill cards** ("Use in
+Studio" / "Critique with it") that stage a real prompt in Agent Studio, and its self-check grew to 16
+checks. Migration `010_v134_message_actions.sql` adds `platform_messages.reply_to` and `.status`;
+readiness still requires 15 tables. See [V134-REPLY-ACTIONS-2026-11-04.md](V134-REPLY-ACTIONS-2026-11-04.md).
+
 ## V133 — Agent Lab (3 November 2026)
 
 The newest application surface is **Agent Lab** (`source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/agent-lab.html`).

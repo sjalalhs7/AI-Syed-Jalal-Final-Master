@@ -49,3 +49,9 @@ CREATE INDEX IF NOT EXISTS idx_platform_messages_conversation ON platform_messag
 
 ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS comparison_id uuid;
 CREATE INDEX IF NOT EXISTS idx_platform_messages_comparison ON platform_messages(comparison_id);
+
+-- V134: copy / regenerate support.
+ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS reply_to uuid;
+CREATE INDEX IF NOT EXISTS idx_platform_messages_reply_to ON platform_messages(reply_to);
+ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','failed'));
+CREATE INDEX IF NOT EXISTS idx_platform_messages_failed ON platform_messages(conversation_id) WHERE status = 'failed';

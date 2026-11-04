@@ -70,6 +70,8 @@ a{color:var(--accent)}button,input,select{font:inherit;color:inherit}
 .skill strong{display:block;font-size:.88rem;margin-bottom:4px}
 .skill span{display:block;font-size:.74rem;color:var(--muted);line-height:1.5}
 .skill code{font-size:.68rem;color:var(--accent);background:transparent}
+.skill-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.skill-actions .btn{flex:1 1 auto;font-size:.74rem;padding:5px 8px}
 .honesty-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px}
 .honesty-grid h3{font-size:.84rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 8px}
 .honesty-grid ul{margin:0;padding-left:18px;font-size:.84rem;line-height:1.7;color:var(--muted)}

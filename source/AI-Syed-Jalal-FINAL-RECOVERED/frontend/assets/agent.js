@@ -96,10 +96,58 @@
     for (const step of steps) { const node = document.createElement('div'); node.className = 'step'; const title = document.createElement('strong'); title.textContent = `${step.title} · ${step.status}`; const body = document.createElement('p'); body.textContent = step.output; node.append(title, body); details.appendChild(node); }
     return details;
   }
+  // Copy: clipboard plus a real, saved follow-up turn so the action is visible and
+  // survives a reload (with history on) instead of being a no-op button.
+  async function copyAsNew(message) {
+    try { await navigator.clipboard?.writeText(message.content); } catch { /* clipboard may be blocked; the saved turn still works */ }
+    if (!user) { setStatus('Copied to the clipboard.'); return; }
+    if (busy) return;
+    busy = true; updateControls();
+    try {
+      const id = await ensureConversation(message.content);
+      // Direct mode: a copied text is a plain question, not another Agent/Compare run.
+      const data = await api(`/platform/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ content: message.content, mode: 'chat', modelA, modelB, history, attachments: [] }) });
+      messages.push(...(data.messages || []));
+      renderMessages(); await loadConversations($('conversationSearch').value.trim());
+      setStatus(history ? 'Copied, and saved as a new turn in this conversation.' : 'Copied. History is off, so the new turn is transient.');
+    } catch (error) { setStatus('Copied to the clipboard. Saving the copy failed: ' + error.message); }
+    finally { busy = false; updateControls(); }
+  }
+  function previousUserText(index) {
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) if (messages[cursor].role === 'user') return messages[cursor].content;
+    return '';
+  }
+  // Regenerate: re-runs the same prompt with the same engine and replaces exactly
+  // these reply rows. The reply is stored before it is generated, so a regeneration
+  // replaces its own row (never duplicates the prompt and never needs a reply id).
+  async function regenerateReply(button) {
+    const index = messages.findIndex(item => item.id === button.closest('.message')?.dataset.id);
+    const message = messages[index >= 0 ? index : -1];
+    const prompt = message ? previousUserText(index) : '';
+    if (!message || !prompt) { setStatus('Regenerate needs a saved reply with its original prompt.'); return; }
+    if (!history || !currentId) { setStatus('Regenerate needs history on, because it replaces the stored reply.'); return; }
+    if (busy) return;
+    const pair = message.mode === 'compare' && message.comparisonId ? messages.filter(item => item.comparisonId === message.comparisonId && item.role === 'assistant') : [];
+    const targetMode = pair.length === 2 ? 'compare' : 'chat';
+    const targetA = pair.length === 2 ? pair[0].provider : (message.provider || modelA);
+    const targetB = pair.length === 2 ? pair[1].provider : modelB;
+    busy = true; updateControls(); button.disabled = true;
+    setStatus(pair.length === 2 ? 'Regenerating both comparison sides with the same engines…' : 'Regenerating this reply with the same engine…');
+    try {
+      const data = await api(`/platform/conversations/${currentId}/messages`, { method: 'POST', body: JSON.stringify({ content: prompt, mode: targetMode, modelA: targetA, modelB: targetB, history, attachments: [], replace: [message.id, ...pair.map(item => item.id)].filter(Boolean) }) });
+      const replaced = new Set([message.replyTo, ...pair.map(item => item.replyTo)]);
+      messages = messages.filter(item => !(item.role === 'assistant' && replaced.has(item.replyTo))).concat((data.messages || []).filter(item => item.role === 'assistant'));
+      renderMessages(); await loadConversations($('conversationSearch').value.trim());
+      setStatus('Reply regenerated. The previous reply was replaced, not appended.');
+    } catch (error) { setStatus(error.message); button.disabled = false; }
+    finally { busy = false; updateControls(); }
+  }
   function messageNode(message) {
     const node = document.createElement('article'); node.className = 'message ' + message.role;
+    if (message.id) node.dataset.id = message.id;
     const meta = document.createElement('div'); meta.className = 'meta';
     meta.textContent = message.role === 'user' ? 'You' : `${modelLabel(message.provider)} · ${message.mode}${message.side ? ' · side ' + message.side.toUpperCase() : ''}`;
+    if (message.status === 'failed') meta.textContent += ' · not generated';
     node.append(meta, contentNode(message.content));
     if (message.attachments?.length) { const files = document.createElement('div'); files.className = 'message-attachments'; fileChips(files, message.attachments); node.appendChild(files); }
     if (message.steps?.length) node.appendChild(stepsNode(message.steps));
@@ -108,8 +156,10 @@
       lastReply = message.content;
       const actions = document.createElement('div'); actions.className = 'message-actions';
       const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(message.content);
-      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy'; copy.onclick = async () => { try { await navigator.clipboard.writeText(message.content); setStatus('Copied.'); } catch { setStatus('Clipboard unavailable. Select the text to copy.'); } };
-      actions.append(read, copy); node.appendChild(actions);
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy'; copy.onclick = () => copyAsNew(message);
+      const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.className = 'btn small'; regenerate.textContent = 'Regenerate';
+      regenerate.onclick = () => regenerateReply(regenerate);
+      actions.append(read, copy, regenerate); node.appendChild(actions);
     }
     return node;
   }
@@ -122,6 +172,11 @@
       card.append(meta, contentNode(message.content));
       if (message.steps?.length) card.appendChild(stepsNode(message.steps));
       if (message.action) card.appendChild(actionBox(message.action));
+      const cardActions = document.createElement('div'); cardActions.className = 'message-actions';
+      const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(message.content);
+      const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy'; copy.onclick = () => copyAsNew(message);
+      const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.className = 'btn small'; regenerate.textContent = 'Regenerate both'; regenerate.onclick = () => regenerateReply(regenerate);
+      cardActions.append(read, copy, regenerate); card.appendChild(cardActions);
       grid.appendChild(card);
     }
     const vote = document.createElement('div'); vote.className = 'compare-vote';
@@ -238,7 +293,7 @@
     user = session.user; $('authGate').hidden = true; $('conversationArea').hidden = false;
     const state = await api('/platform/state'); models = state.models || []; renderModelOptions();
     $('privacyNote').textContent = state.privacy || $('privacyNote').textContent;
-    await loadConversations(); newConversation(); setStatus('Ready · signed in as ' + user.username); updateControls();
+    await loadConversations(); newConversation(); applyStagedDraft(); setStatus('Ready · signed in as ' + user.username); updateControls();
   }
   function exportConversation(format) {
     if (!messages.length) { setStatus('Nothing to export yet.'); return; }
@@ -251,6 +306,14 @@
   }
   function closeSidebar() { $('sidebar').classList.remove('open'); }
 
+  // Agent Lab stages a skill prompt; Agent Studio opens with it ready to review.
+  function applyStagedDraft() {
+    let draft = '';
+    try { if (new URLSearchParams(location.search).get('draft') === '1') { draft = localStorage.getItem('aj-agent-draft') || ''; localStorage.removeItem('aj-agent-draft'); } } catch { /* private mode */ }
+    if (!draft) return;
+    $('prompt').value = draft.slice(0, 10000);
+    updateControls();
+  }
   $('composer').onsubmit = event => { event.preventDefault(); send(); };
   $('prompt').addEventListener('input', updateControls);
   $('prompt').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });

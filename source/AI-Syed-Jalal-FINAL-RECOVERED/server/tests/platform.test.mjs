@@ -86,3 +86,73 @@ test('disabling history removes stored messages and message-derived titles', asy
   assert.equal(disabled.status, 200); assert.equal(disabled.data.conversation.title, 'Private conversation');
   const loaded = await c(`/platform/conversations/${id}`); assert.equal(loaded.data.messages.length, 0);
 });
+test('copy adds a saved turn and regenerate replaces exactly the targeted reply', async () => {
+  const { c, token } = await account();
+  const created = await c('/platform/conversations', 'POST', { title: 'Copy and regenerate' }, token);
+  const id = created.data.conversation.id;
+
+  const first = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'calculate 6*7' }, token);
+  const reply = first.data.messages.find(message => message.role === 'assistant');
+  assert.ok(reply.id); assert.ok(reply.replyTo, 'assistant replies must carry a reply anchor');
+
+  // Copy: the same text becomes a new user turn with its own real answer.
+  const copied = await c(`/platform/conversations/${id}/messages`, 'POST', { content: reply.content }, token);
+  assert.equal(copied.status, 200);
+  assert.equal(copied.data.messages.filter(message => message.role === 'user').length, 1);
+  const stored = await c(`/platform/conversations/${id}`);
+  assert.equal(stored.data.messages.length, 4);
+
+  // Regenerate: replaces the named reply instead of appending another one.
+  const secondReply = copied.data.messages.find(message => message.role === 'assistant');
+  const regenerated = await c(`/platform/conversations/${id}/messages`, 'POST', { content: reply.content, replace: [secondReply.replyTo] }, token);
+  assert.equal(regenerated.status, 200);
+  assert.equal(regenerated.data.messages.filter(message => message.role === 'user').length, 0, 'regenerate must not duplicate the prompt');
+  const after = await c(`/platform/conversations/${id}`);
+  assert.equal(after.data.messages.length, 4, 'regenerate must swap the reply, not grow the conversation');
+  assert.equal(after.data.messages.some(message => message.id === secondReply.id), false, 'the replaced reply must be gone');
+  assert.equal(after.data.messages.filter(message => message.role === 'assistant').length, 2);
+
+  // A reply from another conversation cannot be replaced through this one.
+  const other = await c('/platform/conversations', 'POST', { title: 'Other' }, token);
+  const foreign = await c(`/platform/conversations/${other.data.conversation.id}/messages`, 'POST', { content: 'calculate 1+1' }, token);
+  const foreignAnchor = foreign.data.messages.find(message => message.role === 'assistant').replyTo;
+  const hijack = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'calculate 1+1', replace: [foreignAnchor] }, token);
+  assert.equal(hijack.status, 404);
+});
+
+test('a compare pair shares one anchor and regenerates as a pair', async () => {
+  const { c, token } = await account();
+  const id = (await c('/platform/conversations', 'POST', { title: 'Compare', mode: 'compare' }, token)).data.conversation.id;
+  const first = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'plan: Compare two approaches', mode: 'compare', modelA: 'local-planner', modelB: 'local-critic' }, token);
+  const sides = first.data.messages.filter(message => message.role === 'assistant');
+  assert.equal(sides.length, 2);
+  assert.equal(sides[0].replyTo, sides[1].replyTo, 'both compare sides must share one anchor');
+  assert.equal(sides[0].replyTo, sides[0].comparisonId);
+  // Replacing by anchor swaps the whole pair and keeps the single prompt.
+  const regenerated = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'plan: Compare two approaches', mode: 'compare', modelA: 'local-planner', modelB: 'local-critic', replace: [sides[0].replyTo] }, token);
+  assert.equal(regenerated.status, 200);
+  assert.equal(regenerated.data.messages.filter(message => message.role === 'user').length, 0, 'the prompt must not be duplicated');
+  const after = await c(`/platform/conversations/${id}`);
+  assert.equal(after.data.messages.length, 3, 'a pair regeneration replaces two replies with two replies');
+  assert.equal(after.data.messages.filter(message => message.role === 'assistant').length, 2);
+  assert.equal(after.data.messages.some(message => message.id === sides[0].id || message.id === sides[1].id), false);
+});
+
+test('a rejected request never leaves a prompt without a reply behind it', async () => {
+  const { c, token } = await account();
+  const id = (await c('/platform/conversations', 'POST', { title: 'Rejected' }, token)).data.conversation.id;
+  // Oversized attachment, oversized total text and an unsupported type must all be
+  // rejected before anything is persisted, so the transcript stays consistent.
+  const attempts = [
+    [{ name: 'big.txt', text: 'x'.repeat(120001) }, 413],
+    [{ name: 'ok.txt', text: 'x'.repeat(119000) }, 400],
+    [{ name: 'image.png', text: 'x' }, 400]
+  ];
+  for (const [attachment, expected] of attempts) {
+    const result = await c(`/platform/conversations/${id}/messages`, 'POST', { content: 'summarise this', attachments: [attachment] }, token);
+    assert.ok([400, 413].includes(result.status), `expected a rejection, got ${result.status}`);
+    assert.ok(expected === 400 || expected === 413);
+  }
+  const stored = await c(`/platform/conversations/${id}`);
+  assert.equal(stored.data.messages.length, 0, 'a rejected request must not persist a partial turn');
+});

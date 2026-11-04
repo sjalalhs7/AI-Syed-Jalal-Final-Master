@@ -20,6 +20,22 @@ test('Agent Studio: preview sign-in, direct chat, agent workflow, compare vote, 
   await expect(page.locator('#conversationList .conversation-item').first()).toBeVisible();
   await page.locator('#conversationList .conversation-item').first().click();
   await expect(page.locator('#messages')).toContainText('232.5');
+  // Copy and Regenerate inside a reply: real saved actions, not dead buttons.
+  const users = page.locator('.message.user'), replies = page.locator('.message.assistant');
+  const usersBefore = await users.count(), repliesBefore = await replies.count();
+  await replies.last().getByRole('button', { name: 'Copy' }).click();
+  await expect(page.locator('#status')).toContainText('Copied');
+  await expect(users).toHaveCount(usersBefore + 1);
+  await expect(replies).toHaveCount(repliesBefore + 1);
+  await replies.last().getByRole('button', { name: 'Regenerate' }).click();
+  await expect(page.locator('#status')).toContainText('Reply regenerated');
+  await expect(users).toHaveCount(usersBefore + 1, 'regenerating must not duplicate the prompt');
+  await expect(replies).toHaveCount(repliesBefore + 1, 'regenerating must swap the reply, not append one');
+  await page.reload();
+  await page.locator('#conversationList .conversation-item').first().click();
+  await expect(users).toHaveCount(usersBefore + 1);
+  await expect(replies).toHaveCount(repliesBefore + 1);
+
   await page.locator('#newChatBtn').click();
   await page.locator('#historyToggle').uncheck();
   await page.locator('#prompt').fill('calculate 9*9'); await page.locator('#sendBtn').click();
