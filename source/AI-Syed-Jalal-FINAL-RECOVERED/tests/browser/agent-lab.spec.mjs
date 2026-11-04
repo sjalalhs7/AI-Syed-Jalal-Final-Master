@@ -11,12 +11,12 @@ test('Agent Lab: preview sign-in, graded self-check, evidence export, history an
   await page.locator('#runBtn').click();
   await expect(page.locator('#verdict')).toHaveText('Passing', { timeout: 30000 });
   await expect(page.locator('#scoreValue')).toHaveText('100');
-  await expect(page.locator('.result')).toHaveCount(16);
-  await expect(page.locator('#runSummary')).toContainText('16/16');
+  await expect(page.locator('.result')).toHaveCount(17);
+  await expect(page.locator('#runSummary')).toContainText('17/17');
   await expect(page.locator('#groups .group-chip.good')).toHaveCount(7);
   await expect(page.locator('#runStatus')).toContainText('not a production certificate');
   await expect(page.locator('#trend .trend-bar')).toHaveCount(1);
-  expect(await page.locator('#runHint')).toContainText('16 weighted checks');
+  expect(await page.locator('#runHint')).toContainText('17 weighted checks');
 
   // Evidence exports: JSON for machines, CSV for a spreadsheet/audit trail.
   const jsonDownload = page.waitForEvent('download');

@@ -9,15 +9,20 @@ test("API explicitly reports missing Neon configuration instead of pretending re
   assert.ok(source.includes("if(!env.DB_ADAPTER&&!env.DATABASE_URL)"));
 });
 
-test("readiness requires rate-limit and Agent Studio migrations before declaring production ready", () => {
+test("readiness requires rate-limit, Agent Studio and Arena migrations before declaring production ready", () => {
   assert.ok(source.includes("auth_rate_limits"));
   assert.ok(source.includes("platform_conversations"));
   assert.ok(source.includes("platform_messages"));
   // V133 must also demand its own read model, so a half-migrated database cannot look ready.
   assert.ok(source.includes("agent_skills"));
   assert.ok(source.includes("agent_self_checks"));
-  assert.ok(source.includes("ready:n>=15"));
-  assert.ok(source.includes("n>=15?200:503"));
+  // V135 adds the Arena tables; readiness now demands all twenty.
+  assert.ok(source.includes("arena_battles"));
+  assert.ok(source.includes("arena_responses"));
+  assert.ok(source.includes("arena_artifacts"));
+  assert.ok(source.includes("arena_ratings"));
+  assert.ok(source.includes("ready:n>=19"));
+  assert.ok(source.includes("n>=19?200:503"));
 });
 
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {

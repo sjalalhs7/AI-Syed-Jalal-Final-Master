@@ -43,9 +43,21 @@ Provider secrets stay server-side. Do not commit API keys or production credenti
 
 ## Runnable application and quick start (November 2026)
 
-The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard; `/agent-lab.html` runs the graded self-check and the skill library.
+The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard; `/agent-lab.html` runs the graded self-check and the skill library; `/arena.html` runs blind multi-engine battles with a rubric judge and a per-account leaderboard.
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
+
+## V135 — SJ Arena, the Arena.ai-style battle clone (4 November 2026)
+
+`/arena.html` runs **2–4 engines on one prompt**, hides which engine wrote which answer until you vote,
+scores every answer with the deterministic `sj-rubric-v1` judge (structure, specificity, coverage,
+honesty, code) and shows the sub-scores, then records your vote as the decision. Local engines run
+in-process through the same `localAssistant` the platform uses; cloud engines go through the real
+`/api/ai/run` route and are stored as **not configured** — zero, labelled, never a tie — when no key
+exists. Ratings (start 1200, ±12 per decided battle) build a per-account leaderboard, and fenced code is
+extracted into sandboxed HTML/SVG previews. Migration `011_v135_arena.sql` adds `arena_battles`,
+`arena_responses`, `arena_artifacts` and `arena_ratings`; readiness now requires **19** tables.
+See [V135-ARENA-2026-11-04.md](V135-ARENA-2026-11-04.md).
 
 ## V134 — working reply actions (4 November 2026)
 
@@ -55,7 +67,7 @@ answer, and **Regenerate** re-runs the same prompt on the same engine and *repla
 losing the prompt. Agent Lab gained an **evidence CSV** export and **clickable skill cards** ("Use in
 Studio" / "Critique with it") that stage a real prompt in Agent Studio, and its self-check grew to 16
 checks. Migration `010_v134_message_actions.sql` adds `platform_messages.reply_to` and `.status`;
-readiness still requires 15 tables. See [V134-REPLY-ACTIONS-2026-11-04.md](V134-REPLY-ACTIONS-2026-11-04.md).
+readiness went to 15 tables in V134 (19 since V135). See [V134-REPLY-ACTIONS-2026-11-04.md](V134-REPLY-ACTIONS-2026-11-04.md).
 
 ## V133 — Agent Lab (3 November 2026)
 

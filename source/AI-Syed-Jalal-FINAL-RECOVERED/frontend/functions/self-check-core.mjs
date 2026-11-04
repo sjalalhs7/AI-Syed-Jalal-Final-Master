@@ -14,6 +14,7 @@
 // Path-safe for both the Cloudflare bundle (frontend/functions) and the local
 // preview build (esbuild entry frontend/functions/api/[[path]].js).
 import { localAssistant, calculate } from './assistant-core.mjs';
+import { JUDGE, judgeVerdict } from './arena.mjs';
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -71,7 +72,7 @@ export function builtInChecks() {
         const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
         const names = new Set(rows.map(row => String(row.table_name)));
         // Must match the readiness list in frontend/functions/api/[[path]].js exactly.
-        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks'];
+        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings'];
         const missing = required.filter(name => !names.has(name));
         if (missing.length) throw new Error(`Missing tables: ${missing.join(', ')}`);
         return `${required.length}/${required.length} required tables present (${names.size} total)`;
@@ -212,6 +213,26 @@ export function builtInChecks() {
         const noise = searchSkills('zzzq xylophone quasar', index, 3);
         if (noise.length) throw new Error('Search returned results for a meaningless query');
         return `${hits.length} match(es) for "security review" → ${truncate(hits[0].name, 50)}; plain language "make my website faster" → ${truncate(natural[0].name, 50)}; nonsense query correctly returns nothing`;
+      }
+    }),
+    defineCheck({
+      id: 'arena.blind-judge', title: 'Arena keeps answers blind and never scores silence as a win', group: 'honesty', weight: 4,
+      async run({ db, me }) {
+        // The judge must withhold a verdict when nothing was actually answered.
+        const silent = judgeVerdict([
+          { side: 'a', score: 0, nonAnswer: true },
+          { side: 'b', score: 0, nonAnswer: true }
+        ]);
+        if (silent.winner !== null) throw new Error('The rubric judge awarded a winner when no engine answered');
+        if (!/withheld/i.test(silent.reason)) throw new Error('The judge did not explain why it withheld a verdict');
+        if (JUDGE.kind !== 'deterministic') throw new Error('The judge is not labelled as deterministic tooling');
+        if (!/not a human reviewer/.test(JUDGE.disclaimer)) throw new Error('The judge disclaimer is missing');
+        if (!me) return 'Judge honesty verified for anonymous runs (account battles were not queried)';
+        const battles = await db.query('SELECT count(*)::int AS n FROM arena_battles');
+        const responses = await db.query("SELECT count(*)::int AS n FROM arena_responses WHERE status='ok'");
+        const unlabelled = await db.query("SELECT count(*)::int AS n FROM arena_responses WHERE status<>'ok' AND score<>0");
+        if (Number(unlabelled[0]?.n || 0) > 0) throw new Error('A non-answer was given a positive rubric score');
+        return `Judge ${JUDGE.id} withholds verdicts on non-answers; ${Number(battles[0]?.n || 0)} battle(s), ${Number(responses[0]?.n || 0)} real answer(s), zero credit for non-answers`;
       }
     }),
     defineCheck({
