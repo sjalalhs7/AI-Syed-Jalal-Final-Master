@@ -53,6 +53,16 @@ Start with **[FINAL-HANDOFF-V135.md](FINAL-HANDOFF-V135.md)** — one page cover
 the one-command proof, the exact gate results, what is deliberately not built, and the owner-only steps
 that remain.
 
+## V138 — Expert Critic and the merged architecture (4 November 2026)
+
+Arena, JalalAi, JARVIS and Agent Studio are merged at the runtime, voice and evidence layers, and the
+decisions — including two duplications that deliberately remain — are published at
+`/refactor-plan.html`. **`/critic.html`** grades the deployment across seven dimensions from stored
+evidence: no evidence scores zero, one blocker forbids a "ready" verdict, and every finding carries its
+evidence and its fix. On a used preview it reported **ready, 97/100**; on an empty one, **not-ready,
+39/100**. Readiness now requires **21** tables. See
+[V138-EXPERT-CRITIC-2026-11-04.md](V138-EXPERT-CRITIC-2026-11-04.md).
+
 ## V137 — JARVIS voice console (4 November 2026)
 
 **JARVIS** (`jarvis.html`) is a hands-free voice front end for the same bounded agent runtime:

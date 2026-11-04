@@ -74,7 +74,7 @@ export function builtInChecks() {
         const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
         const names = new Set(rows.map(row => String(row.table_name)));
         // Must match the readiness list in frontend/functions/api/[[path]].js exactly.
-        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings', 'agent_runs'];
+        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings', 'agent_runs', 'expert_reviews'];
         const missing = required.filter(name => !names.has(name));
         if (missing.length) throw new Error(`Missing tables: ${missing.join(', ')}`);
         return `${required.length}/${required.length} required tables present (${names.size} total)`;

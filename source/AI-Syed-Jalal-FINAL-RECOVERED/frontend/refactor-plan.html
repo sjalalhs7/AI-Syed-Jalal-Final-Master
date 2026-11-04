@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050b14">
+<meta name="robots" content="noindex,nofollow">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/refactor-plan.html">
+<script src="assets/host-mode.js"></script>
+<title>Architecture &amp; merge decisions — Arena, JalalAi and SJ Agent Studio</title>
+<meta name="description" content="Which surfaces this application merged, which stayed separate on purpose, and what still counts as duplicated. Written as an engineering decision record, not a roadmap promise.">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/critic.css">
+</head>
+<body>
+<a class="skip-link" href="#decisions">Skip to the decisions</a>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ crown logo"><span><strong>Architecture &amp; merge decisions</strong><small>What is shared, what is separate, and why</small></span></a>
+    <nav aria-label="Main navigation">
+      <a class="btn" href="critic.html">Expert Critic</a>
+      <a class="btn" href="jalalai.html">JalalAi</a>
+      <a class="btn" href="jarvis.html">JARVIS voice</a>
+      <a class="btn" href="agent.html">Agent Studio</a>
+      <a class="btn" href="arena.html">Arena</a>
+      <a class="btn" href="agent-lab.html">Agent Lab</a>
+      <a class="btn" href="guide.html">Start here</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">ENGINEERING DECISION RECORD · 4 NOVEMBER 2026</p>
+        <h1>One runtime, four front doors</h1>
+        <p class="lede">“Merge everything” is only safe if you can name what is genuinely shared. This record states the decision taken for each surface, the evidence behind it, and what still counts as duplication. Where a merge would have hidden an honest limit, it was refused on purpose.</p>
+      </div>
+      <div class="hero-actions"><a class="btn primary" href="critic.html">Run the expert review →</a></div>
+    </section>
+
+    <section class="panel" id="decisions">
+      <header class="panel-head"><h2>Decisions</h2><span class="hint">One row per decision, with the reason and what would reverse it.</span></header>
+      <ol class="findings">
+        <li class="finding observation">
+          <div class="finding-head"><span class="severity">merged</span><h3>One agent runtime behind JalalAi, JARVIS and Agent Studio</h3></div>
+          <p class="finding-dim">Shared: <code>frontend/functions/agent-runtime.mjs</code></p>
+          <p class="finding-evidence">Evidence: four published tools, one planner, one bounded executor, one persisted trace. JalalAi and the JARVIS console both POST <code>/api/assistant/chat</code>; there is no second implementation to drift.</p>
+          <p class="finding-fix">Reverse only if a surface needs a tool the others must not have — then publish it in <code>AGENT_TOOLS</code> first, so the trace stays truthful.</p>
+        </li>
+        <li class="finding observation">
+          <div class="finding-head"><span class="severity">merged</span><h3>One remembered voice across every read-aloud surface</h3></div>
+          <p class="finding-dim">Shared: <code>assets/speech-preferences.js</code> + <code>frontend/functions/voice-surfaces.mjs</code></p>
+          <p class="finding-evidence">Evidence: JalalAi, JARVIS, Agent Studio and the Workspace dock resolve their voice through one module and one storage key; the self-check fails if a surface stops doing so.</p>
+          <p class="finding-fix">Add a surface by extending <code>VOICE_SURFACES</code>, never by wiring a private voice selector.</p>
+        </li>
+        <li class="finding observation">
+          <div class="finding-head"><span class="severity">merged</span><h3>One evidence chain: run → trace → self-check → review</h3></div>
+          <p class="finding-dim">Shared: <code>agent_runs</code>, <code>agent_self_checks</code>, <code>expert_reviews</code>, <code>audit_events</code></p>
+          <p class="finding-evidence">Evidence: every claim the pages make is backed by a row this deployment wrote, which is why the Expert Critic can grade it instead of repeating marketing copy.</p>
+          <p class="finding-fix">A new capability must write its evidence before it appears on a page.</p>
+        </li>
+        <li class="finding major">
+          <div class="finding-head"><span class="severity">separate</span><h3>Arena stays a separate page, on purpose</h3></div>
+          <p class="finding-dim">Not merged into: JalalAi chat</p>
+          <p class="finding-evidence">Reason: a battle compares two engines blind and stores both responses plus a deterministic verdict. Folding it into chat would show the answers to the author before the vote, which destroys the blind comparison that makes the result meaningful.</p>
+          <p class="finding-fix">Keep it separate. Share the runtime, share the voice, share the evidence — not the interaction.</p>
+        </li>
+        <li class="finding major">
+          <div class="finding-head"><span class="severity">separate</span><h3>Workspace and dashboard stay operational, not conversational</h3></div>
+          <p class="finding-dim">Not merged into: the assistant</p>
+          <p class="finding-evidence">Reason: record CRUD, approvals and user administration are multi-step forms with their own permissions and history. Replacing them with a chat box would remove the reviewable approval queue the compliance story depends on.</p>
+          <p class="finding-fix">They link to the assistant instead of imitating it.</p>
+        </li>
+        <li class="finding minor">
+          <div class="finding-head"><span class="severity">remaining</span><h3>Two chat renderers still exist</h3></div>
+          <p class="finding-dim">Duplication: <code>assets/jalalai.js</code> and <code>assets/jarvis.js</code></p>
+          <p class="finding-evidence">Both render messages and a trace. They differ in voice behaviour and in which evidence they emphasise, so they are duplicates in layout but not in behaviour. This is a real, bounded duplication — not a hidden one.</p>
+          <p class="finding-fix">Next step: extract a shared <code>renderTrace()</code> and <code>addMessage()</code> into <code>assets/trace-view.js</code>. Do it with the browser journeys green, not before.</p>
+        </li>
+        <li class="finding minor">
+          <div class="finding-head"><span class="severity">remaining</span><h3>Two knowledge adapters ship the same Wikipedia code</h3></div>
+          <p class="finding-dim">Duplication: <code>backend/knowledge/wikipedia.mjs</code> and <code>frontend/functions/wikipedia-adapter.mjs</code></p>
+          <p class="finding-evidence">Necessary: the Cloudflare build only bundles <code>frontend/</code>, so the adapter has to exist inside the Functions tree. The copies are byte-identical and both are covered by tests.</p>
+          <p class="finding-fix">Replace with a build step that copies one source of truth, or move the adapter to a shared package.</p>
+        </li>
+        <li class="finding observation">
+          <div class="finding-head"><span class="severity">refused</span><h3>Merging the cloud providers into one “AI” toggle was refused</h3></div>
+          <p class="finding-dim">Rejected: a single provider switch</p>
+          <p class="finding-evidence">Reason: the four adapters have different keys, models, error shapes and cost. One toggle would hide which provider actually answered, and the product's whole position is that it never hides that.</p>
+          <p class="finding-fix">Keep the explicit provider selector and the “key configured; live call not yet verified” label.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="panel">
+      <header class="panel-head"><h2>Resulting surface map</h2><span class="hint">What each page is allowed to claim.</span></header>
+      <div class="dims">
+        <article class="dim strong"><div class="dim-head"><h3>JalalAi</h3><span class="dim-score">chat</span></div>
+          <p class="dim-meta">Local tools · Agent · Research · Cloud</p>
+          <ul class="dim-notes"><li>Calculator, clock, tasks, notes, record search.</li><li>Agent mode shows the trace.</li><li>Cloud requires a server key.</li></ul></article>
+        <article class="dim strong"><div class="dim-head"><h3>JARVIS</h3><span class="dim-score">voice</span></div>
+          <p class="dim-meta">Same runtime, hands-free</p>
+          <ul class="dim-notes"><li>Hold-to-talk, auto-run, spoken replies.</li><li>Same endpoints, limits and confirmations.</li><li>States that no audio reaches the server.</li></ul></article>
+        <article class="dim strong"><div class="dim-head"><h3>Agent Studio</h3><span class="dim-score">work</span></div>
+          <p class="dim-meta">Direct · Agent · Compare</p>
+          <ul class="dim-notes"><li>Saved conversations, attachments, voting.</li><li>Provider comparison side by side.</li><li>Never claims a model ran when it did not.</li></ul></article>
+        <article class="dim adequate"><div class="dim-head"><h3>Arena</h3><span class="dim-score">judge</span></div>
+          <p class="dim-meta">Blind battles</p>
+          <ul class="dim-notes"><li>Deterministic rubric judge.</li><li>Withholds a verdict when nothing answered.</li><li>Labelled “not a human reviewer”.</li></ul></article>
+        <article class="dim strong"><div class="dim-head"><h3>Agent Lab</h3><span class="dim-score">prove</span></div>
+          <p class="dim-meta">19 graded checks</p>
+          <ul class="dim-notes"><li>Runs against this deployment.</li><li>Stores the evidence on the account.</li><li>Shows what each check did <em>not</em> prove.</li></ul></article>
+        <article class="dim strong"><div class="dim-head"><h3>Expert Critic</h3><span class="dim-score">judge</span></div>
+          <p class="dim-meta">7 dimensions, 5 severities</p>
+          <ul class="dim-notes"><li>Grades from stored evidence only.</li><li>One blocker forbids a “ready” verdict.</li><li>Publishes its own limits.</li></ul></article>
+      </div>
+    </section>
+
+    <section class="panel limits">
+      <h2>What this record does not claim</h2>
+      <ul>
+        <li>That there is no duplication left. Two remain, named above, with a next step for each.</li>
+        <li>That the merge is finished for all time. The contract files are the guard rail, not a promise.</li>
+        <li>That a shared runtime makes the surfaces equivalent. They share execution, not permission: each page states what its own mode can do.</li>
+      </ul>
+      <p class="hint"><a href="critic.html">Run the expert review →</a> · <a href="agent-lab.html">Run the behavioural self-check →</a></p>
+    </section>
+  </main>
+  <footer class="hint">AI-Syed Jalal · Architecture decision record · Approved SJ identity preserved.</footer>
+</div>
+</body>
+</html>

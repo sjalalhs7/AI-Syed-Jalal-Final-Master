@@ -258,3 +258,18 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_agent_runs_user ON agent_runs(user_id, created_at DESC);
+
+-- V138: expert review evidence (mirrors backend/db/migrations/013_v138_expert_review.sql).
+CREATE TABLE IF NOT EXISTS expert_reviews (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  mode text NOT NULL DEFAULT 'full' CHECK (mode IN ('full','security','honesty','usability')),
+  score integer NOT NULL CHECK (score BETWEEN 0 AND 100),
+  verdict text NOT NULL CHECK (verdict IN ('ready','conditional','not-ready')),
+  dimensions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  findings jsonb NOT NULL DEFAULT '[]'::jsonb,
+  counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+  duration_ms integer NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_expert_reviews_user ON expert_reviews(user_id, created_at DESC);

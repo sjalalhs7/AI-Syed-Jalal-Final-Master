@@ -13,6 +13,7 @@ before(async () => {
   await db.exec(await readFile(resolve(root, 'backend/db/migrations/005_v127_auth_rate_limits.sql'), 'utf8'));
   await db.exec(await readFile(resolve(root, 'backend/db/migrations/007_v129_agent_platform.sql'), 'utf8'));
   await db.exec(await readFile(resolve(root, 'backend/db/migrations/012_v136_agent_runtime.sql'), 'utf8'));
+  await db.exec(await readFile(resolve(root, 'backend/db/migrations/013_v138_expert_review.sql'), 'utf8'));
   await buildApi(); ({ onRequest } = await import('../../.data/api.mjs'));
 });
 after(async () => { await db?.close(); });
@@ -25,7 +26,7 @@ function client(cookie = '') {
 async function account() { const c = client(); const demo = await c('/demo', 'POST', {}); const authed = client(demo.cookie); const me = await authed('/me'); return { c: authed, token: me.data.csrfToken, user: me.data.user }; }
 
 test('real PostgreSQL schema, session, CSRF and assistant persistence', async () => {
-  assert.equal((await client()('/ready')).data.schemaTables, 20);
+  assert.equal((await client()('/ready')).data.schemaTables, 21);
   assert.equal((await client()('/me')).data.authenticated, false);
   const { c, token, user } = await account(); assert.equal(user.role, 'Admin');
   assert.equal((await c('/assistant/chat', 'POST', { message: 'calculate 2+3*4' })).status, 403);

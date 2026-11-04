@@ -3,7 +3,7 @@ import skillIndex from '../config/agent-skill-index.json';
 
 // V133/V134 agent routes: skill library + durable self-check evidence.
 // Every response is account-scoped, rate limited and audited by the caller.
-const POLICY_VERSION = 'V137';
+const POLICY_VERSION = 'V138';
 
 function pageInventory() {
   // Pages are listed explicitly so a missing file is a check failure, not a 404 surprise.
@@ -16,7 +16,9 @@ function pageInventory() {
     { file: 'guide.html', label: 'Start here guide' },
     { file: 'agent-lab.html', label: 'Agent Lab self-check' },
     { file: 'arena.html', label: 'Arena battles' },
-    { file: 'jarvis.html', label: 'JARVIS voice console' }
+    { file: 'jarvis.html', label: 'JARVIS voice console' },
+    { file: 'critic.html', label: 'Expert Critic review' },
+    { file: 'refactor-plan.html', label: 'Architecture and merge decisions' }
   ];
 }
 
