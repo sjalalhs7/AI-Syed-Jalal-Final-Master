@@ -55,3 +55,28 @@ The sandbox blocks outbound Wikipedia, so in this environment the research tool 
 — which is the correct behaviour and is exactly what the tests assert (a failure is a failure, never an
 invented article). On a host with egress the same code returns real titles, snippets and links with
 CC BY-SA attribution.
+
+---
+
+## Post-merge fix — a search hit is not an answer
+
+CI went red on `V136` while every local gate was green. The cause was a genuine
+honesty bug, not a flaky test: **GitHub runners have internet, this sandbox does not.**
+
+On a networked host `explain the philosophy of mind` planned a research step that
+**succeeded**, so `needsProvider` cleared and the run implied that a Wikipedia
+snippet answers an open-ended question. Now:
+
+- Only an explicit lookup (`who is`, `when was`, `research`, `look up`, …) lets
+  a found source stand on its own. Anything broader is labelled
+  **“Sources found (Wikipedia does not answer the question itself)”** and still
+  reports `needsProvider: true`.
+- A failed tool call is no longer counted as a tool call (`trace.toolCalls`
+  counts successes; `trace.attempted` counts the rest).
+- Two new tests run the exact CI condition with an injected successful fetch, so
+  the answer can no longer depend on whether the host has egress.
+
+Gates after the fix: server **56/56**, frontend **80/80**, static **31/31**,
+browser **14/14**. The CI step also now runs each server file separately and
+publishes failures as annotations, because the Actions log API returned EOF
+throughout this incident.

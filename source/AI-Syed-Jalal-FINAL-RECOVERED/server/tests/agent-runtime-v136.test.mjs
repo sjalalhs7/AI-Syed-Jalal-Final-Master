@@ -133,6 +133,36 @@ test('agent mode is account-gated, persists a trace and returns the tool list', 
   assert.equal((await stranger.c('/assistant/agent/runs/' + run.data.id)).status, 404, 'runs are owner-scoped');
 });
 
+// CI runners have internet, so the research tool succeeds there and the
+// needsProvider answer must not depend on whether the sandbox can reach out.
+const liveWikipedia = (titles = ['Philosophy of mind']) => async () => ({
+  ok: true,
+  json: async () => ({ query: { search: titles.map(title => ({ title, snippet: 'A summary.', timestamp: '2026-01-01T00:00:00Z' })) } })
+});
+
+test('a search hit is not mistaken for an answer on a host with internet', async () => {
+  const { c, token } = await account();
+  const run = await c('/assistant/chat', 'POST', { message: 'explain the philosophy of mind', mode: 'agent' }, token);
+  assert.equal(run.status, 200);
+  // Whatever the network did, an open-ended question still needs a model, and the
+  // run must not claim Wikipedia answered it.
+  assert.equal(run.data.needsProvider, true);
+  assert.match(run.data.output, /no model output was invented/i);
+  if (run.data.steps[0].ok) {
+    assert.match(run.data.steps[0].observation, /Sources found/i);
+    assert.doesNotMatch(run.data.steps[0].observation, /^Wikipedia returned/);
+  }
+});
+
+test('a specific lookup does let the found source stand on its own', async () => {
+  const { runAgent } = await import('../../frontend/functions/agent-runtime.mjs');
+  const db = { query: async () => [] };
+  const result = await runAgent({ prompt: 'who is Ada Lovelace', db, me: { id: 'u1' }, env: { FETCH_IMPL: liveWikipedia(['Ada Lovelace']) } });
+  assert.equal(result.needsProvider, false);
+  assert.equal(result.trace.toolCalls, 1);
+  assert.match(result.steps[0].observation, /en\.wikipedia\.org\/wiki\//);
+});
+
 test('an unconfigured provider is reported, never faked, inside an agent run', async () => {
   const { c, token } = await account();
   const run = await c('/assistant/chat', 'POST', { message: 'explain the philosophy of mind', mode: 'agent' }, token);
