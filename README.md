@@ -47,6 +47,12 @@ The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
 
+## Final handoff
+
+Start with **[FINAL-HANDOFF-V135.md](FINAL-HANDOFF-V135.md)** — one page covering every working surface,
+the one-command proof, the exact gate results, what is deliberately not built, and the owner-only steps
+that remain.
+
 ## V135 — SJ Arena, the Arena.ai-style battle clone (4 November 2026)
 
 `/arena.html` runs **2–4 engines on one prompt**, hides which engine wrote which answer until you vote,

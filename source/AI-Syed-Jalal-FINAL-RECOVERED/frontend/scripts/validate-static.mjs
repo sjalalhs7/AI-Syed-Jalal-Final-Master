@@ -39,6 +39,7 @@ const checks = [
   ['Agent Lab ships a runnable self-check with honest limits', read('agent-lab.html').includes('id="runBtn"') && read('assets/agent-lab.js').includes("'/agent/self-check'") && read('agent-lab.html').includes('What this page does and does not prove')],
   ['Agent Lab page is excluded from precache like the other private shells', !read('sw.js').includes("'./agent-lab.html'") && read('sw.js').includes("endsWith('/agent-lab.html')")],
   ['Arena battle page is linked from the homepage', /href=["']arena\.html["']/.test(html)],
+  ['Arena is reachable from the assistant, workspace and dashboard, not only the homepage', ['jalalai.html','workspace.html','dashboard.html'].every(page => read(page).includes('arena.html'))],
   ['Arena ships blind comparison with honest judge wording', read('arena.html').includes('id="voteButtons"') && read('assets/arena.js').includes("'/arena/battles'") && read('arena.html').includes('not a human reviewer')],
   ['Arena page is excluded from precache like the other private shells', !read('sw.js').includes("'./arena.html'") && read('sw.js').includes("endsWith('/arena.html')")],
   ['Agent Studio has Direct/Agent/Compare modes', /data-mode="chat"/.test(agent) && /data-mode="agent"/.test(agent) && /data-mode="compare"/.test(agent)],
