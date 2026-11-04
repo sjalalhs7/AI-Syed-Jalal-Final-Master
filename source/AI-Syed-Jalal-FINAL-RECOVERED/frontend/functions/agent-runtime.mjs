@@ -29,6 +29,9 @@ const MATH = /^[\s\d().+\-*/%]+$/;
 const RESEARCH_HINT = /^(?:research|look up|search the web|find out about|what is|who is|tell me about|explain)\b/i;
 const RECORD_HINT = /\b(records?|workspace|customers?|entries|database)\b/i;
 const TASK_HINT = /\b(tasks?|notes?|to-?do)\b/i;
+// A lookup wants a specific fact ("who is Ada Lovelace"). Anything broader —
+// "explain the philosophy of mind" — needs a model, not a search result.
+const LOOKUP_HINT = /^(?:research|look up|search the web|find out about|who is|who was|when (?:was|did|is)|where is|what year|how old is)\b/i;
 
 function step(id, title, tool, run) {
   return { id, title, tool, run };
@@ -64,9 +67,15 @@ export function planFor(prompt) {
   if (wantsResearch && researchQuery.length >= 2) {
     steps.push(step('research', `Search Wikipedia for “${truncate(researchQuery, 80)}”`, 'research', async ({ env }) => {
       const found = await searchWikipedia(researchQuery, { limit: 3, timeoutMs: 8000, fetchImpl: env?.FETCH_IMPL });
-      if (!found.results.length) return { observation: `Wikipedia returned no article for “${researchQuery}”.`, data: found };
+      // A working Wikipedia is not an answer to an open-ended question. Unless the
+      // question was explicitly a lookup, findings stay "sources to read" and the
+      // run still needs a model to turn them into prose — so does not overclaim.
+      const lookup = LOOKUP_HINT.test(text);
+      const noProvider = !lookup;
+      if (!found.results.length) return { observation: `Wikipedia returned no article for “${researchQuery}”.`, data: found, noTool: true, needsProvider: true, noTool: true };
       const lines = found.results.map((hit, index) => `${index + 1}. ${hit.title} — ${truncate(hit.snippet, 160)} (${hit.url})`).join('\n');
-      return { observation: `Wikipedia returned ${found.results.length} article(s):\n${lines}`, data: found };
+      const label = noProvider ? 'Sources found (Wikipedia does not answer the question itself)' : 'Wikipedia returned';
+      return { observation: `${label}${noProvider ? ` for “${researchQuery}”` : ''} — ${found.results.length} article(s):\n${lines}`, data: found, needsProvider: noProvider, sourcesOnly: noProvider };
     }));
   }
 
@@ -136,9 +145,15 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
     }
   }
 
-  const usedTools = steps.filter(item => item.tool !== 'none');
+  // "Used a tool" means a tool ran and returned something. A failed call is
+  // reported as a failure, never counted as evidence.
+  const usedTools = steps.filter(item => item.ok && item.tool !== 'none' && !item.noTool);
   const failed = steps.filter(item => !item.ok);
-  const needsProvider = steps.some(item => item.needsProvider) || (failed.length > 0 && steps.every(item => item.tool === 'none' || !item.ok));
+  // Cleared only by a step that actually produced an answer. A run where every
+  // step is "no tool" or "source list" still needs a model, so it says so.
+  const needsProvider = steps.some(item => item.needsProvider)
+    || steps.every(item => item.noTool || item.sourcesOnly || !item.ok)
+    || (failed.length > 0 && steps.every(item => item.tool === 'none' || !item.ok));
 
   const header = usedTools.length
     ? `Agent run — ${plan.length} step(s), ${usedTools.length} tool call(s), ${failed.length} failure(s).`
@@ -160,6 +175,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
     trace: {
       tools: [...new Set(usedTools.map(item => item.tool))],
       toolCalls: usedTools.length,
+      attempted: steps.filter(item => item.tool !== 'none').length,
       failures: failed.length,
       totalMs: Date.now() - started,
       bounded: true,

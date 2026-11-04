@@ -44,8 +44,24 @@ jobs:
       - name: Run frontend contract tests
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED/frontend test
 
+      # Publishes failures as annotations: during this GitHub incident the
+      # Actions log/artifact APIs return EOF, and annotations still work.
       - name: Run server and integration tests
-        run: cd source/AI-Syed-Jalal-FINAL-RECOVERED && node --test --test-concurrency=1 server/tests/*.test.mjs
+        shell: bash
+        run: |
+          set -uo pipefail
+          cd source/AI-Syed-Jalal-FINAL-RECOVERED
+          status=0
+          for f in server/tests/*.test.mjs; do
+            if ! node --test --test-concurrency=1 "$f" > /tmp/out.txt 2>&1; then
+              status=1
+              echo "::error title=suite failed::$f"
+              grep -E 'not ok|^# (pass|fail)|rror|expected|actual' /tmp/out.txt | head -30 |
+                sed 's/%/%25/g' | while IFS= read -r line; do echo "::error::$line"; done
+              tail -30 /tmp/out.txt | sed 's/%/%25/g' | while IFS= read -r line; do echo "::error::TAIL $line"; done
+            fi
+          done
+          exit $status
 
       - name: Run static application checks
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED run check
