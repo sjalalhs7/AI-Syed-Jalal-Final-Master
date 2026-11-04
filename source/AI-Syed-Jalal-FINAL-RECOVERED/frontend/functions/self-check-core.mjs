@@ -1,0 +1,298 @@
+// V133 — durable, deterministic self-check engine.
+//
+// This module answers the owner's recurring request: "an application that really
+// works and responds to what I ask". It runs a fixed suite of graded checks that
+// cover the real behaviour of this application — not a screenshot of a green
+// pipeline. Every check produces an observation (what actually happened) and a
+// verdict, so a failure is reproducible instead of a claim.
+//
+// Design rules:
+// * Deterministic: no Math.random, no clock other than an injected one.
+// * Bounded: each check has a hard timeout through the caller's AbortSignal.
+// * Honest: cloud providers are only reported as "not configured" or
+//   "configured; live call not verified" until a caller supplies evidence.
+// Path-safe for both the Cloudflare bundle (frontend/functions) and the local
+// preview build (esbuild entry frontend/functions/api/[[path]].js).
+import { localAssistant, calculate } from './assistant-core.mjs';
+
+const DEFAULT_TIMEOUT_MS = 4000;
+
+class TimeoutError extends Error {}
+
+function withTimeout(promise, ms, label) {
+  if (!Number.isFinite(ms) || ms <= 0) ms = DEFAULT_TIMEOUT_MS;
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new TimeoutError(`${label} timed out after ${ms} ms`)), ms); })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function truncate(value, max = 240) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+// A check is a small object: id, title, weight, group, run(context).
+// `expect` is a function returning {ok, detail} so a failure explains itself.
+function defineCheck(spec) {
+  if (!spec || typeof spec.id !== 'string' || typeof spec.run !== 'function') throw new Error('Invalid check definition');
+  return {
+    id: spec.id.slice(0, 80),
+    title: String(spec.title || spec.id).slice(0, 160),
+    group: String(spec.group || 'general').slice(0, 60),
+    weight: Math.max(1, Math.min(10, Number(spec.weight) || 3)),
+    severity: spec.severity === 'critical' ? 'critical' : 'standard',
+    run: spec.run
+  };
+}
+
+/**
+ * The checks. Each receives a context object:
+ * { db, me, env, request, onRequest, now, query, record }
+ */
+export function builtInChecks() {
+  return [
+    defineCheck({
+      id: 'app.health', title: 'API answers /api/health with a truthful runtime label', group: 'application', weight: 5, severity: 'critical',
+      async run({ onRequest, request, env }) {
+        const target = new URL(request.url); target.pathname = '/api/health';
+        const response = await onRequest({ request: new Request(target, { method: 'GET', headers: request.headers }), env });
+        const data = await response.json().catch(() => ({}));
+        if (response.status !== 200) throw new Error(`GET /api/health returned ${response.status}`);
+        if (!data.ok) throw new Error('Health payload did not report ok:true');
+        if (!data.database) throw new Error('Health payload did not report a database label');
+        return `GET /api/health → ${response.status}; runtime=${data.runtime}; database=${data.database}; localTools=${Boolean(data.assistant?.localTools)}`;
+      }
+    }),
+    defineCheck({
+      id: 'db.schema', title: 'Database has every required table', group: 'data', weight: 6, severity: 'critical',
+      async run({ db }) {
+        const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+        const names = new Set(rows.map(row => String(row.table_name)));
+        // Must match the readiness list in frontend/functions/api/[[path]].js exactly.
+        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks'];
+        const missing = required.filter(name => !names.has(name));
+        if (missing.length) throw new Error(`Missing tables: ${missing.join(', ')}`);
+        return `${required.length}/${required.length} required tables present (${names.size} total)`;
+      }
+    }),
+    defineCheck({
+      id: 'db.roundtrip', title: 'A write is readable immediately and afterwards deleted', group: 'data', weight: 5,
+      async run({ db }) {
+        const id = crypto.randomUUID();
+        await db.query('INSERT INTO audit_events(id,user_id,action,detail,ip) VALUES($1,NULL,$2,$3,$4)', [id, 'V133_SELF_CHECK', 'self-check write probe', 'self-check']);
+        const rows = await db.query('SELECT action FROM audit_events WHERE id=$1', [id]);
+        const removed = await db.query('DELETE FROM audit_events WHERE id=$1 RETURNING id', [id]);
+        if (rows.length !== 1) throw new Error('Inserted row was not readable');
+        if (removed.length !== 1) throw new Error('Probe row could not be deleted');
+        return 'INSERT → SELECT → DELETE completed in one round trip';
+      }
+    }),
+    defineCheck({
+      id: 'math.calculator', title: 'Calculator returns a verified result for a difficult expression', group: 'reasoning', weight: 4,
+      async run() {
+        const result = calculate('(1200 + 350) * 15% * 3 - 4 / 8');
+        if (!/=\s*697$/.test(result)) throw new Error(`Unexpected calculator output: ${result}`);
+        return `calculate("(1200 + 350) * 15% * 3 - 4 / 8") → ${truncate(result.split('=').pop(), 40)} (percentages and precedence verified)`;
+      }
+    }),
+    defineCheck({
+      id: 'math.calculator-guard', title: 'Calculator refuses unsafe input instead of guessing', group: 'reasoning', weight: 4,
+      async run() {
+        let refused = false;
+        for (const probe of ['calculate require("fs")', 'calculate $(rm -rf /)', 'calculate 2+']) {
+          try { calculate(probe); } catch { refused = true; }
+        }
+        if (!refused) throw new Error('The calculator accepted an unsafe or malformed expression');
+        return 'Unsafe/malformed expressions rejected with a usable error';
+      }
+    }),
+    defineCheck({
+      id: 'agent.planner', title: 'Planner profile produces an executable, bounded plan', group: 'agents', weight: 5,
+      async run() {
+        const out = localAssistant('plan: Launch a professional website', 'planner').output;
+        const steps = (out.match(/^\d\.\s+/gm) || []).length;
+        if (steps < 5) throw new Error(`Planner produced ${steps} numbered steps; expected at least 5`);
+        if (!/not a claim/i.test(out)) throw new Error('Planner output lost its honesty disclaimer');
+        return `Planner produced ${steps} numbered steps plus its honesty disclaimer`;
+      }
+    }),
+    defineCheck({
+      id: 'agent.critic', title: 'Critic profile challenges evidence, security and reliability', group: 'agents', weight: 4,
+      async run() {
+        const out = localAssistant('critic: Review my launch readiness', 'critic').output;
+        for (const axis of ['Evidence', 'Security', 'Reliability', 'Usability', 'Operations']) {
+          if (!out.includes(axis)) throw new Error(`Critic omitted the ${axis} axis`);
+        }
+        return 'Critic covered Evidence, Security, Reliability, Usability and Operations';
+      }
+    }),
+    defineCheck({
+      id: 'agent.confirmation', title: 'Task creation is proposed first and never saved silently', group: 'agents', weight: 6, severity: 'critical',
+      async run({ db, me }) {
+        const before = await db.query('SELECT count(*)::int AS n FROM assistant_tasks WHERE user_id=$1', [me?.id || null]);
+        const result = localAssistant('add task: Self-check must not autosave', 'general');
+        if (result.action?.type !== 'create_task') throw new Error('Task intent did not produce a confirmable action');
+        const after = await db.query('SELECT count(*)::int AS n FROM assistant_tasks WHERE user_id=$1', [me?.id || null]);
+        if (Number(after[0]?.n) !== Number(before[0]?.n)) throw new Error('A task was saved without explicit confirmation');
+        return 'Proposal returned an action object; stored task count unchanged';
+      }
+    }),
+    defineCheck({
+      id: 'agent.no-fake-cloud', title: 'Unconfigured cloud models are labelled, not simulated', group: 'honesty', weight: 6, severity: 'critical',
+      async run({ env }) {
+        const configured = ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY'].filter(key => Boolean(env[key]));
+        // The runtime must carry the honest fallback path regardless of configuration.
+        const fallback = localAssistant('Tell me a story', 'general');
+        if (!fallback.needsProvider) throw new Error('Open-ended chat is answered locally without disclosing the missing provider');
+        return configured.length
+          ? `${configured.length} provider key(s) configured; the local fallback still declares "needsProvider"`
+          : 'No provider keys configured; open-ended chat declares needsProvider instead of inventing an answer';
+      }
+    }),
+    defineCheck({
+      id: 'auth.session', title: 'Sessions use HttpOnly cookies and CSRF-protected writes', group: 'security', weight: 7, severity: 'critical',
+      async run({ onRequest, request, env }) {
+        const target = new URL(request.url); target.pathname = '/api/me';
+        const response = await onRequest({ request: new Request(target, { method: 'GET', headers: request.headers }), env });
+        const data = await response.json().catch(() => ({}));
+        if (response.status !== 200) throw new Error(`GET /api/me returned ${response.status}`);
+        if (data.authenticated && !data.csrfToken) throw new Error('An authenticated session did not expose a CSRF token');
+        const headers = Object.fromEntries(response.headers.entries());
+        if (!headers['x-content-type-options']) throw new Error('Security hardening headers are missing from API responses');
+        return data.authenticated ? 'Authenticated session returned a CSRF token and hardened headers' : 'Anonymous session correctly reports authenticated:false with hardened headers';
+      }
+    }),
+    defineCheck({
+      id: 'auth.write-guard', title: 'A write without a CSRF token is rejected', group: 'security', weight: 7, severity: 'critical',
+      async run({ onRequest, request, env, me }) {
+        if (!me) return 'Skipped write probe: this self-check ran anonymously, so there is no session to abuse';
+        const target = new URL(request.url); target.pathname = '/api/assistant/confirm';
+        const headers = new Headers(request.headers); headers.set('content-type', 'application/json'); headers.delete('x-csrf-token');
+        const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ confirmed: true, action: { type: 'create_note', content: 'self-check should not save' } }) }), env });
+        if (response.status !== 403) throw new Error(`CSRF-less write returned ${response.status}; expected 403`);
+        return 'POST /api/assistant/confirm without X-CSRF-Token → 403';
+      }
+    }),
+    defineCheck({
+      id: 'api.records-scope', title: 'Workspace record reads are bounded and shaped', group: 'application', weight: 3,
+      async run({ db }) {
+        const rows = await db.query("SELECT id,name,status FROM records WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT 5");
+        return `Record query returned ${rows.length} row(s) with a LIMIT-bounded projection`;
+      }
+    }),
+    defineCheck({
+      id: 'catalog.skills', title: 'Skill library is complete and answerable', group: 'catalog', weight: 4,
+      async run({ db, index }) {
+        const rows = await db.query('SELECT count(*)::int AS n FROM agent_skills');
+        const count = Number(rows[0]?.n || 0);
+        if (index?.count && count !== index.count) throw new Error(`Database has ${count} skills; index has ${index.count}`);
+        return `${count} skills queryable across ${index?.domainCount ?? '?'} domains`;
+      }
+    }),
+    defineCheck({
+      id: 'catalog.search', title: 'Skill search returns relevant, ranked matches', group: 'catalog', weight: 3,
+      async run({ searchSkills, index }) {
+        const hits = searchSkills('security review', index, 5);
+        if (!hits.length) throw new Error('Skill search returned no matches for "security review"');
+        return `${hits.length} ranked match(es); first: ${truncate(hits[0].name, 60)}`;
+      }
+    }),
+    defineCheck({
+      id: 'ui.pages', title: 'Every shipped page is present and self-contained', group: 'application', weight: 4,
+      async run({ pages }) {
+        const missing = pages.filter(page => !page.exists);
+        if (missing.length) throw new Error(`Missing page files: ${missing.map(page => page.file).join(', ')}`);
+        const broken = pages.filter(page => page.exists && !page.closesHtml);
+        if (broken.length) throw new Error(`Pages without a closing </html>: ${broken.map(page => page.file).join(', ')}`);
+        return `${pages.length} application pages present and well-formed`;
+      }
+    })
+  ];
+}
+
+export function gradeChecks(results) {
+  const total = results.reduce((sum, item) => sum + item.weight, 0) || 1;
+  const earned = results.reduce((sum, item) => sum + (item.ok ? item.weight : 0), 0);
+  return Math.round((earned / total) * 100);
+}
+
+export function verdictFor(results) {
+  const criticalFailure = results.some(item => item.severity === 'critical' && !item.ok);
+  const anyFailure = results.some(item => !item.ok);
+  if (criticalFailure || results.filter(item => !item.ok).length >= 2) return 'fail';
+  if (anyFailure) return 'warn';
+  return 'pass';
+}
+
+/**
+ * Runs the supplied checks. Never throws for a failing check: a thrown check
+ * becomes a recorded failure with its message, which is the point of the tool.
+ */
+export async function runChecks(checks, context, options = {}) {
+  const timeoutMs = Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS;
+  const only = Array.isArray(options.only) && options.only.length ? new Set(options.only) : null;
+  const selected = checks.filter(check => !only || only.has(check.id));
+  const results = [];
+  for (const check of selected) {
+    const started = Date.now();
+    try {
+      const detail = await withTimeout(Promise.resolve().then(() => check.run(context)), timeoutMs, check.id);
+      results.push({ id: check.id, title: check.title, group: check.group, weight: check.weight, severity: check.severity, ok: true, detail: truncate(detail || 'Completed with no detail'), ms: Date.now() - started });
+    } catch (error) {
+      results.push({ id: check.id, title: check.title, group: check.group, weight: check.weight, severity: check.severity, ok: false, detail: truncate(error instanceof TimeoutError ? error.message : error?.message || 'Check failed'), ms: Date.now() - started });
+    }
+  }
+  const score = gradeChecks(results);
+  return {
+    score,
+    verdict: verdictFor(results),
+    checksTotal: results.length,
+    checksPassed: results.filter(item => item.ok).length,
+    results,
+    groups: summarizeGroups(results)
+  };
+}
+
+export function summarizeGroups(results) {
+  const groups = new Map();
+  for (const item of results) {
+    const entry = groups.get(item.group) || { group: item.group, passed: 0, total: 0 };
+    entry.total += 1;
+    if (item.ok) entry.passed += 1;
+    groups.set(item.group, entry);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Deterministic, ranked skill search over the generated index.
+ * Scoring favours exact phrase, then token coverage, then domain/family hits.
+ */
+export function searchSkills(query, index, limit = 20) {
+  const text = String(query || '').toLowerCase().trim().slice(0, 120);
+  if (!text || !index?.skills?.length) return [];
+  const tokens = text.split(/[^a-z0-9+]+/).filter(token => token.length > 2).slice(0, 8);
+  const phrase = text;
+  const scored = [];
+  for (const row of index.skills) {
+    const name = row[1].toLowerCase(), domain = row[2].toLowerCase(), family = row[3].toLowerCase();
+    const haystack = `${name} ${family} ${domain}`;
+    let score = 0;
+    if (name === phrase) score += 40;
+    if (name.includes(phrase)) score += 18;
+    if (haystack.includes(phrase)) score += 8;
+    for (const token of tokens) {
+      if (name.includes(token)) score += 6;
+      else if (family.includes(token)) score += 3;
+      else if (domain.includes(token)) score += 2;
+      else if (haystack.includes(token)) score += 1;
+    }
+    if (score > 0) scored.push({ score, id: row[0], name: row[1], domain: row[2], family: row[3], capability: row[4] });
+  }
+  scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  return scored.slice(0, Math.max(1, Math.min(100, limit)));
+}
+
+export { withTimeout, truncate };

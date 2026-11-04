@@ -12,7 +12,8 @@
     "build": "node server/build.mjs",
     "test": "npm --prefix frontend test && node --test server/tests/*.test.mjs",
     "test:e2e": "node server/test-browser.mjs",
-    "check": "node server/check.mjs"
+    "check": "node server/check.mjs",
+    "skills:index": "node scripts/build-skill-index.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.14",

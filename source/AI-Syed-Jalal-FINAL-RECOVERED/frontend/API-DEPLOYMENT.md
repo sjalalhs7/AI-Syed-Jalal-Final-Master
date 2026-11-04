@@ -90,7 +90,7 @@ npm run check
 After deployment, verify:
 
 1. `GET /api/health` returns a successful database connectivity result.
-2. `GET /api/ready` reports `ready: true` and `schemaTables: 13` after migrations 005, 006 and 007.
+2. `GET /api/ready` reports `ready: true` and `schemaTables: 15` after migrations 005, 006, 007 and 009.
 3. Authentication, CSRF, record CRUD, approvals, role restrictions, Agent Studio history/transient mode, attachments and compare voting pass against a non-production test account.
 4. An authenticated prompt to `POST /api/ai/run` returns a real provider response with `status: "completed"` and `simulated: false`.
 5. Provider failures, missing configuration, rate limits, and unauthorised access return safe, explicit errors.

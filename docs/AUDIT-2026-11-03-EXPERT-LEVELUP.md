@@ -66,7 +66,7 @@ console now has a working `#aiReadBtn` (read aloud / stop) driven by the shared 
 
 ### F6 — Unpinned GitHub Action in the new quality gate · MEDIUM · FIXED
 
-`.github/workflows/v129-quality.yml` used `actions/setup-node@v4`, a mutable tag, while every other
+`.github/workflows/v129-quality.yml` (renamed `v133-quality.yml` in V133) used `actions/setup-node@v4`, a mutable tag, while every other
 action in this repository is pinned to a commit SHA. Pinned to
 `49933ea5288caeca8642d1e84afbd3f7d6820020` (v4) to keep the supply-chain posture consistent.
 

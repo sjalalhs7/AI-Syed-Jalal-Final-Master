@@ -13,8 +13,11 @@ test("readiness requires rate-limit and Agent Studio migrations before declaring
   assert.ok(source.includes("auth_rate_limits"));
   assert.ok(source.includes("platform_conversations"));
   assert.ok(source.includes("platform_messages"));
-  assert.ok(source.includes("ready:n>=13"));
-  assert.ok(source.includes("n>=13?200:503"));
+  // V133 must also demand its own read model, so a half-migrated database cannot look ready.
+  assert.ok(source.includes("agent_skills"));
+  assert.ok(source.includes("agent_self_checks"));
+  assert.ok(source.includes("ready:n>=15"));
+  assert.ok(source.includes("n>=15?200:503"));
 });
 
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {

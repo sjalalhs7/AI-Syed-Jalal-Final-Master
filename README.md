@@ -43,9 +43,24 @@ Provider secrets stay server-side. Do not commit API keys or production credenti
 
 ## Runnable application and quick start (November 2026)
 
-The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard.
+The repaired application is tracked under [`source/AI-Syed-Jalal-FINAL-RECOVERED/`](source/AI-Syed-Jalal-FINAL-RECOVERED/). From that directory run `npm ci` and `npm run dev`, then open `/guide.html` for one-click preview access, live capability status and a plain-language guide. `/jalalai.html` is the assistant; `/workspace.html` is the workspace; `/dashboard.html` is the profile/skills dashboard; `/agent-lab.html` runs the graded self-check and the skill library.
 
 Use test data only in the local preview. See the [application status and verification report](source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md) for working features, test evidence, limitations and production release gates. The original recovery archives remain unchanged.
+
+## V133 — Agent Lab (3 November 2026)
+
+The newest application surface is **Agent Lab** (`source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/agent-lab.html`).
+One button runs a graded suite of 15 timeout-bounded checks against the live deployment — API health,
+real database tables and round-trip writes, security boundaries (HttpOnly + CSRF), agent behaviour and
+honesty labels, the 3,500-skill library and the page inventory — then stores the evidence per account and
+plots the run history. The same page searches the skill library through `GET /api/agent/skills`.
+
+Readiness now requires **15** tables (`agent_skills`, `agent_self_checks` added by migration
+`009_v133_agent_skills.sql`). A passed run is deployment evidence, not a production certificate: cloud
+providers, physical devices, load and compliance remain unproven and are labelled as such on the page.
+
+See [V133-AGENT-LAB-UPDATE-2026-11-03.md](V133-AGENT-LAB-UPDATE-2026-11-03.md) for the change list,
+test evidence and what is explicitly not claimed.
 
 ## Latest audit
 
