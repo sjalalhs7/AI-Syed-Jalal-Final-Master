@@ -84,7 +84,7 @@ test('a throwing or hung check is recorded as a failure, not an exception', asyn
   assert.equal(outcome.verdict, 'fail');
 });
 
-test('readiness now requires the V133 tables and health reports V133', async () => {
+test('readiness requires the V133 tables and health reports the current version', async () => {
   const ready = await client()('/ready');
   assert.equal(ready.status, 200);
   assert.equal(ready.data.schemaTables, 15);
@@ -93,7 +93,7 @@ test('readiness now requires the V133 tables and health reports V133', async () 
   assert.ok(diagnostics.data.tables.includes('agent_skills'));
   assert.ok(diagnostics.data.tables.includes('agent_self_checks'));
   assert.equal(diagnostics.data.status, 'healthy');
-  assert.equal((await client()('/health')).data.version, 'V133');
+  assert.equal((await client()('/health')).data.version, 'V134');
 });
 
 test('skill catalogue API syncs, lists, searches and is account gated', async () => {
@@ -117,7 +117,7 @@ test('skill catalogue API syncs, lists, searches and is account gated', async ()
 test('capabilities advertise real checks and honest providers', async () => {
   const { c } = await account();
   const data = (await c('/agent/capabilities')).data;
-  assert.equal(data.version, 'V133');
+  assert.equal(data.version, 'V134');
   assert.ok(data.selfCheck.checks.length >= 14);
   assert.ok(data.selfCheck.checks.every(check => check.id && check.weight > 0));
   assert.ok(data.providers.every(provider => provider.configured === false && /not configured/.test(provider.status)));
