@@ -34,7 +34,9 @@ All routes require an authenticated session. Mutations require `X-CSRF-Token`.
 - `POST /api/platform/conversations/:id/messages`
 - `POST /api/platform/conversations/:id/vote`
 
-Database migration: `backend/db/migrations/007_v129_agent_platform.sql`. Readiness now requires 13 tables.
+Database migration: `backend/db/migrations/007_v129_agent_platform.sql`. V133 adds `009_v133_agent_skills.sql`; readiness now requires 15 tables.
+
+Related surface: **Agent Lab** (`agent-lab.html`) runs the graded self-check and browses the skill library.
 
 ## Privacy and safety
 

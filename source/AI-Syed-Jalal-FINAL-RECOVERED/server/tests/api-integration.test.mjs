@@ -24,7 +24,7 @@ function client(cookie = '') {
 async function account() { const c = client(); const demo = await c('/demo', 'POST', {}); const authed = client(demo.cookie); const me = await authed('/me'); return { c: authed, token: me.data.csrfToken, user: me.data.user }; }
 
 test('real PostgreSQL schema, session, CSRF and assistant persistence', async () => {
-  assert.equal((await client()('/ready')).data.schemaTables, 13);
+  assert.equal((await client()('/ready')).data.schemaTables, 15);
   assert.equal((await client()('/me')).data.authenticated, false);
   const { c, token, user } = await account(); assert.equal(user.role, 'Admin');
   assert.equal((await c('/assistant/chat', 'POST', { message: 'calculate 2+3*4' })).status, 403);

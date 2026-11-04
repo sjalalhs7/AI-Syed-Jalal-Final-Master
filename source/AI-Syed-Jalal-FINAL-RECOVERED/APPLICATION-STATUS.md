@@ -72,7 +72,7 @@ PRs #13 and #14 were merged into `main`; historical superseded PRs #1, #2 and #1
 
 1. Use `frontend/` as the Cloudflare Pages output directory and retain `frontend/functions/` and `_headers`.
 2. Configure Neon `DATABASE_URL` and a strong `CSRF_SECRET` (at least 32 characters) as server secrets. Do not set `LOCAL_PREVIEW`, `COOKIE_SECURE=false`, or a database adapter in production.
-3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql` and `007_v129_agent_platform.sql`, then verify `/api/ready` reports 13 required tables. `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
+3. Apply the reviewed SQL migrations to a staging database, including `005_v127_auth_rate_limits.sql`, `006_v128_assistant_tools.sql` and `007_v129_agent_platform.sql`, then verify `/api/ready` reports 15 required tables (V133 adds `agent_skills` and `agent_self_checks`). `backend/db/schema.sql` includes the assistant tables for a fresh database; do not blindly replay destructive operations against existing data.
 4. Configure only the provider keys you intend to use. Verify model access and a real non-sensitive prompt for each provider. Key presence is not a live-provider test.
 5. Repeat registration/login/logout, password change, role restrictions, record CRUD/import/export, backup and a controlled merge restore, assistant confirmation/persistence, mobile voice and PWA checks against staging.
 6. Verify backup restoration and rollback before promoting the deployment. Production data migration and release approval remain owner responsibilities.
@@ -93,7 +93,15 @@ Local planning/review output is a structured template. It is not represented as 
 ## V129 Agent Studio update
 
 - Added `frontend/agent.html` with Direct / Agent / Compare modes, account-scoped history, text/code attachments, voice, export, tools panel and theme.
-- Added `/api/platform/*` routes and migration `007_v129_agent_platform.sql`; readiness now requires 13 tables.
+- Added `/api/platform/*` routes and migration `007_v129_agent_platform.sql`; V133 raised the readiness requirement to 15 tables by adding the Agent Lab tables.
+
+## V133 Agent Lab update (3 November 2026)
+
+- Added `frontend/agent-lab.html` + `assets/agent-lab.{js,css}`: a real self-check surface that posts to `/api/agent/self-check`, stores per-account evidence in `agent_self_checks`, plots a run history and searches the skill library.
+- Added `/api/agent/skills` (search/list/sync), `/api/agent/self-check` (GET history, POST run), `/api/agent/capabilities` and `/api/agent/report`, backed by migration `009_v133_agent_skills.sql`.
+- The self-check engine (`frontend/functions/self-check-core.mjs`) runs 15 weighted, timeout-bounded checks across application, data, reasoning, agents, honesty, security and catalogue groups. A thrown or hung check is recorded as a failure with its observation; nothing is silently skipped.
+- `frontend/config/agent-skill-index.json` is generated from the 3,500-skill catalogue by `scripts/build-skill-index.mjs` (63 KB vs 1.1 MB) and verified for freshness in CI.
+- Readiness now requires 15 tables. Verification: `npm run check` (27 static checks), `npm test` (80 frontend + 27 server), `npm run test:e2e` (11 browser journeys including two Agent Lab journeys).
 - Local engines work without keys. Cloud engines remain credential-gated and honestly labeled.
 - Verification: `npm run check`, `npm test` (67 frontend + 16 server), `npm run test:e2e` (5 browser journeys), `npm audit --omit=dev` 0, backend release tests PASS.
 - Final handoff: see repository-root `FINAL-OK-REPORT.md`.

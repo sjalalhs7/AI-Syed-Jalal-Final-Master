@@ -1,4 +1,4 @@
-name: V129 unified app quality
+name: V133 unified app quality
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: v129-quality-${{ github.ref }}
+  group: v133-quality-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,6 +45,21 @@ jobs:
 
       - name: Run static application checks
         run: npm --prefix source/AI-Syed-Jalal-FINAL-RECOVERED run check
+
+      - name: Verify the generated skill index is current and complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="source/AI-Syed-Jalal-FINAL-RECOVERED"
+          cp "$app/frontend/config/agent-skill-index.json" /tmp/agent-skill-index.committed.json
+          node "$app/scripts/build-skill-index.mjs"
+          cmp -s /tmp/agent-skill-index.committed.json "$app/frontend/config/agent-skill-index.json"
+          node -e "
+            const index = require('./$app/frontend/config/agent-skill-index.json');
+            if (index.count !== 3500 || index.skills.length !== 3500) throw new Error('Skill index is incomplete: ' + index.count);
+            if (index.domainCount !== 35) throw new Error('Skill index domains: ' + index.domainCount);
+            console.log('Skill index verified:', index.count, 'skills across', index.domainCount, 'domains');
+          "
 
       - name: Verify recovery archive safely
         run: python3 -m unittest discover -s tests -v

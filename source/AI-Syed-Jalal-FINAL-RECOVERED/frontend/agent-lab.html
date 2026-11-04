@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="robots" content="noindex,nofollow">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<script src="assets/host-mode.js"></script>
+<title>Agent Lab — verified self-check and skill library</title>
+<meta name="description" content="SJ Agent Lab: run a graded self-check of this deployment, browse 3,500 agent skills, and see exactly what works — with honest labels for what needs a provider key.">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/agent-lab.css">
+<script src="assets/agent-lab.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#runPanel">Skip to self-check</a>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ crown logo"><span><strong>SJ Agent Lab</strong><small>Verified capability, not claims</small></span></a>
+    <nav aria-label="Main navigation">
+      <a class="btn" href="agent.html">Agent Studio</a>
+      <a class="btn" href="jalalai.html">JalalAi</a>
+      <a class="btn" href="workspace.html">Workspace</a>
+      <a class="btn" href="guide.html">Start here</a>
+    </nav>
+    <button class="btn small" id="accountBtn" type="button">Sign in</button>
+  </header>
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow">SELF-CHECK ENGINE · V133</p>
+      <h1>Ask the application to prove it works.</h1>
+      <p class="lede">One button runs a graded suite against this deployment: API health, the real database, security boundaries, agent behaviour, honesty labels, the 3,500-skill library and the page inventory. Every result shows what was observed — and what it did <em>not</em> prove.</p>
+    </div>
+    <div class="score-card" id="scoreCard" aria-live="polite">
+      <span class="score-label">Latest score</span>
+      <strong class="score-value" id="scoreValue">—</strong>
+      <span class="verdict" id="verdict">Not run yet</span>
+      <span class="score-meta" id="scoreMeta">Run the self-check to create evidence.</span>
+    </div>
+  </section>
+
+  <section class="panel run-panel" id="runPanel" aria-labelledby="runTitle">
+    <div class="run-head">
+      <div>
+        <h2 id="runTitle">Run the self-check</h2>
+        <p class="hint" id="runHint">Signed out? Use “Try the local preview” on Agent Studio or sign in from the homepage. Results are stored per account.</p>
+      </div>
+      <div class="run-actions">
+        <label class="field"><span>Engine</span>
+          <select id="engine">
+            <option value="local">Local engine · deterministic</option>
+            <option value="cloud">Cloud engine · same checks + provider label</option>
+          </select>
+        </label>
+        <label class="field"><span>Provider</span>
+          <select id="provider" disabled>
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+        </label>
+        <button class="btn primary" id="runBtn" type="button">Run self-check</button>
+        <button class="btn small" id="demoBtn" type="button" hidden>Try the local preview</button>
+        <button class="btn small" id="downloadBtn" type="button" disabled>Download evidence</button>
+      </div>
+    </div>
+    <p class="status" id="runStatus" role="status">Ready.</p>
+    <div class="progress" id="progress" hidden><div class="progress-bar" id="progressBar"></div></div>
+    <div class="run-summary" id="runSummary" hidden></div>
+    <div class="groups" id="groups" aria-label="Results by area"></div>
+    <ol class="results" id="results" aria-label="Self-check results"></ol>
+    <div class="compare" id="compare" hidden></div>
+  </section>
+
+  <section class="panel" aria-labelledby="trendTitle">
+    <div class="split-head">
+      <div><h2 id="trendTitle">Evidence history</h2><p class="hint">Stored per account. A trend is not a production certificate.</p></div>
+      <button class="btn small" id="refreshHistory" type="button">Refresh history</button>
+    </div>
+    <div class="trend" id="trend" aria-live="polite"><p class="hint">No runs yet.</p></div>
+  </section>
+
+  <section class="panel" aria-labelledby="skillsTitle">
+    <div class="split-head">
+      <div><h2 id="skillsTitle">Skill library</h2><p class="hint" id="skillsHint">3,500 indexed skills across 35 domains, searchable and ranked. These are expert prompt profiles, not 3,500 independent AI models.</p></div>
+      <div class="skills-controls">
+        <label class="search"><span class="sr-only">Search skills</span><input id="skillQuery" type="search" placeholder="Search skills, e.g. security review…" autocomplete="off"></label>
+        <label class="field"><span>Domain</span><select id="skillDomain"><option value="">All domains</option></select></label>
+      </div>
+    </div>
+    <p class="status" id="skillsStatus" role="status"></p>
+    <div class="skills" id="skills" aria-live="polite"></div>
+  </section>
+
+  <section class="panel honesty" aria-labelledby="honestyTitle">
+    <h2 id="honestyTitle">What this page does and does not prove</h2>
+    <div class="honesty-grid">
+      <div><h3>Proven by a passing run</h3><ul><li>The API answers and the database has every required table.</li><li>Writes persist and can be removed; sessions use hardened headers and CSRF.</li><li>Local agent behaviour is correct and never auto-saves without confirmation.</li><li>Unconfigured cloud engines are labelled instead of simulated.</li><li>The skill catalogue is complete and searchable.</li></ul></div>
+      <div><h3>Not proven by any run here</h3><ul><li>That a cloud provider key produces a correct live answer.</li><li>Physical microphone, camera, speaker or Android device behaviour.</li><li>Production load, pen-test results, backups or disaster recovery.</li><li>Legal, medical or financial compliance.</li></ul></div>
+    </div>
+  </section>
+</div>
+<footer class="foot">AI-Syed Jalal · Approved SJ identity preserved · Evidence over claims.</footer>
+</body>
+</html>

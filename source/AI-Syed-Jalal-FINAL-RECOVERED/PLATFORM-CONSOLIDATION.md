@@ -17,13 +17,14 @@ The following remain as historical recovery references. Re-merging them wholesal
 | --- | --- | --- |
 | PR #1 `recovery/extracted-source-2026-10-11` | Closed as superseded | Early extracted source; superseded by recovered + hardened app in `main`. |
 | PR #2 `recovery/data-upgrade-2026-10-22` | Closed as superseded | Recovery integration branch; usable content consolidated via PR #13. |
-| PR #12 `fix/security-hardening-2026-11-01` | Closed as superseded | Security changes are in `main`; readiness now requires 13 tables. |
+| PR #12 `fix/security-hardening-2026-11-01` | Closed as superseded | Security changes are in `main`; readiness now requires 13 tables (V133: 15). |
 | `arena/342bece0-ai-syed-jalal-final-master` | Merged | Source branch for PR #13; retained for audit trail. |
 | `arena/85404700-ai-syed-jalal-final-master` | Merged | Source branch for PR #14; retained for audit trail. |
 
 ## Unified platform entry points
 
 - `agent.html` — SJ Agent Studio: Direct / Agent / Compare, history, files, voice, export.
+- `agent-lab.html` — Agent Lab: graded self-check evidence, run history and the 3,500-skill searchable library.
 - `jalalai.html` — focused assistant with tasks/notes and voice.
 - `workspace.html` — data vault, documents, approvals, admin, operations, AI command.
 - `dashboard.html` — command center and library.
