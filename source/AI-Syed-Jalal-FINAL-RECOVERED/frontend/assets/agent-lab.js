@@ -215,7 +215,7 @@
         $('skillsStatus').textContent = 'Sign in to search the skill library.';
         return;
       }
-      $('runHint').textContent = 'Runs 16 weighted checks against this deployment and stores the evidence on your account. Nothing is sent to a provider in local mode.';
+      $('runHint').textContent = 'Runs 17 weighted checks against this deployment and stores the evidence on your account. Nothing is sent to a provider in local mode.';
       await Promise.all([loadHistory(), loadSkills()]);
       setStatus(`Ready · signed in as ${user.username} (${user.role}).`);
     } catch (error) {
@@ -241,7 +241,7 @@
     if (!lastResult) return;
     const evidence = {
       product: 'AI-Syed Jalal · Agent Lab',
-      version: 'V134',
+      version: 'V135',
       exportedAt: new Date().toISOString(),
       account: user ? { username: user.username, role: user.role } : null,
       engine: lastResult.engine,

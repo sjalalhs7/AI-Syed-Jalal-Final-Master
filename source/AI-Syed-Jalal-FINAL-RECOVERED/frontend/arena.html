@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="robots" content="noindex,nofollow">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<script src="assets/host-mode.js"></script>
+<title>Arena — compare AI engines side by side</title>
+<meta name="description" content="SJ Arena: run two to four AI engines on the same prompt, judge them with a transparent rubric, vote blind, and build a leaderboard from real battles.">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/arena.css">
+<script src="assets/arena.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#composer">Skip to the prompt</a>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ crown logo"><span><strong>SJ Arena</strong><small>Battle, judge, decide</small></span></a>
+    <nav aria-label="Main navigation">
+      <a class="btn" href="agent.html">Agent Studio</a>
+      <a class="btn" href="agent-lab.html">Agent Lab</a>
+      <a class="btn" href="jalalai.html">JalalAi</a>
+      <a class="btn" href="workspace.html">Workspace</a>
+    </nav>
+    <button class="btn small" id="demoBtn" type="button" hidden>Try the local preview</button>
+    <button class="btn small" id="accountBtn" type="button">Sign in</button>
+  </header>
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow">ARENA · V135</p>
+      <h1>Same prompt. Different engines. One decision.</h1>
+      <p class="lede">Pick up to four engines, run them on the same prompt, then vote blind. A transparent rubric judge scores every answer and explains itself — and your vote always outranks it. Not-configured engines are labelled, never faked, and never scored as a tie.</p>
+    </div>
+    <dl class="stats" id="stats" aria-label="Your arena record">
+      <div><dt>Battles</dt><dd id="statTotal">—</dd></div>
+      <div><dt>Human decided</dt><dd id="statHuman">—</dd></div>
+      <div><dt>Judge agreement</dt><dd id="statAgree">—</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel" id="composer" aria-labelledby="buildTitle">
+    <div class="split-head">
+      <div><h2 id="buildTitle">Build a battle</h2><p class="hint" id="buildHint">Sign in to run a battle. Local engines work with no key; cloud engines need a server-side provider key.</p></div>
+      <div class="build-controls">
+        <label class="field"><span>Mode</span>
+          <select id="mode"><option value="text">Text answer</option><option value="code">Code / artifact</option></select>
+        </label>
+        <label class="toggle"><input id="blind" type="checkbox" checked> Blind until I vote</label>
+      </div>
+    </div>
+
+    <fieldset class="engines" id="engines" aria-describedby="engineHelp">
+      <legend>Engines <span class="hint" id="engineHelp">choose 2–4</span></legend>
+      <div class="engine-grid" id="engineGrid"></div>
+    </fieldset>
+
+    <form id="battleForm" class="composer">
+      <label class="sr-only" for="prompt">Prompt</label>
+      <textarea id="prompt" rows="4" maxlength="10000" placeholder="Ask all selected engines the same thing… e.g. Design a launch plan for a SaaS dashboard, or build a responsive pricing page in one HTML file."></textarea>
+      <div class="attachments" id="attachments" aria-label="Attached files"></div>
+      <div class="composer-row">
+        <div class="composer-left">
+          <button class="icon-btn" id="attachBtn" type="button" aria-label="Attach text or code file">📎</button>
+          <input id="fileInput" type="file" hidden multiple accept=".txt,.md,.csv,.json,.js,.mjs,.ts,.py,.html,.css,.xml,.yaml,.yml,.log,.sql,text/*">
+          <span class="char-count" id="charCount">0 / 10000</span>
+        </div>
+        <div class="composer-right">
+          <button class="btn" id="clearBtn" type="button">Clear</button>
+          <button class="btn primary" id="runBtn" type="submit">Run battle →</button>
+        </div>
+      </div>
+      <p class="status" id="status" role="status">Ready.</p>
+      <p class="hint" id="runHint">Signed out? Use “Try the local preview” to open a disposable sandbox account and battle the local engines with no key.</p>
+    </form>
+  </section>
+
+  <section class="panel" id="battlePanel" aria-labelledby="battleTitle" hidden>
+    <div class="split-head">
+      <div>
+        <h2 id="battleTitle">Battle <span id="battleMode" class="pill"></span></h2>
+        <p class="hint" id="battlePrompt"></p>
+      </div>
+      <div class="battle-actions">
+        <button class="btn small" id="newBattleBtn" type="button">New battle</button>
+        <button class="btn small" id="revealBtn" type="button" hidden>Reveal engines</button>
+        <a class="btn small" href="agent.html">Continue in Studio</a>
+      </div>
+    </div>
+
+    <p class="judge" id="judgeLine" role="status"></p>
+    <div class="grid" id="responses"></div>
+    <div class="vote" id="voteBar" aria-label="Vote">
+      <span class="vote-label">Which answer is better?</span>
+      <div class="vote-buttons" id="voteButtons"></div>
+    </div>
+    <section class="panel artifacts-panel" id="artifactBox" aria-labelledby="artifactTitle" hidden></section>
+    <div class="judge-detail" id="judgeDetail"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="leaderTitle">
+    <div class="split-head">
+      <div><h2 id="leaderTitle">Your leaderboard</h2><p class="hint" id="leaderNote">Ratings start at 1200 and only move when a battle is decided. They record your preferences, not model quality.</p></div>
+      <button class="btn small" id="refreshLeader" type="button">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table class="leader">
+        <thead><tr><th scope="col">#</th><th scope="col">Engine</th><th scope="col">Rating</th><th scope="col">W</th><th scope="col">L</th><th scope="col">T</th><th scope="col">Battles</th><th scope="col">Availability</th></tr></thead>
+        <tbody id="leaderBody"><tr><td colspan="8" class="hint">Sign in to see your leaderboard.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="historyTitle">
+    <div class="split-head">
+      <div><h2 id="historyTitle">Battle history</h2><p class="hint">Saved on your account. Open one to see the answers and the judgement again.</p></div>
+      <label class="field"><span>Mode</span><select id="historyMode"><option value="">All</option><option value="text">Text</option><option value="code">Code</option></select></label>
+    </div>
+    <div class="history" id="history"><p class="hint">No battles yet.</p></div>
+  </section>
+
+  <section class="panel honesty" aria-labelledby="limitsTitle">
+    <h2 id="limitsTitle">How this arena is honest</h2>
+    <div class="honesty-grid">
+      <div><h3>What it really does</h3><ul><li>Runs each selected engine on the identical prompt and stores every answer.</li><li>Scores answers with a deterministic rubric (structure, specificity, coverage, honesty, code) and shows the sub-scores.</li><li>Hides engine names until you vote, then records whether you agreed with the judge.</li><li>Builds the leaderboard from your own decided battles only.</li></ul></div>
+      <div><h3>What it does not do</h3><ul><li>It does not claim your vote is objective, and the rubric judge is not a human reviewer — it is deterministic tooling whose scoring bands are printed on the page.</li><li>It does not invent results for engines with no configured key — those score zero and say why.</li><li>It does not hide engine identity cryptographically in blind mode: tone can still give it away.</li><li>It does not publish a global benchmark. Your ratings are yours.</li></ul></div>
+    </div>
+  </section>
+</div>
+<footer class="foot">AI-Syed Jalal · Approved SJ identity preserved · Evidence over claims.</footer>
+</body>
+</html>

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'config/agent-skill-index.json'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'config/agent-skill-index.json'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
@@ -38,6 +38,9 @@ const checks = [
   ['Agent Lab self-check page is linked from the homepage', /href=["']agent-lab\.html["']/.test(html)],
   ['Agent Lab ships a runnable self-check with honest limits', read('agent-lab.html').includes('id="runBtn"') && read('assets/agent-lab.js').includes("'/agent/self-check'") && read('agent-lab.html').includes('What this page does and does not prove')],
   ['Agent Lab page is excluded from precache like the other private shells', !read('sw.js').includes("'./agent-lab.html'") && read('sw.js').includes("endsWith('/agent-lab.html')")],
+  ['Arena battle page is linked from the homepage', /href=["']arena\.html["']/.test(html)],
+  ['Arena ships blind comparison with honest judge wording', read('arena.html').includes('id="voteButtons"') && read('assets/arena.js').includes("'/arena/battles'") && read('arena.html').includes('not a human reviewer')],
+  ['Arena page is excluded from precache like the other private shells', !read('sw.js').includes("'./arena.html'") && read('sw.js').includes("endsWith('/arena.html')")],
   ['Agent Studio has Direct/Agent/Compare modes', /data-mode="chat"/.test(agent) && /data-mode="agent"/.test(agent) && /data-mode="compare"/.test(agent)],
   ['Agent Studio keeps private shell out of precache', !read('sw.js').includes("'./agent.html'") && read('sw.js').includes("url.pathname.endsWith('/agent.html')")],
   ['static-host login guard is shipped', read('assets/host-mode.js').includes('window.AJ_STATIC_HOST') && html.includes('assets/host-mode.js')],
