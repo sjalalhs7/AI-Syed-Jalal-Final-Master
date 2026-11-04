@@ -96,6 +96,13 @@ export async function onRequest({request,env}){
   if(u.pathname==='/api/auth/logout'&&request.method==='POST'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);await db.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[await digest(rawToken(request))]);await audit(db,me,'LOGOUT','Session revoked',request);return reply({ok:true},200,{'Set-Cookie':C+'=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'+((env.DB_ADAPTER&&env.COOKIE_SECURE==='false')?'':'; Secure')})}
   const me=await userFor(db,request);
   if(u.pathname==='/api/arena/catalogue'&&request.method==='GET')return reply(arenaCatalogue(env));
+  // Static metadata (no account data) — a signed-out visitor must still be able to read
+  // what this arena does and does not do. Rendered by arena.html before sign-in.
+  if(u.pathname==='/api/arena/features'&&request.method==='GET'&&!me)return await arenaRoute({request,env,db,me:null,url:u,readBody,reply,audit,consumeRateLimit,onRequest});
+  if(u.pathname==='/api/arena/prompts'&&request.method==='GET'&&!me)return await arenaRoute({request,env,db,me:null,url:u,readBody,reply,audit,consumeRateLimit,onRequest});
+  // The toolbox catalogue is a static list of what the runtime can do. Publishing it
+  // before sign-in lets Toolbench explain the product without inventing a list.
+  if(u.pathname==='/api/agent/capabilities'&&request.method==='GET'&&!me)return await agentRoute({request,env,db,me:null,url:u,readBody,reply,audit,consumeRateLimit,onRequest});
   if(u.pathname==='/api/me'&&request.method==='GET')return reply(me?{authenticated:true,user:{id:me.id,username:me.username,role:me.role},csrfToken:await csrf(rawToken(request),env.CSRF_SECRET||env.SESSION_SECRET||'')}:{authenticated:false,user:null,csrfToken:null});
   if(!me)return reply({error:'Authentication required'},401);
   if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);

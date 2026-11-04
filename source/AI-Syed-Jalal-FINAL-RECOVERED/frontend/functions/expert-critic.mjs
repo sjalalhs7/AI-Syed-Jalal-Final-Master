@@ -301,7 +301,7 @@ export async function runReview(context) {
       score += 10;
       observations.push('No stored run exceeded the 20 s interactive budget.');
     }
-    observations.push('Bounded execution (max 4 steps, 9 s per step, 12 runs/minute) caps the cost of a single conversation.');
+    observations.push('Bounded execution (max 7 planned steps, 9 s per step, 12 runs/minute, 12 tools) caps the cost of a single conversation.');
     score += 15;
     push(REVIEW_DIMENSIONS[5], { score, evidenced: values.length > 0, observations, findings: dimensionFindings });
   }

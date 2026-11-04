@@ -1,4 +1,5 @@
 import { builtInChecks, runChecks, searchSkills, verdictFor } from './self-check-core.mjs';
+import { AGENT_TOOLS } from './agent-runtime.mjs';
 import skillIndex from '../config/agent-skill-index.json';
 
 // V133/V134 agent routes: skill library + durable self-check evidence.
@@ -18,7 +19,9 @@ function pageInventory() {
     { file: 'arena.html', label: 'Arena battles' },
     { file: 'jarvis.html', label: 'JARVIS voice console' },
     { file: 'critic.html', label: 'Expert Critic review' },
-    { file: 'refactor-plan.html', label: 'Architecture and merge decisions' }
+    { file: 'refactor-plan.html', label: 'Architecture and merge decisions' },
+    { file: 'allinone.html', label: 'All-in-one specialist panel' },
+    { file: 'toolbench.html', label: 'Toolbench — twelve tools' }
   ];
 }
 
@@ -182,6 +185,10 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
       providers: cloudProviderState(env),
       selfCheck: { checks: builtInChecks().map(check => ({ id: check.id, title: check.title, group: check.group, weight: check.weight, severity: check.severity })), path: '/api/agent/self-check' },
       skills: { count: skillIndex.count, domains: skillIndex.domainCount, path: '/api/agent/skills' },
+      // V140: the toolbox is published so Toolbench, Agent Studio and the tests
+      // all read one list instead of three copies that can drift.
+      tools: AGENT_TOOLS.map(tool => ({ ...tool })),
+      toolbox: { count: AGENT_TOOLS.length, path: '/api/agent/run', page: 'toolbench.html' },
       limits: { timeoutMs: 4000, maxChecksPerRun: builtInChecks().length }
     });
   }

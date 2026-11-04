@@ -2,6 +2,7 @@ import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
+import { answerAll, routePrompt, specialistCatalogue } from './all-in-one.mjs';
 
 export async function assistantRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
   const path = url.pathname, method = request.method;
@@ -13,6 +14,29 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     ]);
     return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
   }
+  // V139 — all-in-one panel: every specialist that can serve the prompt, with
+  // the reason each was chosen. No provider key required, no hidden model call.
+  if (path === '/api/assistant/all/specialists' && method === 'GET') {
+    return reply({ ok: true, engine: 'sj-all-in-one', specialists: specialistCatalogue(), tools: AGENT_TOOLS, profiles: PROFILE_IDS });
+  }
+  if (path === '/api/assistant/all/route' && method === 'POST') {
+    const body = await readBody(request);
+    const prompt = String(body.prompt || '').trim();
+    if (!prompt) return reply({ error: 'Enter a prompt to route.' }, 400);
+    return reply({ ok: true, engine: 'sj-all-in-one', prompt, routed: routePrompt(prompt, 3) });
+  }
+  if (path === '/api/assistant/all/answer' && method === 'POST') {
+    if (!await consumeRateLimit(db, 'assistant-all', me.id, 10, 5)) return reply({ error: 'All-in-one answers are limited to ten per minute.' }, 429, { 'Retry-After': '60' });
+    const body = await readBody(request);
+    const prompt = String(body.prompt || '').trim();
+    if (!prompt) return reply({ error: 'Enter a prompt first.' }, 400);
+    if (prompt.length > 4000) return reply({ error: 'Keep the prompt under 4,000 characters.' }, 400);
+    const only = Array.isArray(body.only) ? body.only.map(String).slice(0, 4) : null;
+    const panel = await answerAll({ prompt, db, me, env, limit: 3, only });
+    await audit(db, me, 'ASSISTANT_ALL_IN_ONE', `${panel.counts.specialists} specialist(s): ${panel.routed.map(item => item.id).join(',')}`, request);
+    return reply(panel);
+  }
+
   // V138 — expert review. Stored evidence only: every finding cites what it read.
   if (path === '/api/assistant/critic/review' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
@@ -103,7 +127,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     return reply({ error: 'Unsupported action. No external action was executed.' }, 400);
   }
   if (path === '/api/assistant/agent/tools' && method === 'GET') {
-    return reply({ ok: true, tools: AGENT_TOOLS, limits: { maxSteps: 4, timeoutMs: 9000, perMinute: 12 }, note: 'These are the only tools that exist. Writes (tasks, notes) always require an explicit confirmation call.' });
+    return reply({ ok: true, tools: AGENT_TOOLS, limits: { maxSteps: 7, timeoutMs: 9000, perMinute: 12 }, note: 'These are the only tools that exist, all deterministic. Writes (tasks, notes) always require an explicit confirmation call. The same list is runnable by hand at /toolbench.html.' });
   }
   if (path === '/api/assistant/agent/runs' && method === 'GET') {
     const rows = await db.query('SELECT id,prompt,surface,steps,tools,failures,duration_ms AS "durationMs",needs_provider AS "needsProvider",created_at AS "createdAt" FROM agent_runs WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20', [me.id]);
