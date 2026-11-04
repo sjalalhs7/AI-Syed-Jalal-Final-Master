@@ -1,9 +1,9 @@
 import { builtInChecks, runChecks, searchSkills, verdictFor } from './self-check-core.mjs';
 import skillIndex from '../config/agent-skill-index.json';
 
-// V133 agent routes: skill library + durable self-check evidence.
+// V133/V134 agent routes: skill library + durable self-check evidence.
 // Every response is account-scoped, rate limited and audited by the caller.
-const POLICY_VERSION = 'V133';
+const POLICY_VERSION = 'V134';
 
 function pageInventory() {
   // Pages are listed explicitly so a missing file is a check failure, not a 404 surprise.

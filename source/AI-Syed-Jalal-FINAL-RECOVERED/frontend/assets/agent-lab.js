@@ -241,7 +241,7 @@
     if (!lastResult) return;
     const evidence = {
       product: 'AI-Syed Jalal · Agent Lab',
-      version: 'V133',
+      version: 'V134',
       exportedAt: new Date().toISOString(),
       account: user ? { username: user.username, role: user.role } : null,
       engine: lastResult.engine,
