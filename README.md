@@ -53,6 +53,15 @@ Start with **[FINAL-HANDOFF-V135.md](FINAL-HANDOFF-V135.md)** — one page cover
 the one-command proof, the exact gate results, what is deliberately not built, and the owner-only steps
 that remain.
 
+## V137 — JARVIS voice console (4 November 2026)
+
+**JARVIS** (`jarvis.html`) is a hands-free voice front end for the same bounded agent runtime:
+**Hold to talk**, optional auto-run on the final transcript, hands-free reading of replies, a shared
+browser voice + language, and a live tool trace for every command. The voice surface contract lives in
+`frontend/functions/voice-surfaces.mjs` and is graded by the self-check (`voice.surfaces`, 19 checks
+total), three static checks and three browser journeys that assert what was actually spoken.
+See [V137-JARVIS-VOICE-2026-11-04.md](V137-JARVIS-VOICE-2026-11-04.md).
+
 ## V136 — real agent runtime (4 November 2026)
 
 JalalAi gained **Agent mode**: a bounded, four-tool runtime (`calculator`, live `Wikipedia research`,
