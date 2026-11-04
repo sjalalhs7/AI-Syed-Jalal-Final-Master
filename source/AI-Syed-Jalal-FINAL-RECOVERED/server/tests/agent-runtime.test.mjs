@@ -87,15 +87,16 @@ test('a throwing or hung check is recorded as a failure, not an exception', asyn
 test('readiness requires the V136 tables and health reports the current version', async () => {
   const ready = await client()('/ready');
   assert.equal(ready.status, 200);
-  assert.equal(ready.data.schemaTables, 20);
+  assert.equal(ready.data.schemaTables, 21);
   const { c } = await account();
   const diagnostics = await c('/admin/diagnostics');
   assert.ok(diagnostics.data.tables.includes('agent_skills'));
   assert.ok(diagnostics.data.tables.includes('agent_self_checks'));
   assert.ok(diagnostics.data.tables.includes('arena_battles'));
   assert.ok(diagnostics.data.tables.includes('arena_ratings'));
+  assert.ok(diagnostics.data.tables.includes('expert_reviews'));
   assert.equal(diagnostics.data.status, 'healthy');
-  assert.equal((await client()('/health')).data.version, 'V137');
+  assert.equal((await client()('/health')).data.version, 'V138');
 });
 
 test('skill catalogue API syncs, lists, searches and is account gated', async () => {
@@ -119,7 +120,7 @@ test('skill catalogue API syncs, lists, searches and is account gated', async ()
 test('capabilities advertise real checks and honest providers', async () => {
   const { c } = await account();
   const data = (await c('/agent/capabilities')).data;
-  assert.equal(data.version, 'V137');
+  assert.equal(data.version, 'V138');
   assert.ok(data.selfCheck.checks.length >= 14);
   assert.ok(data.selfCheck.checks.every(check => check.id && check.weight > 0));
   assert.ok(data.providers.every(provider => provider.configured === false && /not configured/.test(provider.status)));
@@ -133,7 +134,7 @@ test('self-check runs every check on a real database and persists evidence', asy
   assert.equal(run.data.verdict, 'pass', JSON.stringify(run.data.results.filter(item => !item.ok), null, 1));
   assert.equal(run.data.score, 100);
   assert.equal(run.data.checksPassed, run.data.checksTotal);
-  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /20\/20/.test(item.detail)));
+  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /21\/21/.test(item.detail)));
   const history = await c('/agent/self-check');
   assert.equal(history.status, 200);
   assert.equal(history.data.latest.score, 100);

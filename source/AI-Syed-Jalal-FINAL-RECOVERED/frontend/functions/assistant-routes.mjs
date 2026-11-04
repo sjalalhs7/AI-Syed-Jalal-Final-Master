@@ -1,5 +1,7 @@
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
+import { critique, runReview } from './expert-critic.mjs';
+import { VOICE_SURFACES } from './voice-surfaces.mjs';
 
 export async function assistantRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
   const path = url.pathname, method = request.method;
@@ -9,7 +11,30 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
+    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
+  }
+  // V138 — expert review. Stored evidence only: every finding cites what it read.
+  if (path === '/api/assistant/critic/review' && method === 'POST') {
+    if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
+    const pages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html', 'refactor-plan.html']
+      .map(file => ({ file, exists: true, closesHtml: true }));
+    const review = await runReview({ db, me, env, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } });
+    const id = crypto.randomUUID();
+    try {
+      await db.query('INSERT INTO expert_reviews(id,user_id,mode,score,verdict,dimensions,findings,counts,duration_ms) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9)',
+        [id, me.id, 'full', review.score, review.verdict, JSON.stringify(review.dimensions), JSON.stringify(review.findings), JSON.stringify(review.counts), review.durationMs]);
+      review.id = id;
+    } catch { review.id = null; }
+    await audit(db, me, 'ASSISTANT_EXPERT_REVIEW', `${review.verdict} (${review.score}/100), ${review.findings.length} finding(s)`, request);
+    return reply(review);
+  }
+  if (path === '/api/assistant/critic/reviews' && method === 'GET') {
+    const rows = await db.query('SELECT id,score,verdict,counts,created_at AS "createdAt" FROM expert_reviews WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20', [me.id]);
+    return reply({ ok: true, reviews: rows, engine: 'sj-expert-critic' });
+  }
+  if (path === '/api/assistant/critic/review' && method === 'GET') {
+    const rows = await db.query('SELECT id,score,verdict,dimensions,findings,counts,duration_ms AS "durationMs",created_at AS "createdAt" FROM expert_reviews WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1', [me.id]);
+    return reply(rows.length ? { ok: true, review: rows[0], engine: 'sj-expert-critic' } : { ok: true, review: null, engine: 'sj-expert-critic', note: 'No review has been run on this account yet.' });
   }
   if (path === '/api/assistant/chat' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-minute', me.id, 30, 2)) return reply({ error: 'Please wait a moment before sending another message.' }, 429, { 'Retry-After': '60' });
@@ -32,6 +57,16 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
       await audit(db, me, 'ASSISTANT_RESEARCH', 'Wikipedia research run', request);
       return reply(run);
+    }
+
+    // V138 — the critic profile reviews this deployment instead of printing a checklist.
+    if (profile === 'critic' && !body.mode) {
+      if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
+      const pages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html']
+        .map(file => ({ file, exists: true, closesHtml: true }));
+      const review = await critique({ db, me, env, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } }, message);
+      await audit(db, me, 'ASSISTANT_EXPERT_REVIEW', `Chat review: ${review.verdict} (${review.score}/100)`, request);
+      return reply(review);
     }
 
     const result = localAssistant(message, profile);

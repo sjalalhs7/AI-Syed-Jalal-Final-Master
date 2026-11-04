@@ -1,4 +1,9 @@
-# Application implementation and verification — 2 November 2026
+# Application implementation and verification — 4 November 2026 (V138)
+
+> **Current architecture (V138).** Arena, JalalAi, JARVIS and SJ Agent Studio now share one bounded
+> agent runtime, one remembered voice preference and one evidence chain (run → trace → self-check →
+> expert review). The merge decisions, including the two duplications that deliberately remain, are
+> published at `/refactor-plan.html`. The graded review of this deployment is `/critic.html`.
 
 ## What runs now
 

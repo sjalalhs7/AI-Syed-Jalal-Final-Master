@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'jarvis.html', 'assets/jarvis.js', 'assets/jarvis.css', 'config/agent-skill-index.json'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'jarvis.html', 'assets/jarvis.js', 'assets/jarvis.css', 'critic.html', 'assets/critic.js', 'assets/critic.css', 'refactor-plan.html', 'config/agent-skill-index.json'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
@@ -50,6 +50,10 @@ const checks = [
   ['JARVIS voice console states its limits and shares the one voice preference', read('jarvis.html').includes('id="talkBtn"') && read('jarvis.html').includes('data-aj-voice') && read('jarvis.html').includes('does not upload audio') && read('assets/jarvis.js').includes('window.AJSpeech.apply')],
   ['JARVIS is reachable from the assistant, home, guide, arena, lab, dashboard and workspace', ['jalalai.html','index.html','guide.html','arena.html','agent-lab.html','dashboard.html','workspace.html'].every(page => read(page).includes('jarvis.html'))],
   ['JARVIS page is excluded from precache like the other private shells', !read('sw.js').includes("'./jarvis.html'") && read('sw.js').includes("endsWith('/jarvis.html')")],
+  ['Expert Critic page grades stored evidence and states its limits', read('critic.html').includes('id="runBtn"') && read('critic.html').includes('does not see your production database') && read('assets/critic.js').includes("'/assistant/critic/review'")],
+  ['Architecture record names what merged, what stayed separate and what remains', read('refactor-plan.html').includes('One runtime, four front doors') && read('refactor-plan.html').includes('remaining') && read('refactor-plan.html').includes('refused')],
+  ['Critic and architecture pages are excluded from precache', !read('sw.js').includes("'./critic.html'") && read('sw.js').includes("endsWith('/critic.html')") && read('sw.js').includes("endsWith('/refactor-plan.html')")],
+  ['Expert Critic and the architecture record are reachable from the main surfaces', ['index.html','jalalai.html','agent-lab.html','guide.html'].every(page => read(page).includes('critic.html'))],
   ['GitHub Pages workflow publishes the frontend', existsSync(join(root, '../../../.github/workflows/pages.yml')) && readFileSync(join(root, '../../../.github/workflows/pages.yml'), 'utf8').includes('source/AI-Syed-Jalal-FINAL-RECOVERED/frontend')],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
