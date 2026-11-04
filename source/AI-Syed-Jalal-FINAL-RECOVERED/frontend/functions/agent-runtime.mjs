@@ -17,12 +17,16 @@
 
 import { calculate, localAssistant } from './assistant-core.mjs';
 import { searchWikipedia } from './wikipedia-adapter.mjs';
+import { TOOLBOX_TOOLS, planFromToolbox } from './toolbox.mjs';
 
 export const AGENT_TOOLS = [
   { id: 'calculator', label: 'Calculator', kind: 'local', detail: 'Deterministic arithmetic with parentheses and percentages.' },
   { id: 'research', label: 'Wikipedia research', kind: 'network', detail: 'Live search against the Wikipedia API; returns titles, snippets and links with attribution.' },
   { id: 'records', label: 'Workspace records', kind: 'database', detail: 'Read-only search of the records you are allowed to see.' },
-  { id: 'tasks', label: 'Tasks and notes', kind: 'database', detail: 'Read your saved tasks and notes. Writes always need explicit confirmation.' }
+  { id: 'tasks', label: 'Tasks and notes', kind: 'database', detail: 'Read your saved tasks and notes. Writes always need explicit confirmation.' },
+  // V140: eight deterministic tools that replace a browser tab each. Same rules:
+  // local, bounded, reproducible from the input alone, no filesystem or shell.
+  ...TOOLBOX_TOOLS.map(tool => ({ ...tool }))
 ];
 
 const MATH = /^[\s\d().+\-*/%]+$/;
@@ -103,6 +107,16 @@ export function planFor(prompt) {
     }));
   }
 
+  // V140 toolbox steps. They append after the V136 tools so a prompt that needs
+  // both ("audit this code and search my tasks") still gets both, in order.
+  for (const extra of planFromToolbox(text)) {
+    if (steps.some(item => item.tool === extra.tool)) continue;
+    steps.push(step(extra.id, extra.title, extra.tool, async () => {
+      const outcome = await extra.run();
+      return { observation: outcome.observation, data: outcome.data ?? null };
+    }));
+  }
+
   if (!steps.length) {
     // No tool fits: hand over to the profile engine and say plainly that no tool ran.
     steps.push(step('answer', 'Answer with the selected local profile (no external tool)', 'none', async () => {
@@ -179,7 +193,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
       failures: failed.length,
       totalMs: Date.now() - started,
       bounded: true,
-      maxSteps: 4
+      maxSteps: 7
     },
     output: `${header}\n\n${body}\n\n${footer}`,
     needsProvider

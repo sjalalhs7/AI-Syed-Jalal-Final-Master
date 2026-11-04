@@ -220,14 +220,19 @@ export function builtInChecks() {
     defineCheck({
       id: 'agent.tool-runtime', title: 'Agent runtime uses a finite tool list and a bounded plan', group: 'agents', weight: 5,
       async run({ db, me }) {
-        if (AGENT_TOOLS.length !== 4) throw new Error('The published agent tool list changed size unexpectedly');
+        if (AGENT_TOOLS.length < 4 || AGENT_TOOLS.length > 16) throw new Error('The published agent tool list left its bounded range (4–16)');
+        if (new Set(AGENT_TOOLS.map(tool => tool.id)).size !== AGENT_TOOLS.length) throw new Error('The published agent tool list has duplicate ids');
         for (const tool of AGENT_TOOLS) {
           if (!tool.id || !tool.label || !tool.kind) throw new Error('A published agent tool is incomplete');
+        }
+        // Capability may grow but must never be removed silently.
+        for (const required of ['calculator', 'research', 'records', 'tasks']) {
+          if (!AGENT_TOOLS.some(tool => tool.id === required)) throw new Error(`A required agent tool disappeared: ${required}`);
         }
         // A plan must only reference published tools, and must be bounded.
         for (const prompt of ['calculate 40 * 3', 'research the printing press', 'show my tasks', 'write a poem']) {
           const plan = planFor(prompt);
-          if (plan.length < 1 || plan.length > 4) throw new Error(`Plan for "${prompt}" is not bounded`);
+          if (plan.length < 1 || plan.length > 7) throw new Error(`Plan for "${prompt}" is not bounded`);
           for (const item of plan) {
             if (item.tool !== 'none' && !AGENT_TOOLS.some(tool => tool.id === item.tool)) throw new Error(`Plan used an unpublished tool: ${item.tool}`);
           }

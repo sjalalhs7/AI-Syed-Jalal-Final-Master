@@ -1,3 +1,5 @@
+import { ARENA_FEATURES, FEATURE_STATES, ARENA_POSITIONING, featureSummary } from './arena-features.mjs';
+import { PROMPT_LIBRARY, PROMPT_CATEGORIES, searchPrompts, battleToMarkdown } from './prompt-library.mjs';
 import { localAssistant } from './assistant-core.mjs';
 import {
   ARENA_MODES, MAX_CONTENDERS, MIN_CONTENDERS, SIDES, START_RATING,
@@ -176,6 +178,19 @@ export async function arenaRoute({ request, env, db, me, url, readBody, reply, a
   const path = url.pathname, method = request.method;
   if (!path.startsWith('/api/arena/')) return null;
 
+  if (path === '/api/arena/features' && method === 'GET') {
+    return reply({ ok: true, features: ARENA_FEATURES, states: FEATURE_STATES, summary: featureSummary(), positioning: ARENA_POSITIONING });
+  }
+  // V140: the prompt library is static content, readable before sign-in like the
+  // feature map — a first-time visitor needs a way in before they have an account.
+  if (path === '/api/arena/prompts' && method === 'GET') {
+    const q = String(url.searchParams.get('q') || '').slice(0, 120);
+    const category = String(url.searchParams.get('category') || '').slice(0, 40) || undefined;
+    const mode = ARENA_MODES.includes(url.searchParams.get('mode')) ? url.searchParams.get('mode') : undefined;
+    const prompts = searchPrompts(q, { category, mode });
+    return reply({ ok: true, total: PROMPT_LIBRARY.length, returned: prompts.length, categories: PROMPT_CATEGORIES, prompts });
+  }
+
   if (path === '/api/arena/catalogue' && method === 'GET') {
     return reply(arenaCatalogue(env));
   }
@@ -280,7 +295,18 @@ export async function arenaRoute({ request, env, db, me, url, readBody, reply, a
 
   if (!match[2] && method === 'GET') {
     const reveal = !battle.blind || Boolean(battle.vote);
-    return reply({ ok: true, ...(await battlePayload(db, battle, { reveal })), judge: { ...JUDGE, winner: battle.judge_winner, reason: battle.judge_reason } });
+    const payload = await battlePayload(db, battle, { reveal });
+    // Export leaves as a real download with the judge's rubric and every note
+    // attached, so a shared battle is still verifiable outside this app.
+    if (url.searchParams.get('format') === 'markdown') {
+      const markdown = battleToMarkdown({
+        prompt: battle.prompt, mode: battle.mode, blind: battle.blind, createdAt: battle.created_at,
+        judgeWinner: battle.judge_winner, judgeReason: battle.judge_reason, vote: battle.vote,
+        responses: payload.responses || []
+      });
+      return reply({ ok: true, filename: `arena-battle-${battle.id.slice(0, 8)}.md`, markdown });
+    }
+    return reply({ ok: true, ...payload, judge: { ...JUDGE, winner: battle.judge_winner, reason: battle.judge_reason } });
   }
 
   if (match[2] === '/vote' && method === 'POST') {

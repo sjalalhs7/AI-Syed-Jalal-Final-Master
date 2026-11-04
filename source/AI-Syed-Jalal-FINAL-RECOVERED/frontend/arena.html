@@ -24,6 +24,7 @@
       <a class="btn" href="agent-lab.html">Agent Lab</a>
       <a class="btn" href="jalalai.html">JalalAi</a>
       <a class="btn" href="jarvis.html">JARVIS voice</a>
+      <a class="btn" href="allinone.html">All-in-one</a><a class="btn" href="toolbench.html">Toolbench</a>
       <a class="btn" href="critic.html">Expert Critic</a>
       <a class="btn" href="workspace.html">Workspace</a>
     </nav>
@@ -87,6 +88,7 @@
         <p class="hint" id="battlePrompt"></p>
       </div>
       <div class="battle-actions">
+        <button class="btn small" id="exportBtn" type="button">Export this battle (.md)</button>
         <button class="btn small" id="newBattleBtn" type="button">New battle</button>
         <button class="btn small" id="revealBtn" type="button" hidden>Reveal engines</button>
         <a class="btn small" href="agent.html">Continue in Studio</a>
@@ -132,6 +134,30 @@
     </div>
   </section>
 </div>
+<section class="panel" id="promptLibrary" aria-labelledby="promptLibraryTitle">
+  <header class="panel-head">
+    <h2 id="promptLibraryTitle">Prompt library — prompts that separate engines</h2>
+    <small id="promptSummary">Loading…</small>
+  </header>
+  <p class="hint">Each prompt has a <strong>checkable property</strong> (shown with the card), so you can judge an answer without arguing taste. Searching is a plain text match — no model, no tracking.</p>
+  <div class="prompt-tools">
+    <label class="sr-only" for="promptQuery">Search prompts</label>
+    <input id="promptQuery" type="search" placeholder="Search prompts (e.g. fabrication, API, accessibility)" autocomplete="off">
+    <label class="sr-only" for="promptCategory">Category</label>
+    <select id="promptCategory"><option value="">All categories</option></select>
+  </div>
+  <ul class="promptgrid" id="promptList"></ul>
+</section>
+<section class="panel" id="featureMap" aria-labelledby="featureMapTitle">
+  <header class="panel-head">
+    <h2 id="featureMapTitle">Arena feature map — shipped, needs a key, or absent</h2>
+    <small id="featureSummary">Loading…</small>
+  </header>
+  <p class="hint">Generated from <code>frontend/functions/arena-features.mjs</code>, the same file the runtime and tests read. A feature cannot appear as shipped here unless it is implemented and covered.</p>
+  <ul class="features" id="features"></ul>
+  <h3 class="positioning-title">Positioning, in plain words</h3>
+  <ul class="positioning" id="positioning"></ul>
+</section>
 <footer class="foot">AI-Syed Jalal · Approved SJ identity preserved · Evidence over claims.</footer>
 </body>
 </html>

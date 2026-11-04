@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head>
+<script src="assets/host-mode.js"></script><meta charset="utf-8"><meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#050b14">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg"><link rel="manifest" href="manifest.webmanifest">
+<title>Toolbench — twelve deterministic tools · AI-Syed Jalal</title>
+<meta name="description" content="Run the agent runtime's twelve tools directly: calculator, Wikipedia, records, tasks, time zones, unit conversion, JSON, hashes, contrast, CSV, code audit and diff.">
+<link rel="stylesheet" href="assets/allinone.css">
+</head>
+<body><div class="shell">
+<header class="topbar"><a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ rainbow crown logo"><span><strong>Toolbench</strong><small>TWELVE TOOLS · NO MODEL · AI-SYED JALAL</small></span></a><nav aria-label="Main navigation"><a class="btn" href="allinone.html">All-in-one</a><a class="btn" href="jalalai.html">JalalAi</a><a class="btn" href="agent.html">Agent Studio</a><a class="btn" href="arena.html">Arena</a><a class="btn" href="critic.html">Expert Critic</a><a class="btn" href="guide.html">Start here</a></nav></header>
+
+<main>
+<section class="intro">
+  <div>
+    <div class="eyebrow">SAME RUNTIME THE AGENT USES — RUN IT BY HAND</div>
+    <h1>Toolbench</h1>
+    <p>Twelve deterministic tools. Each one either returns a result you can check or says it failed — there is no prose filler and no model in the loop. This is the exact code the agent calls when you ask it a question in Agent Studio, JalalAi or the All-in-one panel.</p>
+  </div>
+  <span class="status-pill" id="connectionStatus" role="status">Checking connection…</span>
+</section>
+
+<div class="login-banner" id="loginBanner" hidden><p id="loginMessage">Sign in to run tools against your own records and tasks.</p><div class="composer-row"><a class="btn small" href="index.html">Account sign in</a><button class="btn small primary" id="demoBtn" type="button" hidden>Try the local preview</button></div></div>
+
+<section class="panel" aria-labelledby="toolsTitle">
+  <header class="panel-head"><h2 id="toolsTitle">The twelve tools</h2><small id="toolCount">Loading catalogue…</small></header>
+  <ul class="toolgrid" id="tools"></ul>
+</section>
+
+<section class="panel composer-panel" aria-labelledby="runTitle">
+  <header class="panel-head"><h2 id="runTitle">Run one</h2><small id="runHint">Pick a tool, then use its example or write your own request.</small></header>
+  <form id="runForm">
+    <label for="prompt" class="sr-only">Request</label>
+    <textarea id="prompt" rows="3" maxlength="4000" placeholder="e.g. time in Tokyo, or convert 10 km to miles"></textarea>
+    <div class="composer-row">
+      <button class="btn primary" id="runBtn" type="submit" disabled>Run the agent ↗</button>
+      <button class="btn" id="clearBtn" type="button">Clear</button>
+    </div>
+    <div class="statusline" id="status" role="status" aria-live="polite">Nothing is sent anywhere until you send it.</div>
+  </form>
+  <div class="quick" id="examples" aria-label="Examples"></div>
+</section>
+
+<section id="result" class="answers" aria-live="polite"></section>
+
+<section class="panel limits">
+  <header class="panel-head"><h2>What this page really does</h2></header>
+  <ul>
+    <li><strong>Every tool is listed above with its implementation.</strong> If a tool fails you see the failure message, not a substitute answer.</li>
+    <li><strong>No model is called.</strong> Arithmetic, units, dates, hashes, contrast, CSV, JSON, diff and code audit are computed locally. Research calls the public Wikipedia API and nothing else.</li>
+    <li><strong>Nothing leaves the app except the Wikipedia request.</strong> No filesystem, no shell, no <code>eval</code>, no arbitrary URL.</li>
+    <li><strong>Read-only on your data.</strong> Records, tasks and notes are read; writes always need a separate explicit confirmation on their own page.</li>
+    <li><strong>Passing tools are not proof of correctness.</strong> The code audit is pattern matching, not a security review; the calculator is 64-bit floating point, not arbitrary precision.</li>
+  </ul>
+</section>
+
+<footer class="foot">AI-Syed Jalal · Same runtime, no second implementation · Evidence over claims.</footer>
+</main>
+</div>
+<script src="assets/toolbench.js"></script>
+</body></html>

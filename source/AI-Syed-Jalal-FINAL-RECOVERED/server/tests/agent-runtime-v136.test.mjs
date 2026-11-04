@@ -46,8 +46,15 @@ async function account() {
 const fakeFetch = payload => async () => ({ ok: true, status: 200, async json() { return payload; } });
 
 test('the agent publishes a finite tool list and plans only tools that exist', () => {
-  assert.equal(AGENT_TOOLS.length, 4);
-  assert.deepEqual(AGENT_TOOLS.map(tool => tool.id).sort(), ['calculator', 'records', 'research', 'tasks']);
+  // V140 grew the toolbox from 4 to 12. The contract is a *finite, published,
+  // duplicate-free* list — not a frozen count, which would only ever be an
+  // invitation to edit the test instead of reading it.
+  assert.equal(AGENT_TOOLS.length, 12);
+  assert.equal(new Set(AGENT_TOOLS.map(tool => tool.id)).size, AGENT_TOOLS.length);
+  for (const id of ['calculator', 'records', 'research', 'tasks']) {
+    assert.ok(AGENT_TOOLS.some(tool => tool.id === id), `the original tool ${id} must still exist`);
+  }
+  for (const tool of AGENT_TOOLS) assert.ok(tool.id && tool.label && tool.kind, `${tool.id} is incomplete`);
   for (const prompt of [
     'calculate 40 * 3',
     'research the history of the printing press',
@@ -111,7 +118,7 @@ test('agent mode is account-gated, persists a trace and returns the tool list', 
   const { c, token } = await account();
   const tools = await c('/assistant/agent/tools');
   assert.equal(tools.status, 200);
-  assert.equal(tools.data.tools.length, 4);
+  assert.equal(tools.data.tools.length, AGENT_TOOLS.length);
   assert.match(tools.data.note, /explicit confirmation/);
 
   const run = await c('/assistant/chat', 'POST', { message: 'search records for Karachi', mode: 'agent' }, token);

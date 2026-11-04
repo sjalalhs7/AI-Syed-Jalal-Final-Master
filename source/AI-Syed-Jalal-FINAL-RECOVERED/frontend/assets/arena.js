@@ -349,10 +349,31 @@
   $('fileInput').addEventListener('change', async event => { await addFiles([...event.target.files]); event.target.value = ''; });
   $('revealBtn').addEventListener('click', reveal);
   $('newBattleBtn').addEventListener('click', () => { current = null; $('battlePanel').hidden = true; $('prompt').focus(); });
+  $('exportBtn').addEventListener('click', async () => {
+    // The export carries the rubric scores, the judge's reason and every note, so
+    // a battle stays evidence after it leaves this page.
+    if (!current?.battle?.id) { setStatus('Run a battle first, then export it.'); return; }
+    if (current.battle.blind && !current.battle.vote) {
+      setStatus('This battle is still blind. Vote (or reveal) before exporting, otherwise the file would hide engine names.');
+      return;
+    }
+    try {
+      const data = await api(`/arena/battles/${current.battle.id}?format=markdown`);
+      const blob = new Blob([data.markdown], { type: 'text/markdown' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = data.filename;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+      setStatus(`Exported ${data.filename} — ${data.markdown.length} characters including the judge\u2019s rubric.`);
+    } catch (error) { setStatus('Export failed: ' + error.message, 'fail'); }
+  });
   $('refreshLeader').addEventListener('click', () => { loadLeaderboard(); loadHistory(); });
   $('historyMode').addEventListener('change', loadHistory);
 
   (async () => {
+    loadFeatureMap();
+    loadPromptLibrary();
     await signIn();
     try {
       const data = await api('/arena/catalogue');
@@ -365,4 +386,86 @@
     renderAttachments();
     enforceLimits();
   })();
+
+  async function loadPromptLibrary() {
+    // Prompts are content, not machinery: served by the API so the same list is
+    // testable and cannot rot in the HTML.
+    const host = document.getElementById('promptList');
+    if (!host) return;
+    const summary = document.getElementById('promptSummary');
+    const query = document.getElementById('promptQuery');
+    const category = document.getElementById('promptCategory');
+    let all = [];
+    const paint = list => {
+      host.replaceChildren();
+      for (const item of list) {
+        const li = document.createElement('li');
+        li.className = 'prompt';
+        const head = document.createElement('div'); head.className = 'prompt-head';
+        const title = document.createElement('strong'); title.textContent = item.title;
+        const tag = document.createElement('span'); tag.className = 'state'; tag.textContent = `${item.category} · ${item.mode}`;
+        head.append(title, tag);
+        const text = document.createElement('p'); text.className = 'prompt-text'; text.textContent = item.prompt;
+        const tests = document.createElement('small'); tests.className = 'prompt-tests'; tests.textContent = 'What it tests: ' + item.tests;
+        const use = document.createElement('button');
+        use.type = 'button'; use.className = 'btn small'; use.textContent = 'Use this prompt →';
+        use.onclick = () => {
+          const box = document.getElementById('prompt');
+          box.value = item.prompt;
+          const mode = document.getElementById('mode');
+          if (mode && [...mode.options].some(option => option.value === item.mode)) mode.value = item.mode;
+          box.focus(); box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          setStatus('Prompt loaded. Choose two or more engines, then run the battle.');
+        };
+        li.append(head, text, tests, use);
+        host.appendChild(li);
+      }
+      if (!list.length) { const li = document.createElement('li'); li.className = 'prompt'; li.textContent = 'No prompt matches that search. Try a different word.'; host.appendChild(li); }
+    };
+    try {
+      const data = await api('/arena/prompts');
+      all = data.prompts;
+      for (const name of data.categories) { const option = document.createElement('option'); option.value = name; option.textContent = name; category.appendChild(option); }
+      summary.textContent = `${data.total} prompts · each one has a checkable property`;
+      paint(all);
+      query.addEventListener('input', () => {
+        const term = query.value.trim().toLowerCase();
+        paint(all.filter(item => !term || [item.title, item.prompt, item.tests, item.category].some(field => field.toLowerCase().includes(term))));
+      });
+      category.addEventListener('change', () => paint(category.value ? all.filter(item => item.category === category.value) : all));
+    } catch {
+      summary.textContent = 'Prompt library unavailable right now — this page will not invent prompts.';
+    }
+  }
+
+  async function loadFeatureMap() {
+    // Served by the API so the page cannot drift from the router or the tests.
+    try {
+      const data = await api('/arena/features');
+      const host = document.getElementById('features');
+      if (!host) return;
+      host.replaceChildren();
+      for (const feature of data.features) {
+        const li = document.createElement('li');
+        li.className = 'feature ' + feature.state;
+        const badge = document.createElement('span'); badge.className = 'state'; badge.textContent = feature.state.replace('-', ' ');
+        const title = document.createElement('strong'); title.textContent = feature.label;
+        const detail = document.createElement('p'); detail.textContent = feature.detail;
+        const evidence = document.createElement('small'); evidence.textContent = 'Evidence: ' + feature.evidence;
+        li.append(badge, title, detail, evidence);
+        host.appendChild(li);
+      }
+      const summary = document.getElementById('featureSummary');
+      if (summary) summary.textContent = data.summary.headline;
+      const positioning = document.getElementById('positioning');
+      if (positioning) {
+        positioning.replaceChildren();
+        for (const line of data.positioning) { const li = document.createElement('li'); li.textContent = line; positioning.appendChild(li); }
+      }
+    } catch {
+      const summary = document.getElementById('featureSummary');
+      if (summary) summary.textContent = 'Feature map unavailable right now — this page will not guess what is shipped.';
+    }
+  }
+
 })();

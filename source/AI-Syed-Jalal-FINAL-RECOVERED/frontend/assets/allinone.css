@@ -1,0 +1,71 @@
+/* V139 — All-in-one panel. Reuses the JalalAi visual system (same palette,
+   panels and controls) so the application reads as one product. */
+@import url('./jalalai.css');
+
+body { background: radial-gradient(ellipse at 15% 0, #123a48 0, transparent 45%), var(--bg); }
+.shell { max-width: 1240px; }
+main { padding-bottom: 30px; }
+
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.panel-head h2 { font-size: 15px; margin: 0; }
+.panel-head small { color: var(--muted); font-size: 12px; }
+.composer-panel { margin-bottom: 18px; }
+.composer-panel form { padding: 16px 20px 6px; }
+.composer-panel .quick { padding: 4px 20px 16px; }
+.composer-panel .statusline { padding: 0 0 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Routing preview: shown before the send, because a guess the user cannot see
+   is worse than an explicit one they can correct. */
+.route-bar { border: 1px solid #2f5a6d; border-radius: 14px; background: rgba(14, 34, 48, .7); padding: 14px 18px; margin: 0 0 18px; }
+.route-bar .eyebrow { font-size: 10px; letter-spacing: .14em; color: var(--accent); font-weight: 750; margin: 0 0 8px; }
+.route-bar ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.route-bar li { display: flex; gap: 10px; align-items: baseline; font-size: 12.5px; flex-wrap: wrap; }
+.route-bar strong { color: #bfe3ff; }
+.route-bar span { color: var(--muted); }
+
+.answers { display: grid; gap: 16px; margin-bottom: 18px; }
+.answer-summary { font-size: 12px; color: var(--muted); margin: 0; }
+.answer { border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(150deg, #102033f5, #0b1727f5); padding: 16px 18px; }
+.answer.failed { border-color: #6d3a44; }
+.answer-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.answer-head h2 { font-size: 15px; margin: 0; }
+.answer-head .ms { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.answer .why { font-size: 12px; color: var(--accent); margin: 6px 0 10px; }
+.answer-body { white-space: pre-wrap; font: inherit; font-size: 13.5px; line-height: 1.62; color: #dbe9f8; margin: 0; overflow-wrap: anywhere; }
+.answer.failed .answer-body { color: #ffb3bf; }
+.answer .trace { font-size: 11.5px; color: #8fc7ff; margin: 12px 0 0; }
+.answer .needs { font-size: 11.5px; color: #ffd98a; margin: 8px 0 0; }
+.answer-actions { display: flex; gap: 6px; margin-top: 12px; }
+.panel-limits { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 11.5px; color: var(--muted); }
+.panel-limits li { padding-left: 16px; position: relative; }
+.panel-limits li::before { content: "·"; position: absolute; left: 4px; color: var(--accent); }
+
+.picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; padding: 16px 20px; }
+.pick { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #0c1826; cursor: pointer; }
+.pick input { margin-top: 3px; accent-color: var(--accent); }
+.pick strong { display: block; font-size: 13px; }
+.pick small { color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+
+.limits { padding: 18px 20px; }
+.limits h2 { font-size: 15px; margin: 0 0 10px; }
+.limits ul { margin: 0; padding-left: 18px; display: grid; gap: 7px; font-size: 12.5px; color: #b7c8dc; }
+.limits a { color: var(--accent); }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 700px) {
+  .shell { padding: 0 12px 24px; }
+  .answer { padding: 14px; }
+  .answer-body { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- V140: toolbench ---------- */
+.toolgrid { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.tool { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid var(--line, #223); background: var(--panel-2, #0b1220); }
+.tool.network { border-color: #3b6ea5; }
+.tool.database { border-color: #5c4a8a; }
+.tool-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tool p { margin: 0; font-size: 0.9rem; line-height: 1.5; opacity: 0.88; }
+.tool .btn { align-self: flex-start; margin-top: auto; }
+@media (max-width: 520px) { .toolgrid { grid-template-columns: 1fr; } }
