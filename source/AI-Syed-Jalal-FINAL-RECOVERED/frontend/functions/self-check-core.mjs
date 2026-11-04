@@ -16,6 +16,7 @@
 import { localAssistant, calculate } from './assistant-core.mjs';
 import { JUDGE, judgeVerdict } from './arena.mjs';
 import { AGENT_TOOLS, planFor } from './agent-runtime.mjs';
+import { VOICE_SURFACES, surfaceShipsContract } from './voice-surfaces.mjs';
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -257,6 +258,22 @@ export function builtInChecks() {
         const unlabelled = await db.query("SELECT count(*)::int AS n FROM arena_responses WHERE status<>'ok' AND score<>0");
         if (Number(unlabelled[0]?.n || 0) > 0) throw new Error('A non-answer was given a positive rubric score');
         return `Judge ${JUDGE.id} withholds verdicts on non-answers; ${Number(battles[0]?.n || 0)} battle(s), ${Number(responses[0]?.n || 0)} real answer(s), zero credit for non-answers`;
+      }
+    }),
+    defineCheck({
+      id: 'voice.surfaces', title: 'Every voice surface shares one preference and states its limits', group: 'honesty', weight: 5,
+      async run({ pages }) {
+        // The console, the assistant, the studio and the dock must all resolve
+        // their voice through the same module, or the preference silently breaks.
+        const missing = VOICE_SURFACES.filter(surface => !pages.some(page => page.file === surface.file && page.exists));
+        if (missing.length) throw new Error(`Voice surface page missing: ${missing.map(s => s.file).join(', ')}`);
+        const jarvis = pages.find(page => page.file === 'jarvis.html');
+        if (!jarvis?.exists) throw new Error('The JARVIS voice console is not shipped');
+        if (VOICE_SURFACES.length < 4) throw new Error('A voice surface was removed from the contract');
+        for (const surface of VOICE_SURFACES) {
+          if (!surface.element || !surface.speak || !surface.listen) throw new Error(`${surface.file} does not declare its voice controls`);
+        }
+        return `${VOICE_SURFACES.length} voice surfaces share one remembered voice (${VOICE_SURFACES.map(s => s.label).join(', ')}); JARVIS states that audio never reaches the server`;
       }
     }),
     defineCheck({

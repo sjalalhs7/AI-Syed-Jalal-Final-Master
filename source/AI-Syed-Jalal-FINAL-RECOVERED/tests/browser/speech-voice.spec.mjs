@@ -35,8 +35,13 @@ async function fakeSpeech(page) {
 
 async function signInToPreview(page) {
   await page.goto('/jalalai.html');
-  await page.locator('#demoBtn').click();
-  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  // The preview bootstrap is idempotent per browser context, so a shared e2e
+  // database can already have this session signed in: only click when needed.
+  await expect(page.locator('#connectionStatus')).not.toContainText('Checking', { timeout: 20000 });
+  if (await page.locator('#demoBtn').isVisible()) {
+    await page.locator('#demoBtn').click().catch(() => {});
+  }
+  await expect(page.locator('#connectionStatus')).toContainText('Connected', { timeout: 20000 });
 }
 
 test('one voice choice is honoured by JalalAi, the Workspace dock and the Agent console', async ({ page }) => {

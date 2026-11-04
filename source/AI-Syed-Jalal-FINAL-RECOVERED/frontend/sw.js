@@ -6,7 +6,7 @@ self.addEventListener('fetch',e=>{
   const req=e.request,url=new URL(req.url);
   // Never touch non-GET, cross-origin (API on another origin) or /api traffic: authenticated data must not be cached.
   const apiPrefix=new URL('api/',self.location).pathname;
-  if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith(apiPrefix)||url.pathname.endsWith('/jalalai.html')||url.pathname.endsWith('/workspace.html')||url.pathname.endsWith('/dashboard.html')||url.pathname.endsWith('/agent.html')||url.pathname.endsWith('/agent-lab.html')||url.pathname.endsWith('/arena.html'))return;
+  if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.startsWith(apiPrefix)||url.pathname.endsWith('/jalalai.html')||url.pathname.endsWith('/workspace.html')||url.pathname.endsWith('/dashboard.html')||url.pathname.endsWith('/agent.html')||url.pathname.endsWith('/agent-lab.html')||url.pathname.endsWith('/arena.html')||url.pathname.endsWith('/jarvis.html'))return;
   // Pages: network first so deployments show up immediately; cache is offline fallback only.
   if(url.searchParams.has('token')||url.searchParams.has('session'))return;
   const publicPage=['/','/index.html','/guide.html','/roadmaps.html','/visual-styles.html'].some(p=>url.pathname===p||url.pathname.endsWith(p));

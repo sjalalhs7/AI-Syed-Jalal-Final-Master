@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'config/agent-skill-index.json'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'jarvis.html', 'assets/jarvis.js', 'assets/jarvis.css', 'config/agent-skill-index.json'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
@@ -47,6 +47,9 @@ const checks = [
   ['static-host login guard is shipped', read('assets/host-mode.js').includes('window.AJ_STATIC_HOST') && html.includes('assets/host-mode.js')],
   ['one shared speech voice preference reaches every read-aloud surface', ['workspace.html', 'jalalai.html', 'agent.html'].every(p => read(p).includes('assets/speech-preferences.js') && read(p).includes('data-aj-voice')) && read('assets/jalalai.js').includes('window.AJSpeech.apply') && read('assets/agent.js').includes('window.AJSpeech.apply')],
   ['no orphaned main-prompt wiring remains in the workspace', !read('workspace.html').includes('mainPrompt')],
+  ['JARVIS voice console states its limits and shares the one voice preference', read('jarvis.html').includes('id="talkBtn"') && read('jarvis.html').includes('data-aj-voice') && read('jarvis.html').includes('does not upload audio') && read('assets/jarvis.js').includes('window.AJSpeech.apply')],
+  ['JARVIS is reachable from the assistant, home, guide, arena, lab, dashboard and workspace', ['jalalai.html','index.html','guide.html','arena.html','agent-lab.html','dashboard.html','workspace.html'].every(page => read(page).includes('jarvis.html'))],
+  ['JARVIS page is excluded from precache like the other private shells', !read('sw.js').includes("'./jarvis.html'") && read('sw.js').includes("endsWith('/jarvis.html')")],
   ['GitHub Pages workflow publishes the frontend', existsSync(join(root, '../../../.github/workflows/pages.yml')) && readFileSync(join(root, '../../../.github/workflows/pages.yml'), 'utf8').includes('source/AI-Syed-Jalal-FINAL-RECOVERED/frontend')],
 ];
 for (const [name, ok] of checks) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`);

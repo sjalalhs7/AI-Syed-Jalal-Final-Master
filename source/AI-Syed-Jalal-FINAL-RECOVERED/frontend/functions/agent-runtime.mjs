@@ -72,7 +72,7 @@ export function planFor(prompt) {
       // run still needs a model to turn them into prose — so does not overclaim.
       const lookup = LOOKUP_HINT.test(text);
       const noProvider = !lookup;
-      if (!found.results.length) return { observation: `Wikipedia returned no article for “${researchQuery}”.`, data: found, noTool: true, needsProvider: true, noTool: true };
+      if (!found.results.length) return { observation: `Wikipedia returned no article for “${researchQuery}”.`, data: found, noTool: true, needsProvider: true };
       const lines = found.results.map((hit, index) => `${index + 1}. ${hit.title} — ${truncate(hit.snippet, 160)} (${hit.url})`).join('\n');
       const label = noProvider ? 'Sources found (Wikipedia does not answer the question itself)' : 'Wikipedia returned';
       return { observation: `${label}${noProvider ? ` for “${researchQuery}”` : ''} — ${found.results.length} article(s):\n${lines}`, data: found, needsProvider: noProvider, sourcesOnly: noProvider };
