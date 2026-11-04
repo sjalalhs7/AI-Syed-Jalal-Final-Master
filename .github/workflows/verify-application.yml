@@ -24,7 +24,10 @@ jobs:
           cache-dependency-path: source/AI-Syed-Jalal-FINAL-RECOVERED/package-lock.json
       - run: npm ci
       - run: npm run check
-      - run: npm test
+      - name: Frontend contract tests
+        run: npm --prefix frontend test
+      - name: Server and integration tests
+        run: node --test --test-concurrency=1 server/tests/*.test.mjs
       - run: npm run test:e2e
       - run: npm audit --omit=dev
       - run: npm --prefix backend run test:release
