@@ -97,7 +97,7 @@ test('readiness requires the V136 tables and health reports the current version'
   assert.ok(diagnostics.data.tables.includes('arena_ratings'));
   assert.ok(diagnostics.data.tables.includes('expert_reviews'));
   assert.equal(diagnostics.data.status, 'healthy');
-  assert.equal((await client()('/health')).data.version, 'V138');
+  assert.equal((await client()('/health')).data.version, 'V150');
 });
 
 test('skill catalogue API syncs, lists, searches and is account gated', async () => {
@@ -121,7 +121,7 @@ test('skill catalogue API syncs, lists, searches and is account gated', async ()
 test('capabilities advertise real checks and honest providers', async () => {
   const { c } = await account();
   const data = (await c('/agent/capabilities')).data;
-  assert.equal(data.version, 'V138');
+  assert.equal(data.version, 'V150');
   assert.ok(data.selfCheck.checks.length >= 14);
   assert.ok(data.selfCheck.checks.every(check => check.id && check.weight > 0));
   assert.ok(data.providers.every(provider => provider.configured === false && /not configured/.test(provider.status)));
