@@ -69,3 +69,15 @@ main { padding-bottom: 30px; }
 .tool p { margin: 0; font-size: 0.9rem; line-height: 1.5; opacity: 0.88; }
 .tool .btn { align-self: flex-start; margin-top: auto; }
 @media (max-width: 520px) { .toolgrid { grid-template-columns: 1fr; } }
+
+/* ---------- V141: page builder ---------- */
+.inline-label { align-self: center; font-size: .85rem; opacity: .75; }
+.parsed { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.parsed dt { opacity: .7; }
+.parsed dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+#previewWrap { margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line, #223); background: #fff; }
+#preview { width: 100%; height: min(70vh, 620px); border: 0; display: block; }
+#codeWrap { margin: 12px 0 0; max-height: min(70vh, 620px); overflow: auto; padding: 14px; border-radius: 12px; background: var(--panel-2, #0b1220); border: 1px solid var(--line, #223); }
+#codeWrap code { font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.sections { border: 1px solid var(--line, #223); border-radius: 10px; padding: 10px 12px; margin: 12px 0 0; }
+.sections legend { padding: 0 6px; font-size: .85rem; opacity: .8; }

@@ -14,11 +14,14 @@ import { routePrompt } from '../../frontend/functions/all-in-one.mjs';
 const db = { query: async () => [] };
 const me = { id: 'user-1', username: 'tester', role: 'Admin' };
 
-test('the toolbox publishes twelve tools and every one is planned by the runtime', () => {
-  assert.equal(TOOLBOX_TOOLS.length, 8);
-  assert.equal(AGENT_TOOLS.length, 12);
+test('the toolbox publishes every tool and each one is planned by the runtime', () => {
+  // V140 shipped 8; V141 added the page builder. Assert the order and membership
+  // rather than a count, so adding a tool never means editing a magic number.
+  assert.ok(TOOLBOX_TOOLS.length >= 8);
+  assert.ok(AGENT_TOOLS.length >= 12);
   const ids = AGENT_TOOLS.map(tool => tool.id);
-  assert.deepEqual(ids, ['calculator', 'research', 'records', 'tasks', 'datetime', 'units', 'json', 'hash', 'contrast', 'csv', 'audit', 'diff']);
+  assert.deepEqual(ids.slice(0, 12), ['calculator', 'research', 'records', 'tasks', 'datetime', 'units', 'json', 'hash', 'contrast', 'csv', 'audit', 'diff']);
+  assert.ok(ids.includes('pagebuild'), 'V141 web page builder must be published');
   // Every toolbox tool must be reachable from a natural request, or it is dead code.
   const samples = {
     datetime: 'time in Tokyo', units: 'convert 10 km to miles', json: 'json {"a":1}', hash: 'sha256 of hello',

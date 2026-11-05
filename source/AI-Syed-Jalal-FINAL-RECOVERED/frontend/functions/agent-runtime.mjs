@@ -113,7 +113,10 @@ export function planFor(prompt) {
     if (steps.some(item => item.tool === extra.tool)) continue;
     steps.push(step(extra.id, extra.title, extra.tool, async () => {
       const outcome = await extra.run();
-      return { observation: outcome.observation, data: outcome.data ?? null };
+      // A step may hand back a real file (the page builder does). It travels with
+      // the step so the answer can embed it instead of only describing it.
+      const files = Array.isArray(outcome.data?.artifacts) ? outcome.data.artifacts : [];
+      return { observation: outcome.observation, data: outcome.data ?? null, artifacts: files };
     }));
   }
 
@@ -136,6 +139,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
   const started = Date.now();
   const plan = planFor(prompt);
   const steps = [];
+  const artifacts = [];
   for (const item of plan) {
     const at = Date.now();
     let timer;
@@ -144,10 +148,13 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
         item.run({ db, me, env }),
         new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${item.title} timed out after ${timeoutMs} ms`)), timeoutMs); })
       ]);
+      const files = (outcome.artifacts || []).map(file => ({ ...file, from: item.tool }));
+      artifacts.push(...files);
       steps.push({
         id: item.id, title: item.title, tool: item.tool, ok: true,
         ms: Date.now() - at, observation: truncate(outcome.observation, 1600),
-        noTool: Boolean(outcome.noTool), needsProvider: Boolean(outcome.needsProvider)
+        noTool: Boolean(outcome.noTool), needsProvider: Boolean(outcome.needsProvider),
+        ...(files.length ? { artifacts: files.map(file => ({ language: file.language, kind: file.kind, bytes: file.bytes })) } : {})
       });
     } catch (error) {
       steps.push({
@@ -196,6 +203,8 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
       maxSteps: 7
     },
     output: `${header}\n\n${body}\n\n${footer}`,
+    // Only real generated files appear here; a step that produced nothing adds nothing.
+    artifacts,
     needsProvider
   };
 }

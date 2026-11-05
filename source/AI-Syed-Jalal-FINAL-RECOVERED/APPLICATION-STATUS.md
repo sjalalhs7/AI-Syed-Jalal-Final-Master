@@ -1,6 +1,6 @@
-# Application implementation and verification — 4 November 2026 (V140)
+# Application implementation and verification — 5 November 2026 (V141)
 
-> **Current architecture (V140).** Arena, JalalAi, JARVIS and SJ Agent Studio now share one bounded
+> **Current architecture (V141).** Arena, JalalAi, JARVIS and SJ Agent Studio now share one bounded
 > agent runtime, one remembered voice preference and one evidence chain (run → trace → self-check →
 > expert review). The merge decisions, including the two duplications that deliberately remain, are
 > published at `/refactor-plan.html`. The graded review of this deployment is `/critic.html`.
@@ -8,6 +8,11 @@
 > **V140** adds a twelve-tool deterministic agent toolbox (`/toolbench.html`) and three Arena
 > qualities: a prompt library with checkable properties, sandboxed artifact preview, and portable
 > battle export. Gates: 47 static · 85 server · 80 frontend · 26 browser · self-check 100/100.
+>
+> **V141** adds web-developing code: a deterministic page builder (`/pagebuilder.html`) that emits a
+> complete single-file HTML page, previews it in a sandbox, audits it with the published rules and
+> downloads the exact bytes — also exposed as the thirteenth agent tool, so a chat request returns
+> the file as an artifact. Gates: 51 static · 94 server · 80 frontend · 29 browser · self-check 100/100.
 >
 > **V140** adds a twelve-tool deterministic agent toolbox (`/toolbench.html`) and three Arena
 > qualities: a prompt library with checkable properties, sandboxed artifact preview, and portable

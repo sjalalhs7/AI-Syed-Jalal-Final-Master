@@ -21,7 +21,8 @@ function pageInventory() {
     { file: 'critic.html', label: 'Expert Critic review' },
     { file: 'refactor-plan.html', label: 'Architecture and merge decisions' },
     { file: 'allinone.html', label: 'All-in-one specialist panel' },
-    { file: 'toolbench.html', label: 'Toolbench — twelve tools' }
+    { file: 'toolbench.html', label: 'Toolbench — twelve tools' },
+    { file: 'pagebuilder.html', label: 'Page Builder — downloadable HTML' }
   ];
 }
 

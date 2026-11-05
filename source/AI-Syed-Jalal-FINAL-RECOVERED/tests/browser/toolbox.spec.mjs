@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // V140 journeys. The risk with a "toolbench" is that it becomes a wall of cards
 // that do nothing. These tests run real tools end to end and check that the
 // prompt library actually loads a prompt into the Arena composer.
-test('Toolbench: twelve tools listed, three real runs, failures shown as failures', async ({ page }) => {
+test('Toolbench: every published tool listed, three real runs, failures shown as failures', async ({ page }) => {
   test.setTimeout(150000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -14,8 +14,12 @@ test('Toolbench: twelve tools listed, three real runs, failures shown as failure
 
   await page.goto('/toolbench.html');
   await expect(page.locator('#connectionStatus')).toContainText('Local preview', { timeout: 20000 });
-  await expect(page.locator('#tools .tool')).toHaveCount(12, { timeout: 20000 });
-  await expect(page.locator('#toolCount')).toContainText('12 tools');
+  // The count grows as tools are added; assert the published summary agrees with
+  // the rendered grid instead of freezing a number that must be hand-edited.
+  await expect(page.locator('#tools .tool').first()).toBeVisible({ timeout: 20000 });
+  const cards = await page.locator('#tools .tool').count();
+  expect(cards).toBeGreaterThanOrEqual(12);
+  await expect(page.locator('#toolCount')).toContainText(`${cards} tools`);
 
   // Tool 1 — units, a checkable number.
   await page.locator('#prompt').fill('convert 10 km to miles');
@@ -39,10 +43,10 @@ test('Toolbench: twelve tools listed, three real runs, failures shown as failure
   expect(errors).toEqual([]);
 });
 
-test('Toolbench ships an example for every tool, and each one routes to that tool', async ({ page }) => {
+test('Toolbench ships an example for every tool, and every card loads one', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('/toolbench.html');
-  await expect(page.locator('#tools .tool')).toHaveCount(12, { timeout: 20000 });
+  await expect(page.locator('#tools .tool').first()).toBeVisible({ timeout: 20000 });
 
   // "Try it" must write something into the composer for every card. A card that
   // loads nothing is a dead button.

@@ -1,6 +1,7 @@
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
+import { buildPage, describePage, parseSpec, PALETTES, SECTIONS } from './page-builder.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
 import { answerAll, routePrompt, specialistCatalogue } from './all-in-one.mjs';
 
@@ -35,6 +36,43 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     const panel = await answerAll({ prompt, db, me, env, limit: 3, only });
     await audit(db, me, 'ASSISTANT_ALL_IN_ONE', `${panel.counts.specialists} specialist(s): ${panel.routed.map(item => item.id).join(',')}`, request);
     return reply(panel);
+  }
+
+  // V141 — page builder. Deterministic output, audited by the same rules Toolbench
+  // publishes, so "it built a page" is a downloadable file rather than a claim.
+  if (path === '/api/assistant/pagebuilder' && method === 'GET') {
+    return reply({
+      ok: true, engine: 'sj-page-builder', palettes: Object.entries(PALETTES).map(([id, item]) => ({ id, name: item.name })),
+      sections: SECTIONS, note: 'Composes a single-file landing page from known sections. It is not a general code generator and the output is pattern-audited, not proven correct.'
+    });
+  }
+  if (path === '/api/assistant/pagebuilder' && method === 'POST') {
+    if (!await consumeRateLimit(db, 'assistant-pagebuilder', me.id, 8, 5)) return reply({ error: 'Page builds are limited to eight per minute.' }, 429, { 'Retry-After': '60' });
+    const body = await readBody(request);
+    const brief = String(body.brief || '').trim();
+    if (brief.length < 3) return reply({ error: 'Describe the page you want in a sentence.' }, 400);
+    if (brief.length > 600) return reply({ error: 'Keep the brief under 600 characters.' }, 400);
+    // An explicit palette or section list overrides what the brief implied; anything
+    // the caller omits stays as parsed, so the UI can show the parse before building.
+    const spec = parseSpec(brief);
+    if (PALETTES[String(body.palette || '')]) spec.palette = String(body.palette);
+    if (Array.isArray(body.sections) && body.sections.length) {
+      spec.sections = body.sections.map(String).filter(name => SECTIONS.includes(name));
+      if (!spec.sections.includes('footer')) spec.sections.push('footer');
+    }
+    const result = buildPage(spec);
+    await audit(db, me, 'ASSISTANT_PAGE_BUILD', `${result.sections.join('+')} · ${result.bytes} bytes · ${result.audit.findings.length} audit finding(s)`, request);
+    return reply({
+      ok: true, engine: 'sj-page-builder', html: result.html, bytes: result.bytes,
+      sections: result.sections, palette: result.palette, spec: result.spec, audit: result.audit,
+      summary: describePage(result), simulated: false,
+      limits: [
+        'This is a composed landing page from known sections, not bespoke generated code.',
+        'It loads nothing external and sends nothing anywhere: no fonts, scripts, images or analytics.',
+        'The self-audit is deterministic pattern matching; it cannot prove the page is correct or secure.',
+        'Replace the contact section with a real route before publishing — it is a placeholder.'
+      ]
+    });
   }
 
   // V138 — expert review. Stored evidence only: every finding cites what it read.
