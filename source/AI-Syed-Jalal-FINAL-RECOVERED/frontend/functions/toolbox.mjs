@@ -332,14 +332,22 @@ export function auditCode(code, language) {
 
 /* ------------------------------------------------- plan integration (agent) */
 
+// One pattern for every natural phrasing of "what time is it in X". The city stops
+// at a clause boundary, so a trailing request survives.
+const TIME_ASK = /(?:what(?:'s| is)? the )?(?:time|clock)\s+(?:is it |is |it is )?(?:in|at)\s+([a-z][a-z .'-]{1,28}?)(?=$|\s+(?:and|then|also|plus|but)\b|[,;.!?])/i;
+
 const TOOL_STEPS = [
   {
     id: 'datetime', label: 'Clock and date maths', kind: 'local',
     detail: 'Current time in a named place, day counts between ISO dates, and adding days/weeks/months.',
-    match: text => /\b(?:time|clock)\s+in\s+[a-z ]{2,20}$/i.test(text) || /\bdays?\s+between\b/i.test(text) || /\badd\s+\d+\s+(?:days?|weeks?|months?|years?)\s+to\b/i.test(text),
+    // Accept the ways people actually ask: "time in Tokyo", "what time is it in
+    // Tokyo", and the same question followed by another request. The city name ends
+    // at a clause boundary or the end of the message — an earlier `$` anchor meant
+    // "time in Tokyo and critique the risk" never reached this tool at all.
+    match: text => TIME_ASK.test(text) || /\bdays?\s+between\b/i.test(text) || /\badd\s+\d+\s+(?:days?|weeks?|months?|years?)\s+to\b/i.test(text),
     async run(text) {
-      const city = /(?:time|clock)\s+in\s+([a-z ]{2,20})$/i.exec(text);
-      if (city) return { observation: timeIn(city[1]) };
+      const city = TIME_ASK.exec(text);
+      if (city) return { observation: timeIn(city[1].replace(/\s+(?:and|then|also|plus)$/i, '').trim()) };
       const span = /(\d{4}-\d{2}-\d{2})\s+(?:and|to|-)\s+(\d{4}-\d{2}-\d{2})/i.exec(text);
       if (/\bdays?\s+between\b/i.test(text) && span) return { observation: daysBetween(span[1], span[2]) };
       const add = /add\s+(\d+)\s+(days?|weeks?|months?|years?)\s+to\s+(\d{4}-\d{2}-\d{2})/i.exec(text);

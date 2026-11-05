@@ -53,7 +53,11 @@ export function planFor(prompt) {
   const steps = [];
   const researchQuery = text.replace(/^(?:research|look up|search the web(?: for)?|find out about|tell me about|what is|who is|explain)\s*:?\s*/i, '').trim();
 
-  const wantsResearch = RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower));
+  // "What is the time in New York?" is a clock question, not an encyclopedia
+  // lookup. Without this exclusion the research step fires first, and if the
+  // Wikipedia request fails the user gets a network error instead of the time.
+  const isClockQuestion = /\b(?:time|clock)\b\s*(?:is it|is|it is)?\s*(?:in|at)\b/i.test(text);
+  const wantsResearch = !isClockQuestion && (RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower)));
   const wantsMath = /^(?:calculate|calc|what is [\d(])/i.test(text) || (MATH.test(text.replace(/^(?:calculate|calc)\s*/i, '')) && /\d/.test(text) && /[+\-*/%]/.test(text));
   const wantsRecords = RECORD_HINT.test(lower) && /\b(search|find|list|show|which)\b/i.test(lower);
   const wantsTasks = TASK_HINT.test(lower) && /\b(list|show|my|open|pending)\b/i.test(lower);
