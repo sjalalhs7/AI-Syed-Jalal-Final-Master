@@ -121,7 +121,11 @@ test('the review is reachable from chat, both routes and the self-check', async 
   // The evidence table is registered where readiness is computed.
   const api = await readFile(resolve(root, 'frontend/functions/api/[[path]].js'), 'utf8');
   assert.match(api, /expert_reviews/);
-  assert.match(api, /n>=21/);
+  // Readiness derives its requirement from REQUIRED_TABLES instead of a hardcoded
+  // count, and that list contains expert_reviews.
+  const bundle = await readFile(resolve(root, 'frontend/functions/schema-bundle.mjs'), 'utf8');
+  assert.match(bundle, /'expert_reviews'/);
+  assert.match(api, /REQUIRED_TABLES/);
   const checks = builtInChecks();
   assert.ok(checks.find(check => check.id === 'agent.tool-runtime'));
 });
