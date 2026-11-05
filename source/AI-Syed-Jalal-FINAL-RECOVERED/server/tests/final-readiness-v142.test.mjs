@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { AGENT_TOOLS } from '../../frontend/functions/agent-runtime.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -122,4 +123,28 @@ test('every advertised surface is linked from the guide, and the guide is linked
   for (const page of ['index.html', 'jalalai.html', 'arena.html', 'allinone.html', 'toolbench.html', 'pagebuilder.html']) {
     assert.ok(read(page).includes('guide.html'), `${page} does not link the guide`);
   }
+});
+
+test('no page states a tool count that contradicts the published runtime', () => {
+  // Toolbench shipped "Twelve deterministic tools" for a release after the count
+  // became thirteen. A wrong number in the copy is a small lie, so the count must
+  // either be derived at runtime or omitted.
+  const words = { four: 4, seven: 7, eight: 8, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15 };
+  const numberFor = token => {
+    const key = token.toLowerCase();
+    if (key in words) return words[key];
+    const parsed = Number(key);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const pattern = /\b([a-z]+|\d+)\s+(?:deterministic\s+)?(?:agent\s+)?tools\b/gi;
+  const stale = [];
+  for (const page of pages) {
+    for (const match of read(page).matchAll(pattern)) {
+      const number = numberFor(match[1]);
+      if (number !== null && number !== AGENT_TOOLS.length) {
+        stale.push(`${page}: “${match[0]}” but the runtime publishes ${AGENT_TOOLS.length}`);
+      }
+    }
+  }
+  assert.deepEqual(stale, [], `stale tool counts:\n${stale.join('\n')}`);
 });
