@@ -167,6 +167,12 @@ body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <footer>© Alsyed Jalal AI · Think. Plan. Build. Improve.</footer></div>
 
 <div class="modal" id="login"><div class="lc"><div class="la"><img src="assets/approved-sj-rainbow-crown.svg" alt="Alsyed Jalal AI crowned logo"><h2>Welcome Back</h2><p>Sign in to continue to your AI workspace.</p></div>
+<div id="firstRun" hidden style="border:1px solid var(--line,#2a3550);border-radius:12px;padding:14px;margin:12px 0;background:rgba(96,165,250,.08)">
+  <strong id="firstRunTitle">First-run setup</strong>
+  <p id="firstRunText" class="muted" style="margin:6px 0 10px;font-size:13px">This deployment has no accounts yet.</p>
+  <button type="button" class="btn primary" id="firstRunBtn">Create the Administrator account</button>
+  <p id="firstRunResult" class="muted" style="margin:8px 0 0;font-size:13px"></p>
+</div>
 <form class="lf" id="f" autocomplete="on"><button type="button" class="x" id="close" aria-label="Close">×</button><h3>Sign in</h3>
 <label for="u">Username</label><input id="u" required autocomplete="username" maxlength="200" autocapitalize="none" spellcheck="false"><label for="p">Password</label><input id="p" type="password" required minlength="1" maxlength="1024" autocomplete="current-password" aria-describedby="err">
 <button type="button" class="btn" id="togglePassword" aria-pressed="false" style="margin-top:6px">Show password</button><div id="confirm-wrap" hidden><label for="confirm-p">Confirm password</label><input id="confirm-p" type="password" minlength="12" autocomplete="new-password"></div>
@@ -182,8 +188,19 @@ const $=s=>document.getElementById(s),m=$('login');
 let authMode='login';const setAuthMode=mode=>{authMode=mode;$('err').textContent='';$('p').type='password';$('togglePassword').textContent='Show password';$('togglePassword').setAttribute('aria-pressed','false');$('confirm-wrap').hidden=mode!=='signup';$('confirm-p').required=mode==='signup';$('p').minLength=mode==='signup'?12:1;$('p').autocomplete=mode==='signup'?'new-password':'current-password';document.querySelector('.lf h3').textContent=mode==='signup'?'Create account':'Sign in';$('go').textContent=mode==='signup'?'Create account':'Sign in';$('signup-note').textContent=mode==='signup'?'Back to sign in':'Create an account';document.querySelector('.auth-note').firstChild.textContent=mode==='signup'?'Already registered? ':'New here? ';};
 const show=()=>{setAuthMode('login');m.classList.add('show');$('u').focus()};
 $('togglePassword').onclick=()=>{const input=$('p');const visible=input.type==='password';input.type=visible?'text':'password';$('togglePassword').textContent=visible?'Hide password':'Show password';$('togglePassword').setAttribute('aria-pressed',String(visible));};
-['open','start','start2'].forEach(i=>$(i).onclick=show);$('signup-note').onclick=()=>setAuthMode(authMode==='signup'?'login':'signup');$('close').onclick=()=>m.classList.remove('show');
+['open','start','start2'].forEach(i=>$(i).onclick=()=>{show();checkFirstRun()});$('signup-note').onclick=()=>setAuthMode(authMode==='signup'?'login':'signup');$('close').onclick=()=>m.classList.remove('show');
 document.addEventListener('keydown',e=>e.key==='Escape'&&m.classList.remove('show'));
+async function checkFirstRun(){const box=$('firstRun');if(!box)return;if(window.AJ_STATIC_HOST){box.hidden=true;return}
+ try{const r=await fetch('/api/bootstrap/status',{credentials:'include'});const d=await r.json();
+  if(!d.available){box.hidden=true;return}
+  box.hidden=false;$('firstRunText').textContent='No accounts exist on this deployment yet. Because registration creates a Viewer and every admin-only feature (including database repair) needs an Administrator, create the first Administrator here. This option disappears once an account exists.';
+ }catch{box.hidden=true}}
+$('firstRunBtn')?.addEventListener('click',async()=>{const out=$('firstRunResult'),btn=$('firstRunBtn');out.textContent='Creating…';btn.disabled=true;
+ try{const r=await fetch('/api/bootstrap/admin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){out.textContent=d.error||('Could not create the account ('+r.status+').');return}
+  out.textContent='Administrator created. Opening your dashboard…';location.href='dashboard.html';
+ }catch(e){out.textContent='Could not reach the server: '+(e.message||e)}finally{btn.disabled=false}});
 $('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';if(window.AJ_STATIC_HOST){er.textContent='This static GitHub Pages copy cannot sign in by itself. Open the secure app server, or run the local preview with npm run dev. See the Setup options banner.';return}if(authMode==='signup'&&$('p').value!==$('confirm-p').value){er.textContent='Passwords do not match.';return}b.disabled=true;b.textContent=authMode==='signup'?'Creating account…':'Signing in…';
  const base=location.origin;
  if(!location.protocol.startsWith('https:')&&!['localhost','127.0.0.1'].includes(location.hostname)&&!location.hostname.endsWith('.e2b.app')){er.textContent='Please open the secure HTTPS website to sign in.';b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in';return}

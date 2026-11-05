@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
@@ -10,10 +11,9 @@ let db, onRequest, index;
 before(async () => {
   db = new PGlite();
   await db.exec(await readFile(resolve(root, 'backend/db/schema.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/002_v43_ai_runs.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/005_v127_auth_rate_limits.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/007_v129_agent_platform.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/009_v133_agent_skills.sql'), 'utf8'));
+  for (const file of readdirSync(resolve(root, 'backend/db/migrations')).filter(f => f.endsWith('.sql')).sort()) {
+    await db.exec(await readFile(resolve(root, 'backend/db/migrations', file), 'utf8'));
+  }
   await buildApi(); ({ onRequest } = await import('../../.data/api.mjs'));
   index = JSON.parse(await readFile(resolve(root, 'frontend/config/agent-skill-index.json'), 'utf8'));
 });
@@ -87,7 +87,8 @@ test('a throwing or hung check is recorded as a failure, not an exception', asyn
 test('readiness requires the V136 tables and health reports the current version', async () => {
   const ready = await client()('/ready');
   assert.equal(ready.status, 200);
-  assert.equal(ready.data.schemaTables, 21);
+  assert.equal(ready.data.schemaTables, ready.data.required);
+  assert.equal(ready.data.ready, true);
   const { c } = await account();
   const diagnostics = await c('/admin/diagnostics');
   assert.ok(diagnostics.data.tables.includes('agent_skills'));
@@ -134,7 +135,7 @@ test('self-check runs every check on a real database and persists evidence', asy
   assert.equal(run.data.verdict, 'pass', JSON.stringify(run.data.results.filter(item => !item.ok), null, 1));
   assert.equal(run.data.score, 100);
   assert.equal(run.data.checksPassed, run.data.checksTotal);
-  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /21\/21/.test(item.detail)));
+  assert.ok(run.data.results.some(item => item.id === 'db.schema' && /\d+\/\d+/.test(item.detail)));
   const history = await c('/agent/self-check');
   assert.equal(history.status, 200);
   assert.equal(history.data.latest.score, 100);

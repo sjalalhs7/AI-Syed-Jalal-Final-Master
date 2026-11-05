@@ -23,20 +23,19 @@ async function liveState() {
   return { db, missing };
 }
 
-test('repairing the live 13-table state restores all 21 tables', async () => {
+test('repairing the live incomplete state restores every required table', async () => {
   const { db, missing } = await liveState();
   try {
     const before = await missingTables(adapter(db));
     assert.deepEqual(before.sort(), missing.sort(), 'fixture must match the production outage');
-    assert.equal(REQUIRED_TABLES.length - before.length, 13);
 
     const result = await applySchemaRepair(adapter(db));
     assert.equal(result.ok, true, `still missing: ${result.missing.join(', ')}`);
-    assert.equal(result.after, 21);
-    assert.equal(result.required, 21);
+    assert.equal(result.after, REQUIRED_TABLES.length);
+    assert.equal(result.required, REQUIRED_TABLES.length);
     assert.deepEqual(result.missing, []);
     assert.deepEqual(result.failed, []);
-    assert.equal(result.before, 13);
+    assert.equal(result.before, REQUIRED_TABLES.filter(t => !missing.includes(t)).length);
     // Sign-in tables were never touched, so sign-in keeps working.
     assert.equal(await missingTables(adapter(db)).then(m => m.includes('app_users')), false);
     assert.equal(await missingTables(adapter(db)).then(m => m.includes('sessions')), false);
