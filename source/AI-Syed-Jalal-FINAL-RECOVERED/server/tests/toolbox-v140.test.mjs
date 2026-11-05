@@ -208,3 +208,30 @@ test('the all-in-one panel routes tool requests to the agent, from the toolbox i
   assert.equal(routePrompt('plan the launch in two weeks')[0].id, 'planner');
   assert.equal(routePrompt('critique the launch risk')[0].id, 'critic');
 });
+
+test('every natural phrasing of a clock question reaches the clock, not a lookup', async () => {
+  // Regression: the pattern was anchored to the end of the message, so
+  // "time in Tokyo and critique the risk" fell through to the planner, and
+  // "what is the time in New York?" fired a Wikipedia lookup and returned a
+  // network error instead of the time.
+  const phrasings = [
+    'time in Tokyo',
+    'time in Tokyo and critique the risk',
+    'what time is it in Tokyo',
+    'what is the time in New York?',
+    'time in Karachi, then plan the launch'
+  ];
+  for (const prompt of phrasings) {
+    const run = await runAgent({ prompt, db, me, env: {} });
+    assert.equal(run.steps[0].tool, 'datetime', `“${prompt}” did not reach the clock`);
+    assert.equal(run.steps[0].ok, true, `“${prompt}” failed: ${run.steps[0].observation}`);
+    assert.match(run.steps[0].observation, /GMT[+-]\d/, `“${prompt}” returned no time`);
+    // A clock question must never be answered by a network lookup.
+    assert.ok(!run.trace.tools.includes('research'), `“${prompt}” wrongly triggered research`);
+  }
+  // Genuine lookup questions must still be lookups.
+  for (const prompt of ['what is a database index', 'who is Ada Lovelace']) {
+    const run = await runAgent({ prompt, db, me, env: {} });
+    assert.equal(run.steps[0].tool, 'research', `“${prompt}” should still research`);
+  }
+});
