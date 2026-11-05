@@ -68,7 +68,8 @@
     contrast: 'contrast #ffffff and #777777',
     csv: 'summarise this csv\nname,amount\nA,10\nB,20',
     audit: 'audit this\n```html\n<img src="x"><button>Go</button>\n```',
-    diff: 'diff\n```\na\nb\n```\n```\na\nc\n```'
+    diff: 'diff\n```\na\nb\n```\n```\na\nc\n```',
+    pagebuild: 'build me a landing page for a bookshop with contact'
   };
 
   function renderExamples() {

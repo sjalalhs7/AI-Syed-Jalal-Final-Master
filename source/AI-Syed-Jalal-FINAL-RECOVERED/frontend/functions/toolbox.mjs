@@ -440,6 +440,35 @@ const TOOL_STEPS = [
   }
 ];
 
+/**
+ * V141: web-page generation, wired in as a tool so a chat request and the Page
+ * Builder page run the identical code path. Imported lazily to avoid a cycle
+ * (page-builder imports auditCode from this module).
+ */
+const PAGE_BUILD_HINT = /\b(?:build|make|create|generate|design)\b[^.]{0,40}\b(?:page|site|website|landing)\b/i;
+
+async function buildPageStep(text) {
+  const { buildPage, describePage } = await import('./page-builder.mjs');
+  const result = buildPage(text);
+  return {
+    observation: `${describePage(result)}\n\nThe full HTML (${result.bytes} bytes) is available from Page Builder → Download, and in this answer's artifact.`,
+    data: {
+      html: result.html, bytes: result.bytes, sections: result.sections, palette: result.palette, audit: result.audit,
+      artifacts: [{ language: 'html', kind: 'preview', code: result.html, bytes: result.bytes }]
+    }
+  };
+}
+
+TOOL_STEPS.push({
+  id: 'pagebuild', label: 'Web page builder', kind: 'local',
+  detail: 'Generates a complete single-file HTML page from a one-sentence brief, then audits it.',
+  match: text => PAGE_BUILD_HINT.test(text) && !/```/.test(text),
+  async run(text) {
+    const outcome = await buildPageStep(text);
+    return { observation: outcome.observation, data: outcome.data };
+  }
+});
+
 /** Public catalogue — the same list the runtime plans from and the UI renders. */
 export const TOOLBOX_TOOLS = TOOL_STEPS.map(({ match, run, ...meta }) => meta);
 

@@ -62,6 +62,11 @@ export const ARENA_FEATURES = Object.freeze([
     evidence: 'battleToMarkdown() · GET /api/arena/battles/:id?format=markdown · id="exportBtn"'
   }),
   Object.freeze({
+    id: 'web-codegen', label: 'Web page generation you can download', state: 'shipped',
+    detail: 'A one-sentence brief becomes a complete single-file HTML page, previewed in a sandbox, self-audited, and downloadable byte-for-byte. Reachable in chat as the pagebuild agent tool and at /pagebuilder.html.',
+    evidence: 'page-builder.mjs buildPage() · page-builder-v141.test.mjs · tests/browser/pagebuilder.spec.mjs'
+  }),
+  Object.freeze({
     id: 'cloud-contenders', label: 'Cloud contenders (Gemini, OpenAI, Claude, DeepSeek)', state: 'needs-key',
     detail: 'Adapters are implemented. A battle against a cloud engine requires its server-side key; the page says "key configured; live call not verified" until one succeeds.',
     evidence: 'isConfigured() reads the env key per provider'

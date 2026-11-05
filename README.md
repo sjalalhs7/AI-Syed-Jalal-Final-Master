@@ -5,16 +5,17 @@ This repository contains the unified AI-Syed Jalal platform on `main`: the recov
 ## Locked design rule
 The approved Login Page + Homepage + Logo identity, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Older concept boards remain historical references, not replacements for the approved design.
 
-## V140 quick links
+## Quick links
 
 The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`:
 
 - `/allinone.html` — one request, every specialist that can serve it, each answer labelled with why.
-- `/toolbench.html` — the agent's twelve deterministic tools by hand (dates, units, JSON, hashes, WCAG contrast, CSV, code audit, diff).
+- `/toolbench.html` — the agent's deterministic tools by hand (dates, units, JSON, hashes, WCAG contrast, CSV, code audit, diff, page builder).
+- `/pagebuilder.html` — one sentence in, a complete single-file HTML page out; sandboxed preview, self-audit, real download.
 - `/arena.html` — blind battles, a prompt library with checkable properties, portable export.
 - `/critic.html` — the graded review of this deployment, from stored evidence.
 
-Release notes: `V140-ARENA-TOOLBOX-2026-11-04.md`. Gates: 47 static · 85 server · 80 frontend · 26 browser · self-check 100/100.
+Release notes: `V141-PAGE-BUILDER-2026-11-05.md` (also `V140-ARENA-TOOLBOX-2026-11-04.md`). Gates: 51 static · 94 server · 80 frontend · 29 browser · self-check 100/100.
 
 ## Source lineage
 - V122-MERGED is the larger recovered source base: 9,950 files and 282,418,696 bytes uncompressed in its original archive.

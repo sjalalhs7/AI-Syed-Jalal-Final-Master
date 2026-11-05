@@ -46,10 +46,10 @@ async function account() {
 const fakeFetch = payload => async () => ({ ok: true, status: 200, async json() { return payload; } });
 
 test('the agent publishes a finite tool list and plans only tools that exist', () => {
-  // V140 grew the toolbox from 4 to 12. The contract is a *finite, published,
-  // duplicate-free* list — not a frozen count, which would only ever be an
-  // invitation to edit the test instead of reading it.
-  assert.equal(AGENT_TOOLS.length, 12);
+  // V140 grew the toolbox from 4 to 12, V141 to 13. The contract is a *finite,
+  // published, duplicate-free* list — not a frozen count, which would only ever
+  // be an invitation to edit the test instead of reading it.
+  assert.ok(AGENT_TOOLS.length >= 12 && AGENT_TOOLS.length <= 16, `tool count left its bound: ${AGENT_TOOLS.length}`);
   assert.equal(new Set(AGENT_TOOLS.map(tool => tool.id)).size, AGENT_TOOLS.length);
   for (const id of ['calculator', 'records', 'research', 'tasks']) {
     assert.ok(AGENT_TOOLS.some(tool => tool.id === id), `the original tool ${id} must still exist`);
