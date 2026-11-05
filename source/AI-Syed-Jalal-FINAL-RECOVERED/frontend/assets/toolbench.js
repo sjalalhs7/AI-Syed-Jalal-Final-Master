@@ -150,8 +150,21 @@
     }
   }
 
+  // GitHub Pages has no API. Say that once, clearly, and stop trying to call it —
+  // a raw "Request failed (404)" is a broken page, not an explanation.
+  function staticHostStop() {
+    if (!window.AJ_STATIC_HOST) return false;
+    $('connectionStatus').textContent = 'Static preview · backend not connected';
+    $('loginBanner').hidden = true;
+    $('runBtn').disabled = true;
+    setStatus('This is the static GitHub Pages copy: the tool runner needs the application server. Open the secure app, or run the local preview with npm ci && npm run dev. Nothing is simulated here.');
+    return true;
+  }
+
   async function boot() {
     renderExamples();
+    // On the static host there is no API to ask, so stop before trying.
+    if (staticHostStop()) { update(); return; }
     $('runForm').addEventListener('submit', run);
     $('clearBtn').addEventListener('click', () => { $('prompt').value = ''; $('result').replaceChildren(); update(); setStatus('Cleared. Nothing was sent.'); });
     $('prompt').addEventListener('input', update);
@@ -185,7 +198,7 @@
       else $('toolCount').textContent = 'Tool catalogue unavailable — this page will not invent one.';
     } catch (error) {
       $('connectionStatus').textContent = 'Backend not reachable';
-      setStatus('Could not reach the application server: ' + error.message, 'fail');
+      setStatus('The application server is not reachable from this copy. Open the secure app, or run the local preview with npm ci && npm run dev.', 'fail');
     }
     update();
   }

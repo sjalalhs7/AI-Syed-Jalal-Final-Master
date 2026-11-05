@@ -129,6 +129,16 @@
     setStatus(`Downloaded ${link.download} — the exact file shown in the preview.`);
   }
 
+  // GitHub Pages has no API. Say that once, clearly, and never show a raw 404.
+  function staticHostStop() {
+    if (!window.AJ_STATIC_HOST) return false;
+    $('connectionStatus').textContent = 'Static preview · backend not connected';
+    $('loginBanner').hidden = true;
+    $('buildBtn').disabled = true;
+    setStatus('This is the static GitHub Pages copy: building a page needs the application server. Open the secure app, or run the local preview with npm ci && npm run dev. Nothing is simulated here.');
+    return true;
+  }
+
   async function boot() {
     const examples = $('examples');
     for (const example of EXAMPLES) {
@@ -141,6 +151,7 @@
     $('buildForm').addEventListener('submit', build);
     $('brief').addEventListener('input', update);
     $('downloadBtn').addEventListener('click', download);
+    if (staticHostStop()) return;
     $('tabPreview').addEventListener('click', () => setTab('preview'));
     $('tabCode').addEventListener('click', () => setTab('code'));
     $('copyBtn').addEventListener('click', async () => {
@@ -176,7 +187,7 @@
       });
     } catch (error) {
       $('connectionStatus').textContent = 'Backend not reachable';
-      setStatus('Could not reach the application server: ' + error.message, 'fail');
+      setStatus('The application server is not reachable from this copy. Open the secure app, or run the local preview with npm ci && npm run dev.', 'fail');
     }
     update();
   }
