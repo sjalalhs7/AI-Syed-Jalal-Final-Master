@@ -13,7 +13,8 @@
     "test": "npm --prefix frontend test && node --test --test-concurrency=1 server/tests/*.test.mjs",
     "test:e2e": "node server/test-browser.mjs",
     "check": "node server/check.mjs",
-    "skills:index": "node scripts/build-skill-index.mjs"
+    "skills:index": "node scripts/build-skill-index.mjs",
+    "db:migrate": "node backend/scripts/migrate.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.14",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@sparticuz/chromium": "153.0.0",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "pg": "^8.23.1"
   }
 }

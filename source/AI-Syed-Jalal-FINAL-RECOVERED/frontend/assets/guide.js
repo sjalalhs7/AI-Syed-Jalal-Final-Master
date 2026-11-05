@@ -33,10 +33,21 @@
       state('sessionState', session.authenticated ? 'Signed in · ' + session.user.role : 'Not signed in', session.authenticated ? 'ok' : 'warn');
       $('sessionHelp').textContent = session.authenticated ? 'You can open Agent Studio, JalalAi or the Workspace now.' : 'Use the preview button or sign in from the homepage.';
     } catch (error) {
-      $('guideStatus').textContent = 'Connection unavailable';
-      state('appState', 'Server not reachable', 'warn');
-      $('startMessage').textContent = 'The application server is not reachable. Start it with npm run dev, then reload this page.';
-      state('cloudState', 'Unknown'); state('voiceState', 'Unknown'); state('sessionState', 'Unknown');
+      // /api/health succeeding while /api/ready fails means the server is up but the
+      // database schema is incomplete. Reporting that as "server not reachable" was
+      // simply false, and sent people to debug the wrong thing.
+      const up = await json('/health').then(() => true, () => false);
+      if (up) {
+        $('guideStatus').textContent = 'Application online · setup incomplete';
+        state('appState', 'Setup required · database schema incomplete', 'warn');
+        $('startMessage').textContent = 'The application server is answering but its database is missing tables, so sign-in cannot work yet. Run the database setup (npm run db:migrate against the server database), then reload this page.';
+        state('cloudState', 'Unknown'); state('voiceState', 'Known after setup'); state('sessionState', 'Blocked by database');
+      } else {
+        $('guideStatus').textContent = 'Connection unavailable';
+        state('appState', 'Server not reachable', 'warn');
+        $('startMessage').textContent = 'The application server did not respond. Start it with npm run dev, then reload this page.';
+        state('cloudState', 'Unknown'); state('voiceState', 'Unknown'); state('sessionState', 'Unknown');
+      }
     }
   }
   $('guidePreviewBtn').onclick = async () => {
