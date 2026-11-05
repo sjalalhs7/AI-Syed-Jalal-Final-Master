@@ -148,3 +148,27 @@ test('no page states a tool count that contradicts the published runtime', () =>
   }
   assert.deepEqual(stale, [], `stale tool counts:\n${stale.join('\n')}`);
 });
+
+test('the sitemap lists exactly the pages that are not marked noindex', () => {
+  // Most application pages are deliberately noindex. The sitemap must therefore
+  // contain the public pages and nothing else — listing an app page invites
+  // Google to index something we asked it not to, and listing 3 of 15 pages
+  // hides most of the product.
+  const frontend = new URL('../../frontend/', import.meta.url);
+  const files = readdirSync(frontend).filter(f => f.endsWith('.html')
+    && f !== '404.html' && !f.startsWith('google'));
+  const publicPages = files.filter(f => !readFileSync(new URL(f, frontend), 'utf8').includes('noindex'));
+
+  const sitemap = readFileSync(new URL('sitemap.xml', frontend), 'utf8');
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+  const listed = new Set(locs.map(l => l.split('/').pop() || 'index.html').map(f => f || 'index.html'));
+
+  assert.deepEqual([...listed].sort(), [...publicPages].sort(),
+    'sitemap and noindex tags disagree');
+
+  // Structured data must be valid JSON or search engines ignore it silently.
+  const index = readFileSync(new URL('index.html', frontend), 'utf8');
+  const ld = /application\/ld\+json">([\s\S]*?)<\/script>/.exec(index);
+  assert.ok(ld, 'landing page has no JSON-LD');
+  assert.equal(JSON.parse(ld[1])['@type'], 'WebApplication');
+});
