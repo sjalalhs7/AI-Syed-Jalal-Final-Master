@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
@@ -9,9 +10,9 @@ let db, onRequest;
 before(async () => {
   db = new PGlite();
   await db.exec(await readFile(resolve(root, 'backend/db/schema.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/002_v43_ai_runs.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/005_v127_auth_rate_limits.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/007_v129_agent_platform.sql'), 'utf8'));
+  for (const file of readdirSync(resolve(root, 'backend/db/migrations')).filter(f => f.endsWith('.sql')).sort()) {
+    await db.exec(await readFile(resolve(root, 'backend/db/migrations', file), 'utf8'));
+  }
   await buildApi(); ({ onRequest } = await import('../../.data/api.mjs'));
 });
 after(async () => { await db?.close(); });

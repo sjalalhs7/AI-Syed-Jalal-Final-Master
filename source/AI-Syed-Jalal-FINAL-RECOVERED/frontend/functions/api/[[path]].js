@@ -8,6 +8,7 @@ import { arenaRoute, arenaCatalogue } from '../arena-routes.mjs';
 import libraryCatalog from '../../config/library-catalog.json';
 import { SCHEMA_PARTS, REQUIRED_TABLES, destructiveStatements } from '../schema-bundle.mjs';
 import { applySchemaRepair, missingTables } from '../schema-repair.mjs';
+import { effectiveEnv, providerStates, maskKey, PROVIDER_IDS } from '../provider-settings.mjs';
 
 const C = 'aj_session', TTL = 28800000, WRITERS = ['Admin','Manager','Data Operator'];
 const reply = (data,status=200,headers={}) => Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(self), geolocation=()','Cross-Origin-Opener-Policy':'same-origin',...headers}});
@@ -17,6 +18,9 @@ const digest = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256
 const pass = async (p,s) => hex(await scrypt(new TextEncoder().encode(String(p)),new TextEncoder().encode(String(s)),16384,8,1,64));
 const equal = (a,b) => {const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b));if(x.length!==y.length)return false;let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0};
 const cookies = r => Object.fromEntries((r.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');if(i<0)return [x,''];const k=x.slice(0,i),v=x.slice(i+1);try{return [k,decodeURIComponent(v)]}catch{return [k,v]}}));
+const storedKeysSafe = async db => {
+  try{const r=await db.query("SELECT value FROM app_settings WHERE key='provider_keys'");const v=r?.[0]?.value;return v&&typeof v==='object'?v:{}}catch{return {}}
+};
 const rawToken = r => {const a=r.headers.get('authorization')||'';return a.startsWith('Bearer ')?a.slice(7):(cookies(r)[C]||'')};
 const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(s),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(t))))};
 const readBody = async (r,max=1024*1024) => {const declared=Number(r.headers.get('content-length')||0);if(declared>max)throw Object.assign(Error('Request body too large'),{status:413});if(!r.body)return {};const reader=r.body.getReader(),chunks=[];let size=0;try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>max){await reader.cancel();throw Object.assign(Error('Request body too large'),{status:413})}chunks.push(value)}}finally{reader.releaseLock()}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}const t=new TextDecoder().decode(bytes);if(!t)return {};try{const value=JSON.parse(t);if(!value||typeof value!=='object'||Array.isArray(value))throw Error();return value}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}};
@@ -39,8 +43,20 @@ async function rateLimited(db, req, action, max, windowSql, userId=null){
 }
 async function userFor(db,req){const t=rawToken(req);if(!t)return null;const a=await db.query('SELECT u.id,u.username,u.role,s.id AS session_id FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active=true LIMIT 1',[await digest(t)]);return a[0]||null}
 async function validCsrf(req,env){const t=rawToken(req),v=req.headers.get('x-csrf-token')||'';return !!(t&&v&&equal(await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||''),v))}
-export async function onRequest({request,env}){
+export async function onRequest(ctx){
+ const request=ctx.request;
  const u=new URL(request.url),p=u.pathname.split('/').filter(Boolean);
+ const baseEnv=ctx.env;
+ const db0=baseEnv.DB_ADAPTER?null:null;
+ // Layer Admin-set keys from app_settings over the deployment environment so a
+ // key added in the Operations panel works immediately, with no redeploy.
+ let env=baseEnv;
+ try{
+   if(baseEnv.DATABASE_URL||baseEnv.DB_ADAPTER){
+     const probe=baseEnv.DB_ADAPTER||neon(baseEnv.DATABASE_URL);
+     env=await effectiveEnv(baseEnv,probe);
+   }
+ }catch{ env=baseEnv }
  if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{Allow:'GET,POST,PUT,PATCH,DELETE,OPTIONS','Cache-Control':'no-store'}});
  if(!env.DB_ADAPTER&&!env.DATABASE_URL)return reply({ok:false,error:'Neon DATABASE_URL is not configured',code:'DATABASE_NOT_CONFIGURED'},503);
@@ -52,6 +68,35 @@ export async function onRequest({request,env}){
   if(u.pathname==='/api/version'&&request.method==='GET')return reply({app:'Al-Syed Jalal AI',version:'V138',release:'cloudflare-native'});
   if(u.pathname==='/api/ready'&&request.method==='GET'){await db.query('SELECT 1');const rows=await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");const have=(rows||[]).map(r=>r.table_name);const n=REQUIRED_TABLES.filter(t=>have.includes(t)).length;const missing=REQUIRED_TABLES.filter(t=>!have.includes(t));const ok=missing.length===0;const affected=missing.length?'Arena battles, Agent Lab self-check and the Expert Critic need these tables, so those pages will report an error until the schema is repaired.':'Nothing is missing.';return reply({ok,ready:ok,database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',schemaTables:n,required:REQUIRED_TABLES.length,missing,summary:`${n} of ${REQUIRED_TABLES.length} tables present. ${affected}`,howToFix:'An Admin can POST /api/admin/schema/repair with {"confirm":"apply-schema-repair"} from the Workspace Operations panel, or run npm run db:migrate with DATABASE_URL set.',signInAffected:!(['app_users','sessions'].every(t=>have.includes(t)))},ok?200:503)}
   if(u.pathname==='/api/ai/capabilities'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);const providers=[{id:'openai',label:'OpenAI / ChatGPT',configured:Boolean(env.OPENAI_API_KEY),status:env.OPENAI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.OPENAI_MODEL||'gpt-4o-mini',adapter:'enabled'},{id:'anthropic',label:'Anthropic / Claude',configured:Boolean(env.ANTHROPIC_API_KEY),status:env.ANTHROPIC_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest',adapter:'enabled'},{id:'deepseek',label:'DeepSeek',configured:Boolean(env.DEEPSEEK_API_KEY),status:env.DEEPSEEK_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.DEEPSEEK_MODEL||'deepseek-chat',adapter:'enabled'},{id:'gemini',label:'Google Gemini',configured:Boolean(env.GEMINI_API_KEY),status:env.GEMINI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.GEMINI_MODEL||'gemini-2.5-flash',adapter:'enabled'},{id:'omniroute',label:'OmniRoute (OpenAI-compatible)',configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)),status:(env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)?'Key and endpoint configured; live call not yet verified':'Optional key/base URL not configured',model:env.OMNIROUTE_MODEL||'provider default',adapter:'enabled'}];const agents=[{id:'general',name:'General Assistant',group:'General',mode:'provider-backed text profile'},{id:'coding',name:'Coding Assistant',group:'Development',mode:'provider-backed text profile'},{id:'ux-ui-pro-max',name:'UX/UI Design Assistant',group:'Design',mode:'provider-backed text profile'},{id:'analysis',name:'Analysis Assistant',group:'Analysis',mode:'provider-backed text profile'},{id:'superpower',name:'Task Planning Assistant',group:'Planning',mode:'bounded text planning; no external tools'}];return reply({mode:providers.some(p=>p.configured)?'live-ready':'provider-keys-required',agents,executableAgentProfiles:agents.length,catalogRoles:120,agencyLayer:{profiles:303,execution:'profiles/catalog available in recovered backend; Cloudflare text endpoint does not execute every profile as a separate tool'},skillRegistry:{version:'V71.0.0',totalSkills:3500,domainCount:35,source:'recovered project config/ai-skill-index-v71.json'},skills:[],skillPacks:[],providers,status:'This API exposes five provider-backed text prompt profiles. They do not browse the web, query private records, use voice or medical tools, or execute external actions. The separate catalogue contains 120 role definitions and 3,500 reference skills across 35 domains; catalogue entries are not independent model instances. A configured provider key does not prove a successful live request.',runtime:{providers:Object.fromEntries(providers.map(p=>[p.id,{configured:p.configured,adapter:p.adapter}]))}})}
+  // --- V149 admin-managed provider keys ----------------------------------------
+  if(u.pathname==='/api/admin/providers'&&request.method==='GET'){
+   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
+   if(me.role!=='Admin')return reply({error:'Admin role required'},403);
+   const states=await providerStates(env,db);
+   return reply({providers:states,note:'A configured key is not proof the provider accepts it. Send a prompt to find out. Keys are never returned in full.'});
+  }
+
+  if(u.pathname==='/api/admin/providers'&&request.method==='POST'){
+   const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
+   if(me.role!=='Admin')return reply({error:'Admin role required'},403);
+   if(!await consumeRateLimit(db,'provider-keys',me.id,10,600))return reply({error:'Too many key changes. Wait ten minutes.'},429);
+   const x=await readBody(request);
+   const provider=String(x.provider||'').toLowerCase();
+   if(!PROVIDER_IDS.includes(provider))return reply({error:'Unknown provider. Choose one of: '+PROVIDER_IDS.join(', ')},400);
+   const stored=await storedKeysSafe(db);
+   if(x.remove===true){
+     delete stored[provider];
+   }else{
+     const key=String(x.key||'').trim();
+     if(key.length<8||key.length>400)return reply({error:'That does not look like an API key (expected 8-400 characters).'},400);
+     if(/\s/.test(key))return reply({error:'API keys do not contain spaces. Check for a stray paste.'},400);
+     stored[provider]=key;
+   }
+   await db.query("INSERT INTO app_settings(key,value,updated_at,updated_by) VALUES('provider_keys',$1::jsonb,now(),$2) ON CONFLICT(key) DO UPDATE SET value=$1::jsonb,updated_at=now(),updated_by=$2",[JSON.stringify(stored),me.username]);
+   await audit(db,me,'PROVIDER_KEY_'+(x.remove===true?'REMOVED':'SET'),provider,request);
+   return reply({ok:true,providers:await providerStates(env,db),note:'Saved. Send a prompt to verify the provider actually answers.'});
+  }
+
   if(u.pathname==='/api/admin/ai/overview'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const rows=await db.query("SELECT count(*)::int AS runs,count(*) FILTER (WHERE status='completed')::int AS completed,count(*) FILTER (WHERE status<>'completed')::int AS non_completed,0::int AS tokens FROM ai_runs WHERE created_at>now()-interval '24 hours'");const x=rows[0]||{};return reply({summary:{runs:Number(x.runs||0),completed:Number(x.completed||0),non_completed:Number(x.non_completed||0),tokens:Number(x.tokens||0)}})}
   if(u.pathname==='/api/admin/ai/provider-health'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const providers=[{id:'openai',label:'OpenAI / ChatGPT',configured:Boolean(env.OPENAI_API_KEY),status:env.OPENAI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.OPENAI_MODEL||'gpt-4o-mini',adapter:'enabled'},{id:'anthropic',label:'Anthropic / Claude',configured:Boolean(env.ANTHROPIC_API_KEY),status:env.ANTHROPIC_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest',adapter:'enabled'},{id:'deepseek',label:'DeepSeek',configured:Boolean(env.DEEPSEEK_API_KEY),status:env.DEEPSEEK_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.DEEPSEEK_MODEL||'deepseek-chat',adapter:'enabled'},{id:'gemini',label:'Google Gemini',configured:Boolean(env.GEMINI_API_KEY),status:env.GEMINI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.GEMINI_MODEL||'gemini-2.5-flash',adapter:'enabled'},{id:'omniroute',label:'OmniRoute (OpenAI-compatible)',configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)),status:(env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)?'Key and endpoint configured; live call not yet verified':'Optional key/base URL not configured',model:env.OMNIROUTE_MODEL||'provider default',adapter:'enabled'}];return reply({providers,mode:providers.some(p=>p.configured)?'live-ready':'demo',note:'Key presence is not proof of successful provider authentication; run a test prompt to verify.'})}
   if(u.pathname==='/api/library'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);return reply({version:libraryCatalog.version,skillRegistry:{name:libraryCatalog.name,version:libraryCatalog.version,totalSkills:libraryCatalog.count,domainCount:libraryCatalog.domain_count},skills:libraryCatalog.skills,domains:libraryCatalog.domains,superpowers_skills:libraryCatalog.superpowers_skills,templates:libraryCatalog.templates,sources:libraryCatalog.sources})}
@@ -80,6 +125,47 @@ export async function onRequest({request,env}){
    return reply({ok:tables.length===21,status:tables.length===21?'healthy':'schema-incomplete',database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',checks:{database:true,schema:tables.length===21,aiRuntime:true},schemaTables:tables.length,tables:tables.map(x=>x.table_name),pool:{available:false,total:null,waiting:null},ai:{active:Number(ai[0]?.n||0),maxConcurrent:null},sessions:{active:Number(active[0]?.n||0)},note:'Pool and edge process metrics are not exposed. AI runtime check means the local assistant is available, not that a cloud provider was live-tested.'});
   }
   if(u.pathname==='/api/admin/audit'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||20)));const rows=await db.query('SELECT e.id,e.action,e.detail,e.created_at,u.username FROM audit_events e LEFT JOIN app_users u ON u.id=e.user_id ORDER BY e.created_at DESC LIMIT $1',[limit]);return reply({events:rows.map(x=>({id:x.id,time:x.created_at,user:x.username||'system',action:x.action,detail:x.detail||''}))})}
+  // --- V149 first-run bootstrap -------------------------------------------------
+  // Registration always creates a Viewer and there is no seeded administrator, so
+  // a deployment whose users are all Viewers cannot reach ANY admin route —
+  // including schema repair. These two routes give a fresh deployment exactly one
+  // Administrator, and only while no account exists at all.
+  if(u.pathname==='/api/bootstrap/status'&&request.method==='GET'){
+   try{
+     const rows=await db.query('SELECT count(*)::int AS n FROM app_users');
+     const users=Number(rows[0]?.n||0);
+     let completed=false;
+     try{const b=await db.query('SELECT completed_at FROM app_bootstrap WHERE id=true');completed=Boolean(b[0]?.completed_at)}catch{}
+     return reply({available:users===0&&!completed,users,completed,reason:users>0?'This deployment already has accounts, so first-run setup is closed.':'No accounts exist yet.'});
+   }catch(e){
+     // app_users itself may be missing on a database that was never migrated.
+     return reply({available:false,users:0,completed:false,reason:'The database is not initialised yet: '+(e?.message||e)});
+   }
+  }
+
+  if(u.pathname==='/api/bootstrap/admin'&&request.method==='POST'){
+   const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
+   if(!/^[A-Za-z0-9_.-]{3,40}$/.test(name))return reply({error:'Username must be 3-40 characters and use letters, numbers, dot, underscore or hyphen'},400);
+   if(password.length<12)return reply({error:'Password must be at least 12 characters'},400);
+   if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
+   if(await rateLimited(db,request,'BOOTSTRAP',5,"interval '1 hour'"))return reply({error:'Too many attempts. Try again later.'},429);
+   // Re-check inside the transaction boundary: only the very first account wins.
+   const count=await db.query('SELECT count(*)::int AS n FROM app_users');
+   if(Number(count[0]?.n||0)>0)return reply({error:'This deployment already has accounts. Ask an Administrator to change your role.'},409);
+   const salt=hex(random(16)),id=crypto.randomUUID();
+   try{
+     await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)]);
+   }catch(e){
+     if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'That username is taken. Try another.'},409);
+     throw e;
+   }
+   const token=hex(random(48));
+   await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
+   try{await db.query("UPDATE app_bootstrap SET completed_at=now(),completed_by=$1 WHERE id=true",[name])}catch{}
+   await audit(db,{id,username:name,role:'Admin'},'BOOTSTRAP_ADMIN','First Administrator created',request);
+   return reply({ok:true,user:{id,username:name,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':sessionCookie(token,env)});
+  }
+
   if(u.pathname==='/api/auth/register'&&request.method==='POST'){
    if(await rateLimited(db,request,'REGISTER',10,"interval '1 hour'"))return reply({error:'Registration limit reached. Please try again later.'},429,{'Retry-After':'3600'});
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
@@ -295,5 +381,9 @@ export async function onRequest({request,env}){
    const x=await readBody(request),goal=String(x.goal||'').trim(),max=Math.min(3,Math.max(1,Number(x.maxIterations)||3)),childHeaders=new Headers(request.headers);childHeaders.delete('content-length');childHeaders.set('content-type','application/json');if(goal.length<2||goal.length>5000)return reply({error:'Goal must be 2–5,000 characters'},400);const steps=[];let context='';for(let i=1;i<=max;i++){const prompt='Bounded AutoGPT planning iteration '+i+' of '+max+'. Goal: '+goal+'\nPrevious iteration: '+context.slice(0,3500)+'\nReturn the next concrete plan/refinement. Do not claim external tools or actions were executed.';const target=new URL(request.url);target.pathname='/api/ai/run';const rr=await onRequest({request:new Request(target,{method:'POST',headers:childHeaders,body:JSON.stringify({prompt,provider:x.provider||'gemini',agentId:x.agentId||'autogpt'})}),env});const data=await rr.json();steps.push({iteration:i,status:rr.ok?'completed':'failed',output:data.output||'',error:data.error||null,traceId:data.traceId||null});if(!rr.ok)break;context=data.output||''}return reply({status:steps.every(z=>z.status==='completed')?'completed':'partial',iteration:steps.length,steps});
   }
   return reply({ok:false,error:'Route not yet migrated to Cloudflare API',code:'ROUTE_NOT_IMPLEMENTED'},501)
- }catch(e){const status=Number(e?.status)||500;return reply({ok:false,error:status>=500?'Internal server error':e.message,code:status===500?'INTERNAL_ERROR':'REQUEST_ERROR'},status)}
+ }catch(e){const status=Number(e?.status)||500;
+  // Hide internals in production, but never hide them from the local preview —
+  // a bare "Internal server error" made a real failure undiagnosable.
+  const detail=env.LOCAL_PREVIEW?String(e?.message||e).slice(0,300):undefined;
+  return reply({ok:false,error:status>=500?'Internal server error':e.message,code:status===500?'INTERNAL_ERROR':'REQUEST_ERROR',...(detail?{detail}:{})},status)}
 }

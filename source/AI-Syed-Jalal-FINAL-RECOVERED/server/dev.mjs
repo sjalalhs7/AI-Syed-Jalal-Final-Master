@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
@@ -14,14 +14,11 @@ if (!dataDir.startsWith(resolve(root, '.data') + sep)) throw new Error('DATA_DIR
 await mkdir(dataDir, { recursive: true });
 const db = new PGlite(dataDir);
 await db.exec(await readFile(resolve(root, 'backend/db/schema.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/002_v43_ai_runs.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/005_v127_auth_rate_limits.sql'), 'utf8'));
-  await db.exec(await readFile(resolve(root, 'backend/db/migrations/007_v129_agent_platform.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/009_v133_agent_skills.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/010_v134_message_actions.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/011_v135_arena.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/012_v136_agent_runtime.sql'), 'utf8'));
-await db.exec(await readFile(resolve(root, 'backend/db/migrations/013_v138_expert_review.sql'), 'utf8'));
+// Run every migration, in order. A hand-maintained list silently skipped
+// new migrations, which is how the live database ended up 8 tables behind.
+for (const file of (await readdir(resolve(root, 'backend/db/migrations'))).filter(f => f.endsWith('.sql')).sort()) {
+  await db.exec(await readFile(resolve(root, 'backend/db/migrations', file), 'utf8'));
+}
 await db.exec(await readFile(resolve(root, 'server/assistant-schema.sql'), 'utf8'));
 let localSecret = process.env.CSRF_SECRET;
 if (!localSecret) { const secretPath = resolve(root, '.data/session-secret'); try { localSecret = (await readFile(secretPath, 'utf8')).trim(); } catch { localSecret = randomBytes(32).toString('hex'); await writeFile(secretPath, localSecret, { mode: 0o600 }); } }

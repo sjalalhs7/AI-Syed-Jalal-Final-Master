@@ -7,14 +7,14 @@ import { splitSqlStatements, runPart } from '../../frontend/functions/schema-rep
 
 const root = new URL('../../', import.meta.url);
 
-test('the bundled schema repairs a database missing the 8 recent tables', async () => {
+test('the bundled schema repairs a database missing the newer tables', async () => {
   // Reproduces the live deployment exactly: a database that only has the 13 older
   // tables, which is what /api/ready reported in production (schemaTables:13).
   const LIVE_HAS = ['app_users','sessions','records','audit_events','record_history',
     'documents','approvals','ai_runs','auth_rate_limits','assistant_tasks',
     'assistant_notes','platform_conversations','platform_messages'];
   const missingNames = REQUIRED_TABLES.filter(t => !LIVE_HAS.includes(t));
-  assert.equal(missingNames.length, 8, 'the live database was missing 8 tables');
+  assert.ok(missingNames.length > 0, 'the fixture must start incomplete');
 
   const db = await PGlite.create();
   try {
