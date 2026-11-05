@@ -125,21 +125,25 @@ export async function onRequest(ctx){
    return reply({ok:tables.length===21,status:tables.length===21?'healthy':'schema-incomplete',database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',checks:{database:true,schema:tables.length===21,aiRuntime:true},schemaTables:tables.length,tables:tables.map(x=>x.table_name),pool:{available:false,total:null,waiting:null},ai:{active:Number(ai[0]?.n||0),maxConcurrent:null},sessions:{active:Number(active[0]?.n||0)},note:'Pool and edge process metrics are not exposed. AI runtime check means the local assistant is available, not that a cloud provider was live-tested.'});
   }
   if(u.pathname==='/api/admin/audit'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||20)));const rows=await db.query('SELECT e.id,e.action,e.detail,e.created_at,u.username FROM audit_events e LEFT JOIN app_users u ON u.id=e.user_id ORDER BY e.created_at DESC LIMIT $1',[limit]);return reply({events:rows.map(x=>({id:x.id,time:x.created_at,user:x.username||'system',action:x.action,detail:x.detail||''}))})}
-  // --- V149 first-run bootstrap -------------------------------------------------
+  // --- V150 first-run bootstrap -------------------------------------------------
   // Registration always creates a Viewer and there is no seeded administrator, so
-  // a deployment whose users are all Viewers cannot reach ANY admin route —
-  // including schema repair. These two routes give a fresh deployment exactly one
-  // Administrator, and only while no account exists at all.
+  // a deployment whose accounts are all Viewers cannot reach ANY admin route —
+  // including schema repair. The gate is "no Administrator exists" (not "no
+  // users"), because a deployment with Viewers but no Admin was permanently
+  // stranded. An existing account can claim the first Administrator slot by
+  // proving its password; a brand-new name creates the first Admin.
   if(u.pathname==='/api/bootstrap/status'&&request.method==='GET'){
    try{
-     const rows=await db.query('SELECT count(*)::int AS n FROM app_users');
-     const users=Number(rows[0]?.n||0);
+     const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true"))[0]?.n||0);
+     let users=0;
+     try{const u=await db.query('SELECT count(*)::int AS n FROM app_users');users=Number(u[0]?.n||0)}catch{}
      let completed=false;
      try{const b=await db.query('SELECT completed_at FROM app_bootstrap WHERE id=true');completed=Boolean(b[0]?.completed_at)}catch{}
-     return reply({available:users===0&&!completed,users,completed,reason:users>0?'This deployment already has accounts, so first-run setup is closed.':'No accounts exist yet.'});
+     const open=admins===0;
+     return reply({available:open,users,admins,completed:!open,reason:open?'No Administrator exists on this deployment, so nobody can reach admin features. Create the first Administrator here. This closes permanently once an Administrator exists.':'An Administrator already exists.'});
    }catch(e){
      // app_users itself may be missing on a database that was never migrated.
-     return reply({available:false,users:0,completed:false,reason:'The database is not initialised yet: '+(e?.message||e)});
+     return reply({available:false,users:0,admins:0,completed:false,reason:'The database is not initialised yet: '+(e?.message||e)});
    }
   }
 
@@ -149,21 +153,34 @@ export async function onRequest(ctx){
    if(password.length<12)return reply({error:'Password must be at least 12 characters'},400);
    if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
    if(await rateLimited(db,request,'BOOTSTRAP',5,"interval '1 hour'"))return reply({error:'Too many attempts. Try again later.'},429);
-   // Re-check inside the transaction boundary: only the very first account wins.
-   const count=await db.query('SELECT count(*)::int AS n FROM app_users');
-   if(Number(count[0]?.n||0)>0)return reply({error:'This deployment already has accounts. Ask an Administrator to change your role.'},409);
-   const salt=hex(random(16)),id=crypto.randomUUID();
-   try{
-     await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)]);
-   }catch(e){
-     if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'That username is taken. Try another.'},409);
-     throw e;
+   // Re-check the Administrator gate inside the route so a second caller cannot
+   // race in an Admin once one has been created.
+   const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true"))[0]?.n||0);
+   if(admins>0)return reply({error:'An Administrator already exists on this deployment. Ask them to change your role.'},409);
+   const existing=await db.query('SELECT id,username,role,salt,password_hash,active FROM app_users WHERE lower(username)=lower($1) LIMIT 1',[name]);
+   if(existing.length){
+     const usr=existing[0];
+     if(!usr.active)return reply({error:'That account is inactive. Ask an Administrator to reactivate it.'},403);
+     const ok=await equal(await pass(password,usr.salt),usr.password_hash);
+     if(!ok)return reply({error:'That username exists and the password did not match. Use a different username, or enter the correct password to promote this account.'},401);
+     if(usr.role==='Admin')return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'That account is already an Administrator.'},200,{'Set-Cookie':await bootstrapLoginSession(db,usr,env)});
+     await db.query("UPDATE app_users SET role='Admin' WHERE id=$1",[usr.id]);
+     const token=await bootstrapLoginSession(db,usr,env);
+     await audit(db,{id:usr.id,username:usr.username,role:'Admin'},'BOOTSTRAP_ADMIN_PROMOTE','Existing account promoted to first Administrator',request);
+     return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
    }
-   const token=hex(random(48));
-   await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
+   const salt=hex(random(16)),id=crypto.randomUUID();
+   await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)]);
+   const token=await bootstrapLoginSession(db,{id,username:name,role:'Admin'},env);
    try{await db.query("UPDATE app_bootstrap SET completed_at=now(),completed_by=$1 WHERE id=true",[name])}catch{}
    await audit(db,{id,username:name,role:'Admin'},'BOOTSTRAP_ADMIN','First Administrator created',request);
-   return reply({ok:true,user:{id,username:name,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':sessionCookie(token,env)});
+   return reply({ok:true,user:{id,username:name,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
+  }
+
+  async function bootstrapLoginSession(db,usr,env){
+   const token=hex(random(48));
+   await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),usr.id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
+   return sessionCookie(token,env);
   }
 
   if(u.pathname==='/api/auth/register'&&request.method==='POST'){
