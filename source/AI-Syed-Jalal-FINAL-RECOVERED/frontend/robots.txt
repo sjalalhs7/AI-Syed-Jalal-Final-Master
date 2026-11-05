@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
 
+# Redirect stubs kept for old links; not content.
+Disallow: /projects.html
+Disallow: /visual-library.html
+Disallow: /404.html
+
 Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
