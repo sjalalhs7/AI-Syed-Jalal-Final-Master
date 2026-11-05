@@ -14,8 +14,9 @@ The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`:
 - `/pagebuilder.html` — one sentence in, a complete single-file HTML page out; sandboxed preview, self-audit, real download.
 - `/arena.html` — blind battles, a prompt library with checkable properties, portable export.
 - `/critic.html` — the graded review of this deployment, from stored evidence.
+- `/guide.html` — **the front door**: one-click preview, live status, and a map of all 15 surfaces.
 
-Release notes: `V141-PAGE-BUILDER-2026-11-05.md` (also `V140-ARENA-TOOLBOX-2026-11-04.md`). Gates: 51 static · 94 server · 80 frontend · 29 browser · self-check 100/100.
+Release notes: `V142-FINAL-2026-11-05.md` (final handoff) · `V141-PAGE-BUILDER-2026-11-05.md` · `V140-ARENA-TOOLBOX-2026-11-04.md`. Gates: 51 static · 102 server · 80 frontend · 32 browser · self-check 100/100 · 21 tables from an empty database.
 
 ## Source lineage
 - V122-MERGED is the larger recovered source base: 9,950 files and 282,418,696 bytes uncompressed in its original archive.
