@@ -25,8 +25,11 @@ test("readiness requires rate-limit, Agent Studio and Arena migrations before de
   assert.ok(source.includes("agent_runs"));
   // V138 adds the expert review evidence table.
   assert.ok(source.includes("expert_reviews"));
-  assert.ok(source.includes("ready:n>=21"));
-  assert.ok(source.includes("n>=21?200:503"));
+  // Readiness is now driven by the shared REQUIRED_TABLES list so the count and
+  // the list can never drift apart; assert the behaviour it must produce.
+  assert.ok(source.includes("REQUIRED_TABLES"), "readiness must use the shared table list");
+  assert.ok(source.includes("ok?200:503"), "readiness must return 503 when incomplete");
+  assert.ok(source.includes("missing"), "readiness must report which tables are missing");
 });
 
 test("chat forwards to the provider-backed AI route, not a canned demo response", () => {
