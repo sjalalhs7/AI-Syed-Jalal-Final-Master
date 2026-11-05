@@ -161,10 +161,11 @@ test('JARVIS: a browser without speech still lets the user type', async ({ page 
 test('JARVIS is reachable from every main surface and the Agent Lab grades it', async ({ page }) => {
   for (const pageName of ['index.html', 'jalalai.html', 'guide.html', 'dashboard.html', 'workspace.html', 'arena.html']) {
     await page.goto('/' + pageName);
-    // Present in the page, not necessarily painted at this viewport: some nav
-    // links are intentionally hidden on narrow screens.
-    await expect(page.locator('a[href="jarvis.html"]')).toHaveCount(1);
-    expect(await page.locator('a[href="jarvis.html"]').first().getAttribute('href')).toBe('jarvis.html');
+    // Reachability is the requirement, not the number of links: the guide map and
+    // a nav entry can both point at JARVIS, and that is correct.
+    const links = page.locator('a[href="jarvis.html"]');
+    await expect(links.first()).toHaveCount(1);
+    expect(await links.count()).toBeGreaterThanOrEqual(1);
   }
   await page.goto('/jalalai.html');
   await page.locator('#demoBtn').click();

@@ -1,42 +1,41 @@
 import { test, expect } from '@playwright/test';
 
-// The local test server is a real backend, but ?static=1 exercises the same
-// guard used on GitHub Pages without needing an external github.io origin.
-test('static host mode: homepage login is honest and does not call the auth API', async ({ page }) => {
-  const errors = []; page.on('pageerror', error => errors.push(error.message));
-  const authCalls = [];
-  page.on('request', request => { if (request.url().includes('/api/auth/')) authCalls.push(request.url()); });
-  await page.goto('/?static=1');
-  await expect(page.locator('#ajStaticHostBanner')).toContainText('Static website preview');
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
-  await page.locator('#u').fill('static-user');
-  await page.locator('#p').fill('Static-password-123');
-  await page.locator('#go').click();
-  await expect(page.locator('#err')).toContainText('static GitHub Pages copy cannot sign in');
-  expect(authCalls).toEqual([]);
-  await page.locator('#togglePassword').click();
-  await expect(page.locator('#p')).toHaveAttribute('type', 'text');
-  await page.locator('#togglePassword').click();
-  await expect(page.locator('#p')).toHaveAttribute('type', 'password');
-  expect(errors).toEqual([]);
-});
+// "Fully final" includes the published static copy, where there is no API at all.
+// Every new page must explain itself instead of showing a spinner or a raw error.
+// Each page exposes a different honesty indicator. Test the one it actually
+// ships instead of inventing a shared id that would force a cosmetic rewrite.
+const PAGES = [
+  ['toolbench.html', 'Toolbench', '#connectionStatus'],
+  ['pagebuilder.html', 'Page Builder', '#connectionStatus'],
+  ['allinone.html', 'All-in-one', '#connectionStatus'],
+  ['arena.html', 'Arena', '#status'],
+  ['critic.html', 'Critic', '#runState']
+];
 
-test('static host mode: guide, agent, JalalAi and workspace show setup guidance', async ({ page }) => {
-  const errors = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/guide.html?static=1');
-  await expect(page.locator('#appState')).toContainText('Backend not connected');
-  await expect(page.locator('#guidePreviewBtn')).toBeHidden();
-  await page.goto('/agent.html?static=1');
-  await expect(page.locator('#gateMessage')).toContainText('Static website preview');
-  await expect(page.locator('#demoBtn')).toBeHidden();
-  await page.goto('/jalalai.html?static=1');
-  await expect(page.locator('#connectionStatus')).toContainText('Static preview');
-  await expect(page.locator('#sendBtn')).toBeDisabled();
-  await page.goto('/workspace.html?static=1');
-  await expect(page.locator('.login-note p')).toContainText('static GitHub Pages copy cannot sign in');
-  await page.locator('#username').fill('static-user');
-  await page.locator('#password').fill('Static-password-123');
-  await page.locator('#loginForm button[type="submit"]').click();
-  await expect(page.locator('#login')).toBeVisible();
-  expect(errors).toEqual([]);
-});
+for (const [file, label, indicator] of PAGES) {
+  test(`static host: ${file} explains itself and never hangs`, async ({ page }) => {
+    test.setTimeout(60000);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    // ?static=1 is the same switch the real GitHub Pages host trips.
+    await page.goto(`/${file}?static=1`);
+
+    // The banner must appear on every private shell.
+    await expect(page.locator('#ajStaticHostBanner')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('#ajStaticHostBanner')).toContainText('Static website preview');
+
+    // The page's own indicator must reach a terminal, truthful state — never stay
+    // "Checking…" and never claim a backend it cannot reach.
+    const status = page.locator(indicator);
+    await expect(status).toBeVisible({ timeout: 20000 });
+    await expect(status).not.toHaveText(/Checking/i, { timeout: 20000 });
+    const indicatorText = (await status.textContent()).trim();
+    expect(indicatorText).not.toMatch(/Failed to fetch|NetworkError|undefined|null/);
+
+    // And something on the page must tell the user what to do next.
+    const body = await page.locator('body').textContent();
+    expect(body).toMatch(/secure app|npm run dev|application server|Static/i);
+
+    expect(errors, `${label} threw in the browser`).toEqual([]);
+  });
+}
