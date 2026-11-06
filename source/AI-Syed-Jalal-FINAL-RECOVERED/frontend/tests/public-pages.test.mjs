@@ -35,7 +35,8 @@ test('sitemap contains only active public pages', () => {
   assert.ok(sitemapUrls.some(url => url.origin === 'https://ai-syed-jalal-live.pages.dev' && url.pathname === '/'));
   assert.ok(sitemap.includes('/roadmaps.html'));
   assert.ok(sitemap.includes('/visual-styles.html'));
-  for (const path of ['projects.html', 'visual-library.html', 'workspace.html', 'dashboard.html']) {
+  for (const path of ['visual-library.html', 'workspace.html', 'dashboard.html']) {
     assert.equal(sitemap.includes(path), false);
   }
+  assert.ok(sitemap.includes('/projects.html'), 'projects.html is a public catalogue page and must be in the sitemap');
 });
