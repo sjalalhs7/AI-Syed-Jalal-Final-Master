@@ -18,13 +18,13 @@ import { AGENT_TOOLS } from './agent-runtime.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
 
 export const REVIEW_DIMENSIONS = Object.freeze([
-  Object.freeze({ id: 'security', label: 'Security & access control', weight: 20 }),
-  Object.freeze({ id: 'reliability', label: 'Reliability & error handling', weight: 15 }),
-  Object.freeze({ id: 'honesty', label: 'Honesty & evidence', weight: 20 }),
-  Object.freeze({ id: 'data', label: 'Data integrity & recovery', weight: 15 }),
-  Object.freeze({ id: 'voice', label: 'Voice & accessibility', weight: 10 }),
-  Object.freeze({ id: 'performance', label: 'Performance & cost control', weight: 10 }),
-  Object.freeze({ id: 'usability', label: 'Usability & documentation', weight: 10 }),
+  Object.freeze({ id: 'security', label: 'Security & access control', weight: 18 }),
+  Object.freeze({ id: 'reliability', label: 'Reliability & error handling', weight: 13 }),
+  Object.freeze({ id: 'honesty', label: 'Honesty & evidence', weight: 17 }),
+  Object.freeze({ id: 'data', label: 'Data integrity & recovery', weight: 13 }),
+  Object.freeze({ id: 'voice', label: 'Voice & accessibility', weight: 8 }),
+  Object.freeze({ id: 'performance', label: 'Performance & cost control', weight: 8 }),
+  Object.freeze({ id: 'usability', label: 'Usability & documentation', weight: 8 }),
   Object.freeze({ id: 'webdev', label: 'Web development craft', weight: 15 })
 ]);
 
