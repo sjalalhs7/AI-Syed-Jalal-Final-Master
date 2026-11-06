@@ -1,8 +1,18 @@
 User-agent: *
 Allow: /
 
-# Redirect stubs kept for old links; not content.
-Disallow: /projects.html
+# Private application shells require sign-in; not for search indexing.
+Disallow: /jalalai.html
+Disallow: /jarvis.html
+Disallow: /dashboard.html
+Disallow: /workspace.html
+Disallow: /critic.html
+Disallow: /agent.html
+Disallow: /arena.html
+Disallow: /agent-lab.html
+Disallow: /allinone.html
+Disallow: /toolbench.html
+Disallow: /pagebuilder.html
 Disallow: /visual-library.html
 Disallow: /404.html
 

@@ -131,9 +131,10 @@
   async function runReview() {
     $('runBtn').disabled = true;
     setState('Reviewing…');
-    message('Reading stored evidence: audit events, agent runs, self-checks, Arena responses and shipped surfaces.');
+    const role = $('reviewRole').value;
+    message('Reading stored evidence: audit events, agent runs, self-checks, Arena responses and shipped surfaces.' + (role === 'web-developer' ? ' Web-developer craft dimension included.' : ''));
     try {
-      const data = await api('/assistant/critic/review', { method: 'POST', body: '{}' });
+      const data = await api('/assistant/critic/review', { method: 'POST', body: JSON.stringify({ reviewRole: role }) });
       setState(`Reviewed · ${data.findings.length} finding(s)`, data.verdict);
       message(`Review ${data.id ? 'stored as ' + data.id.slice(0, 8) : 'produced (not stored)'} in ${data.durationMs} ms. ${data.simulated === false ? 'Deterministic engine, no model call.' : ''}`);
       show(data);

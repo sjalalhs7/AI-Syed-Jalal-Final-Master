@@ -13,7 +13,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
+    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 8, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
   }
   // V139 — all-in-one panel: every specialist that can serve the prompt, with
   // the reason each was chosen. No provider key required, no hidden model call.
@@ -78,9 +78,11 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
   // V138 — expert review. Stored evidence only: every finding cites what it read.
   if (path === '/api/assistant/critic/review' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
+    const body = await readBody(request);
+    const reviewRole = String(body.reviewRole || 'general');
     const pages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html', 'refactor-plan.html']
       .map(file => ({ file, exists: true, closesHtml: true }));
-    const review = await runReview({ db, me, env, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } });
+    const review = await runReview({ db, me, env: { ...env, reviewRole }, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } });
     const id = crypto.randomUUID();
     try {
       await db.query('INSERT INTO expert_reviews(id,user_id,mode,score,verdict,dimensions,findings,counts,duration_ms) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9)',
