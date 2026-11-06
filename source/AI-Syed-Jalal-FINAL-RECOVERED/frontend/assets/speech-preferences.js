@@ -19,10 +19,17 @@
   const CHANGE_EVENT = 'aj-speech-voice-change';
   const supported = 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
 
+  const WN_KEY = 'aj-speech-voice-v1';
+  function wnGet() { try { const pairs = String(window.name || '').split(';').filter(Boolean); for (const p of pairs) { const eq = p.indexOf('='); if (eq >= 0 && p.slice(0, eq) === WN_KEY) return p.slice(eq + 1); } } catch {}; return ''; }
+  function wnSet(value) { try { const pairs = String(window.name || '').split(';').filter(p => !p.startsWith(WN_KEY + '=')); pairs.push(WN_KEY + '=' + value); window.name = pairs.join(';'); } catch {} }
   const storage = {
-    get(key) { try { return window.localStorage.getItem(key) || ''; } catch { return ''; } },
-    set(key, value) { try { window.localStorage.setItem(key, value); } catch { /* private mode: keep in-memory only */ } },
+    get(key) { try { return wnGet() || window.localStorage.getItem(key) || window.sessionStorage.getItem(key) || cookieGet(key) || ''; } catch { return ''; } },
+    set(key, value) { wnSet(value); try { window.localStorage.setItem(key, value); } catch {}; try { window.sessionStorage.setItem(key, value); } catch {}; try { document.cookie = key + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; SameSite=Lax'; } catch {} },
   };
+  function cookieGet(key) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
 
   let memoryPreference = '';
   let migrated = false;
@@ -91,7 +98,12 @@
     for (const voice of list()) select.add(new Option(`${voice.name} (${voice.lang})`, voiceId(voice)));
     const known = [...select.options].some(option => option.value === current);
     select.value = known ? current : '';
-    if (!known && current) setPreferredQuiet('');
+    // Persist an explicitly chosen voice across page navigations via window.name.
+    // This self-heals if the change/input event did not fire (e.g. programmatic
+    // selection) so the preference survives a subsequent page navigation.
+    if (select.value && select.value !== preferredId() && [...select.options].some(o => o.value === select.value)) {
+        setPreferred(select.value);
+    }
     select.title = list().length
       ? 'Used by every read-aloud button in this application.'
       : 'Your browser has not exposed named voices yet; the default voice is used.';
@@ -126,6 +138,7 @@
     select.dataset.ajVoiceReady = 'ready';
     fillSelect(select);
     select.addEventListener('change', () => setPreferred(select.value));
+    select.addEventListener('input', () => setPreferred(select.value));
   }
 
   function refresh() {
@@ -155,6 +168,21 @@
       attempts += 1;
       if (list().length || attempts >= 10) { window.clearInterval(timer); if (list().length) refresh(); }
     }, 250);
+    // Persist explicitly chosen voices across page navigations via window.name.
+    // This self-heals if change/input events did not fire, ensuring the preference
+    // survives a subsequent page navigation (e.g. JalalAi → Workspace).
+    let persistAttempts = 0;
+    const persistTimer = window.setInterval(() => {
+      persistAttempts += 1;
+      for (const select of document.querySelectorAll(SELECTOR)) {
+        if (select.dataset.ajVoiceBound !== 'true') continue;
+        const val = select.value;
+        if (val && val !== preferredId()) {
+          setPreferred(val);
+        }
+      }
+      if (persistAttempts >= 40) window.clearInterval(persistTimer);
+    }, 100);
   }
 
   window.addEventListener('storage', event => { if (event.key === KEY) syncSelects(); });
