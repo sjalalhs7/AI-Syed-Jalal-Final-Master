@@ -14,11 +14,20 @@ test('private application pages are excluded from search indexing', () => {
   assert.ok(dashboard.includes('name="robots" content="noindex,nofollow"'));
 });
 
-test('retired project and duplicate library pages redirect to active destinations', () => {
-  assert.ok(projects.includes("location.replace('dashboard.html')"));
+test('retired duplicate library pages redirect to active destinations', () => {
   assert.ok(visualLibrary.includes("location.replace('visual-styles.html')"));
-  assert.ok(projects.includes('noindex,follow'));
   assert.ok(visualLibrary.includes('noindex,follow'));
+});
+
+test('projects page is a real catalogue page', () => {
+  assert.ok(projects.includes('<title>Projects — AI-Syed Jalal Control Center</title>'));
+  assert.ok(projects.includes('Superpower OpenGPT OmniRoute'));
+  assert.ok(projects.includes('UX/UI Pro Max'));
+  assert.ok(projects.includes('Expert Critic — Web Developer'));
+  assert.ok(projects.includes('Awesome LLM Apps'));
+  assert.ok(projects.includes('AgentScope'));
+  assert.ok(projects.includes('OpenEMR'));
+  assert.ok(!projects.includes('location.replace'), 'projects.html must not be a redirect');
 });
 
 test('sitemap contains only active public pages', () => {

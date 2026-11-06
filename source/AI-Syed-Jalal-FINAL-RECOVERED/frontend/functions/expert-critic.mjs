@@ -24,7 +24,8 @@ export const REVIEW_DIMENSIONS = Object.freeze([
   Object.freeze({ id: 'data', label: 'Data integrity & recovery', weight: 15 }),
   Object.freeze({ id: 'voice', label: 'Voice & accessibility', weight: 10 }),
   Object.freeze({ id: 'performance', label: 'Performance & cost control', weight: 10 }),
-  Object.freeze({ id: 'usability', label: 'Usability & documentation', weight: 10 })
+  Object.freeze({ id: 'usability', label: 'Usability & documentation', weight: 10 }),
+  Object.freeze({ id: 'webdev', label: 'Web development craft', weight: 15 })
 ]);
 
 export const SEVERITIES = Object.freeze(['blocker', 'critical', 'major', 'minor', 'observation']);
@@ -354,6 +355,59 @@ export async function runReview(context) {
       observations.push('This review is published as a page, so the verdict is visible to the people who use the product.');
     }
     push(REVIEW_DIMENSIONS[6], { score, evidenced: missing.length === 0, observations, findings: dimensionFindings });
+  }
+
+  /* ---------------- web development craft ---------------- */
+  {
+    const observations = [], dimensionFindings = [];
+    const isWeb = me.role === 'web-developer' || (env.reviewRole && env.reviewRole === 'web-developer');
+    let score = 40;
+    const requiredPages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html'];
+    const missing = requiredPages.filter(file => !pages.some(page => page.file === file && page.exists));
+    observations.push(`${requiredPages.length - missing.length} of ${requiredPages.length} primary pages are shipped.`);
+    if (missing.length) {
+      dimensionFindings.push(finding({
+        dimension: 'webdev', severity: 'major',
+        title: 'A primary page is missing',
+        evidence: `Not shipped: ${missing.join(', ')}.`,
+        fix: 'Ship the page or remove the navigation entry that promises it.'
+      }));
+    } else {
+      score += 20;
+      observations.push('Every navigation target exists, so no menu item leads to a 404.');
+    }
+    const svgIcons = pages.some(page => page.file === 'approved-sj-rainbow-crown.svg');
+    if (svgIcons) {
+      score += 10;
+      observations.push('The SJ crown identity SVG is shipped for brand consistency.');
+    } else {
+      observations.push('No identity SVG was found in the page inventory.');
+    }
+    const hasCritic = pages.some(page => page.file === 'critic.html');
+    if (hasCritic) {
+      score += 15;
+      observations.push('The Expert Critic page is shipped, so quality is visible to anyone using the product.');
+    } else {
+      dimensionFindings.push(finding({
+        dimension: 'webdev', severity: 'minor',
+        title: 'No published review surface',
+        evidence: 'critic.html is not part of the shipped inventory.',
+        fix: 'Publish the critic page so the verdict is visible, not hidden.'
+      }));
+    }
+    const hasGuide = pages.some(page => page.file === 'guide.html');
+    if (hasGuide) {
+      score += 15;
+      observations.push('A getting-started guide exists, which lowers the cost of first use.');
+    } else {
+      dimensionFindings.push(finding({
+        dimension: 'webdev', severity: 'minor',
+        title: 'No getting-started guide',
+        evidence: 'guide.html is not part of the shipped inventory.',
+        fix: 'Ship a guide so new users are not left to discover the product alone.'
+      }));
+    }
+    push(REVIEW_DIMENSIONS[7], { score, evidenced: missing.length === 0 && hasCritic, observations, findings: dimensionFindings });
   }
 
   /* ---------------- verdict ---------------- */
