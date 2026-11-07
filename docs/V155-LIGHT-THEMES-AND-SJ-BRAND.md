@@ -4,7 +4,7 @@
 
 This update is a presentation-layer change. It does **not** create a second database, copy accounts, migrate records, delete data or alter API endpoints. The Android Trusted Web Activity continues to open `https://ai-syed-jalal-live.pages.dev/`, the same origin used by the website. The previous production readiness finding (13 of 24 required table names present when last checked) is a separate issue; this visual update does not repair or verify that database.
 
-Six light styles—glass, water, clay, ice, fire and rainbow—share one local selection (`aj-site-theme-v2`). The first visit can read a valid earlier theme preference without deleting or changing the old keys. The preference lives in browser/app storage, so a different browser, private session, device or isolated app installation may have its own choice. Account and record storage remains as before. Reduced-motion settings disable the added decorative animation. Colours, contrast, layouts and browser interactions were checked with automated tests, but still need review on real devices.
+Six light styles—glass, water, clay, ice, fire and rainbow—share one local selection (`aj-site-theme-v2`). The first visit can read a valid earlier theme preference without deleting or changing the old keys. The preference lives in browser/app storage, so a different browser, private session, device or isolated app installation may have its own choice. Account and record storage remains as before. Service-worker cleanup removes only older `aj-v` shell caches, not unrelated origin caches. Reduced-motion settings disable the added decorative animation. Colours, contrast, layouts and browser interactions were checked with automated tests, but still need review on real devices.
 
 ## Branding and install surfaces
 

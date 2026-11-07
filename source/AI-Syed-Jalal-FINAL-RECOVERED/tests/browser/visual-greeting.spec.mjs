@@ -203,3 +203,16 @@ test('maskable SJ artwork stays inside Android’s 80 percent safe circle', asyn
   }, { actual:png.toString('base64'), expected:plainTile.toString('base64') });
   expect(outside).toBe(0);
 });
+
+test('the updated service worker keeps unrelated origin caches', async ({ page }) => {
+  // Open a same-origin static asset before any page registers the worker.
+  await page.goto('/assets/visual-theme.js');
+  await page.evaluate(async () => { await caches.open('other-app-test-cache'); await caches.open('aj-v154-shell'); });
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:20000 }).toBe(true);
+  const names = await page.evaluate(() => caches.keys());
+  expect(names).toContain('other-app-test-cache');
+  expect(names).not.toContain('aj-v154-shell');
+  expect(names).toContain('aj-v155-light-shell');
+});
