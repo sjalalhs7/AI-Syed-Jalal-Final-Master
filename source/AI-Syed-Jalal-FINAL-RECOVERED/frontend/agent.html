@@ -12,7 +12,7 @@
 <title>SJ Agent Studio — Unified AI Platform</title>
 <meta name="description" content="SJ Agent Studio: direct chat, bounded agent workflows, side-by-side model comparison, files, voice and conversation history in one professional workspace.">
 <link rel="stylesheet" href="assets/agent.css">
-<script src="assets/agent.js" defer></script>
+<link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="agent" defer></script><script src="assets/agent.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#composer">Skip to composer</a>
@@ -131,7 +131,7 @@
       <a href="workspace.html#admin">🛡 Admin & diagnostics</a>
     </div></section>
     <section><h3>Read-aloud voice</h3><div class="voice-field"><label for="agentVoice">Browser voice</label><select id="agentVoice" data-aj-voice><option value="">System default</option></select></div><p class="hint">Shared with JalalAi and the Workspace. Replies are spoken by your browser's speech engine, which may be online.</p></section><section><h3>Engine status</h3><ul class="provider-list" id="providerList"></ul><p class="hint">A configured key does not guarantee a successful live provider call. Unconfigured cloud engines return an honest setup message.</p></section>
-    <section><h3>Privacy</h3><p class="hint" id="privacyNote">History is saved to your account when enabled. Turn it off for transient chat. Cloud prompts are sent to the selected provider; provider terms apply.</p></section>
+    <section><h3>Privacy</h3><p class="hint" id="privacyNote">History is saved to your account when enabled. Turn it off for transient chat. A report you choose to submit is stored for administrator review even when history is off. Cloud prompts are sent to the selected provider; provider terms apply.</p></section>
   </aside>
 </div>
 </body>

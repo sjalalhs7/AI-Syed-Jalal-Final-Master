@@ -96,5 +96,5 @@ test('the brand assets are precached so an installed app still shows its logo of
   for (const file of ['./assets/brand/sjs-logo.svg', './assets/brand/sjs-compact.svg', './assets/brand/favicon.svg', './assets/app-icons/icon-512.png']) {
     assert.ok(sw.includes(file), `${file} is not precached`);
   }
-  assert.ok(sw.includes("const CACHE='aj-v153-shell'"), 'the cache must be bumped when the brand changes');
+  assert.ok(sw.includes("const CACHE='aj-v154-shell'"), 'the cache must be bumped when the brand changes');
 });

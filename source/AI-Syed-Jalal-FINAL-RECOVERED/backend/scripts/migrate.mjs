@@ -16,7 +16,7 @@ if(!process.env.DATABASE_URL){
     'then run:',
     '  DATABASE_URL="postgresql://..." npm run db:migrate',
     '',
-    'This creates the 21 tables the app checks for on /api/ready.'
+    'This applies the bundled schema and migrations; /api/ready checks required table names.'
   ].join('\n'));
   process.exit(1);
 }

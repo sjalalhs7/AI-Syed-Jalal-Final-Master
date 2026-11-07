@@ -219,7 +219,7 @@
       const actions = document.createElement('div'); actions.className = 'message-actions';
       const repeat = document.createElement('button'); repeat.type = 'button'; repeat.className = 'btn small'; repeat.textContent = 'Speak again';
       repeat.onclick = () => { if (busy) return; endConversation(); stopListening(); speak(text); };
-      actions.appendChild(repeat); node.appendChild(actions);
+      actions.appendChild(repeat); if (window.AJReport) actions.appendChild(window.AJReport.button(text, 'jarvis')); node.appendChild(actions);
     }
     $('chatlog').appendChild(node); $('chatlog').scrollTop = $('chatlog').scrollHeight;
     updateControls(); return node;

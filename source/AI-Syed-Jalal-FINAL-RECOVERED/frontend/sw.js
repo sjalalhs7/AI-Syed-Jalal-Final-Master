@@ -1,4 +1,4 @@
-const CACHE='aj-v153-shell';
+const CACHE='aj-v154-shell';
 const ASSETS=['./','./index.html','./guide.html','./capabilities.html','./protocol.html','./assets/guide.js','./assets/guide.css','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./assets/pwa-surfaces.css','./assets/pwa-handlers.js','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js','./assets/agent.js','./assets/agent.css','./assets/host-mode.js','./assets/speech-preferences.js','./assets/app-icons/icon-192.png','./assets/app-icons/icon-512.png','./assets/app-icons/icon-maskable-512.png','./assets/app-icons/apple-touch-icon-180.png','./assets/brand/sjs-logo.svg','./assets/brand/sjs-compact.svg','./assets/brand/favicon.svg','./widgets/widget-data.json','./widgets/new-note-template.json'];
 
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));

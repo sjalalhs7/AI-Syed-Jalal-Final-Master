@@ -24,8 +24,9 @@ test('retired project and duplicate library pages redirect to active destination
 test('sitemap contains only active public pages', () => {
   const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, value]) => new URL(value));
   assert.ok(sitemapUrls.some(url => url.origin === 'https://ai-syed-jalal-live.pages.dev' && url.pathname === '/'));
-  assert.ok(sitemap.includes('/roadmaps.html'));
-  assert.ok(sitemap.includes('/visual-styles.html'));
+  assert.ok(sitemap.includes('/roadmaps</loc>'));
+  assert.ok(sitemap.includes('/visual-styles</loc>'));
+  assert.ok(sitemap.includes('/about-jarvis</loc>'));
   for (const path of ['projects.html', 'visual-library.html', 'workspace.html', 'dashboard.html']) {
     assert.equal(sitemap.includes(path), false);
   }

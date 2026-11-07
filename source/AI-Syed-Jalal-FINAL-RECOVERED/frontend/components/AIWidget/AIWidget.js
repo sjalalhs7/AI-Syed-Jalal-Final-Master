@@ -73,6 +73,7 @@ class AIWidget extends HTMLElement {
       }
       if (!response.ok) throw new Error(data.error || 'Chat failed');
       reply.textContent = data.output || 'No reply.';
+      if (window.AJReport && data.output) { const report = window.AJReport.button(data.output); report.style.marginLeft = '8px'; reply.parentNode.appendChild(report); }
       if (data.action) {
         const confirm = document.createElement('button'); confirm.type = 'button'; confirm.textContent = 'Confirm & save'; confirm.style.marginLeft = '8px';
         confirm.onclick = async () => { confirm.disabled = true; try { const saved = await fetch(new URL('/api/assistant/confirm', API.chat()), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfData.token }, body: JSON.stringify({ confirmed: true, action: data.action }) }); const result = await saved.json(); if (!saved.ok) throw new Error(result.error || 'Save failed'); reply.textContent = result.output; confirm.remove(); } catch (error) { reply.textContent = error.message; confirm.disabled = false; } };

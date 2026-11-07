@@ -122,10 +122,12 @@ export async function applySchemaRepair(db) {
   const after = await tableList(db);
   const missing = REQUIRED_TABLES.filter(t => !after.includes(t));
   return {
-    ok: missing.length === 0,
-    changed: missingBefore.length > 0,
-    before: before.length,
-    after: after.length,
+    // Table existence alone cannot hide a failed migration (for example a
+    // missing column or index). Never call a partial run successful.
+    ok: missing.length === 0 && failed.length === 0,
+    changed: missingBefore.some(name => !missing.includes(name)),
+    before: REQUIRED_TABLES.length - missingBefore.length,
+    after: REQUIRED_TABLES.length - missing.length,
     required: REQUIRED_TABLES.length,
     missingBefore,
     missing,

@@ -55,6 +55,11 @@ def create() -> None:
     missing = [path.as_posix() for path in required if path not in files]
     if missing:
         raise SystemExit('Stage intended new files first; missing: ' + ', '.join(missing))
+    # This is a historical V153 packager, not a generic current-release tool.
+    # Check before writing either archive so a later cache version cannot leave
+    # a partially overwritten/mislabelled V153 source package behind.
+    if (ROOT / FRONTEND / 'sw.js').read_bytes().count(b"const CACHE='aj-v153-shell';") != 1:
+        raise SystemExit('V153 packaging requires V153 source; use a current-release packager for newer source.')
     OUT.mkdir(exist_ok=True)
     source_file = OUT / 'AI-Syed-Jalal-FINAL-V153-source.zip'
     website_file = OUT / 'AI-Syed-Jalal-Website-V153-SJS-static.zip'

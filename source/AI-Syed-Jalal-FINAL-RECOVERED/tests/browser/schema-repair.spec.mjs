@@ -64,6 +64,7 @@ test('admin repairs an incomplete schema from the Operations Center', async ({ p
   // The button must not be offered to non-admins.
   const repairBtn = page.locator('#schemaRepairBtn');
   await expect(repairBtn).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
   await repairBtn.click();
 
   // It must send the explicit confirmation token, never a bare POST.
@@ -71,8 +72,36 @@ test('admin repairs an incomplete schema from the Operations Center', async ({ p
   expect(repairCalled).toEqual({ confirm: 'apply-schema-repair' });
 
   await expect(page.locator('#schemaRepairResult')).toContainText('21 of 21');
-  await expect(page.locator('#schemaRepairTag')).toHaveText('COMPLETE');
+  await expect(page.locator('#schemaRepairTag')).toHaveText('TABLES PRESENT');
   await expect(repairBtn).toBeHidden();
 
   expect(errors).toEqual([]);
+});
+
+test('repair requires user confirmation and reports partial migration failures', async ({ page }) => {
+  await page.goto('/jalalai.html');
+  await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.route('**/api/ready', route => route.fulfill({ status: 503, contentType: 'application/json',
+    body: JSON.stringify({ ready: false, schemaTables: 13, required: 23, missing: ['agent_runs'], summary: 'One table is missing.' }) }));
+  let calls = 0;
+  await page.route('**/api/admin/schema/repair', route => {
+    calls++;
+    return route.fulfill({ status: 207, contentType: 'application/json',
+      body: JSON.stringify({ ok: false, before: 13, after: 23, required: 23, missing: [], failed: [{ part: 'schema.sql', error: 'index failed' }] }) });
+  });
+  await page.goto('/workspace.html#operations');
+  await page.locator('.side [data-nav="operations"]').click();
+  const button = page.locator('#schemaRepairBtn');
+  await expect(button).toBeVisible();
+  page.once('dialog', dialog => dialog.dismiss());
+  await button.click();
+  await expect(page.locator('#schemaRepairResult')).toContainText('Cancelled');
+  expect(calls).toBe(0);
+  page.once('dialog', dialog => dialog.accept());
+  await button.click();
+  await expect(page.locator('#schemaRepairResult')).toContainText('Repair incomplete');
+  await expect(page.locator('#schemaRepairResult')).toContainText('index failed');
+  await expect(page.locator('#schemaRepairTag')).toHaveText('REVIEW REQUIRED');
+  expect(calls).toBe(1);
 });
