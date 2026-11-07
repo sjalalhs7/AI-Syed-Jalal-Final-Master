@@ -64,7 +64,7 @@ test('quick-start guide, one-click preview and assistant record search', async (
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/guide.html');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(page.locator('#appState')).toContainText('Ready');
+  await expect(page.locator('#appState')).toContainText('required table names');
   await expect(page.locator('#cloudState')).toContainText('Not configured');
   await page.locator('#guidePreviewBtn').click();
   await expect(page).toHaveURL(/agent\.html/);

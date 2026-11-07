@@ -11,3 +11,20 @@ node_modules/
 .data/
 test-results/
 playwright-report/
+
+# Database backups may contain private records and provider secrets. Do not put
+# backups in this repository; these patterns only reduce accidental staging.
+backups/
+*.dump
+*.dump.*
+*.backup
+*.backup.*
+*.pgdump
+
+# Local deployment and PostgreSQL authentication files are not project assets.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.pgpass
+.pg_service.conf
