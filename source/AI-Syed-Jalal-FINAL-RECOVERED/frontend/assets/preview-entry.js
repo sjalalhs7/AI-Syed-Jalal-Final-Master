@@ -11,9 +11,9 @@
       const button = document.createElement('button'); button.type = 'button'; button.id = 'previewAccessBtn'; button.className = 'btn'; button.style.cssText = 'width:100%;margin-top:12px'; button.textContent = 'Try the local preview';
       const note = document.createElement('p'); note.className = 'muted'; note.style.cssText = 'font-size:12px;margin-top:8px'; note.textContent = 'Disposable shared sandbox: use test data only. No production data or credentials are used. Other sandbox testers may see shared records.';
       button.onclick = async () => {
-        if (window.workspaceReady) await window.workspaceReady;
         button.disabled = true; button.textContent = 'Preparing your preview…';
         try {
+          if (window.workspaceReady) await window.workspaceReady;
           let csrf = '';
           if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); csrf = session.csrfToken || ''; }
           const response = await fetch('/api/demo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: '{}' });
@@ -22,7 +22,7 @@
             if (typeof window.AJNavigateAfterSignIn === 'function') window.AJNavigateAfterSignIn();
             else location.href = 'dashboard.html';
           }
-        } catch (error) { note.textContent = error.message; note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
+        } catch (error) { note.textContent = error?.name === 'TimeoutError' ? 'The workspace session check timed out. Check your connection, then reload this page.' : (error?.message || 'Preview could not start.'); note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
       };
       form.append(button, note);
     }).catch(() => {});

@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v159-backup-safety'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v160-polish'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -248,7 +248,77 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).toContain('other-app-test-cache');
   expect(names).not.toContain('aj-v156-jarvis-welcome');
   expect(names).not.toContain('aj-v157-selected-voice');
-  expect(names).toContain('aj-v159-backup-safety');
+  expect(names).toContain('aj-v160-polish');
   expect(await page.evaluate(async () => (await (await caches.open('other-app-test-cache')).match('/other-app-data')).text())).toBe('preserve this');
   expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
+});
+
+test('greeting and theme controls remain readable without horizontal overflow', async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await expect(page.locator('.aj-welcome .aj-durood')).toContainText(durood);
+    const metrics = await page.evaluate(() => ({
+      greeting: parseFloat(getComputedStyle(document.querySelector('.aj-welcome-copy > p')).fontSize),
+      durood: parseFloat(getComputedStyle(document.querySelector('.aj-durood')).fontSize),
+      status: parseFloat(getComputedStyle(document.querySelector('#aj-welcome-status')).fontSize),
+      buttonHeight: document.querySelector('#aj-welcome-play').getBoundingClientRect().height,
+      descriptions: [...document.querySelectorAll('#homepage-theme-controls .aj-choice-copy small')].map(el => parseFloat(getComputedStyle(el).fontSize)),
+      choicesFit: [...document.querySelectorAll('#homepage-theme-controls .aj-theme-choice')].every(el => el.scrollWidth <= el.clientWidth + 1),
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    }));
+    expect(metrics.greeting).toBeGreaterThanOrEqual(12);
+    expect(metrics.durood).toBeGreaterThanOrEqual(12);
+    expect(metrics.status).toBeGreaterThanOrEqual(12);
+    expect(metrics.buttonHeight).toBeGreaterThanOrEqual(40);
+    expect(metrics.descriptions).toHaveLength(6);
+    expect(metrics.descriptions.every(size => size >= 11)).toBe(true);
+    expect(metrics.choicesFit).toBe(true);
+    expect(metrics.pageWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+  }
+});
+
+test('homepage content keeps a readable gutter and the dashboard link is unobscured', async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+    for (const selector of ['#agents', '#platform', '#security']) {
+      const box = await page.locator(selector).boundingBox();
+      expect(box.x, `${selector} left gutter at ${viewport.width}px`).toBeGreaterThanOrEqual(12);
+      expect(viewport.width - (box.x + box.width), `${selector} right gutter at ${viewport.width}px`).toBeGreaterThanOrEqual(12);
+    }
+    const link = page.locator('.cp-top a');
+    const badge = page.locator('.aj-scene-badge.top');
+    const [a, b] = await Promise.all([link.boundingBox(), badge.boundingBox()]);
+    const overlaps = a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    expect(overlaps, `decorative badge overlaps the dashboard link at ${viewport.width}px`).toBe(false);
+    await link.click({ trial: true });
+  }
+});
+
+test('homepage header controls fit and remain legible at responsive breakpoints', async ({ page }) => {
+  await page.goto('/');
+  for (const width of [320, 390, 760, 761, 1100, 1200, 1201, 1280]) {
+    await page.setViewportSize({ width, height:900 });
+    const metrics = await page.evaluate(() => {
+      const button = document.querySelector('#start');
+      const range = document.createRange();
+      range.selectNodeContents(button);
+      const bounds = [...document.querySelectorAll('.nav > .btn')].map(el => {
+        const r = el.getBoundingClientRect();
+        return { left:r.left, right:r.right };
+      });
+      const tagline = document.querySelector('.nav .brand small');
+      return { lines:range.getClientRects().length, bounds,
+        pageWidth:document.documentElement.scrollWidth, viewportWidth:document.documentElement.clientWidth,
+        taglineVisible:getComputedStyle(tagline).display !== 'none', taglineSize:parseFloat(getComputedStyle(tagline).fontSize) };
+    });
+    expect(metrics.lines, `Get Started should not wrap at ${width}px`).toBe(1);
+    expect(metrics.bounds.every(({left,right}) => left >= 0 && right <= width)).toBe(true);
+    expect(metrics.pageWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    if (metrics.taglineVisible) expect(metrics.taglineSize).toBeGreaterThanOrEqual(11);
+  }
+  await expect(page.locator('.cp-heading h2')).toHaveText('Command Center');
 });

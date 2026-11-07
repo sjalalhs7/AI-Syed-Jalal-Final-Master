@@ -62,7 +62,9 @@ test('installed guide uses the new safety script offline without claiming a live
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:20000 }).toBe(true);
-  expect(await page.evaluate(async () => Boolean(await caches.match('/assets/guide.js?v=159')))).toBe(true);
+  for (const asset of ['/assets/guide.js?v=159', '/assets/guide.css?v=160', '/assets/visual-system.css?v=160', '/assets/preview-entry.js?v=160']) {
+    expect(await page.evaluate(async url => Boolean(await caches.match(url)), asset), `${asset} is precached`).toBe(true);
+  }
   // Cloudflare redirects .html to this extensionless URL. It must work on the
   // first offline visit, not only after an online navigation cached it.
   await context.setOffline(true);
@@ -74,4 +76,35 @@ test('installed guide uses the new safety script offline without claiming a live
     await page.goto('/guide.html');
     await expect(page.locator('#guideStatus')).toContainText('health unavailable');
   } finally { await context.setOffline(false); }
+});
+
+test('guide command cards stay readable in every theme on desktop and mobile', async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/guide.html');
+    for (const theme of ['glass', 'water', 'clay', 'ice', 'fire', 'rainbow']) {
+      await page.evaluate(name => window.AJTheme.select(name), theme);
+      const sample = await page.locator('.guide-commands a').first().evaluate(link => {
+        const channels = css => css.match(/[\d.]+/g).slice(0, 3).map(Number);
+        const luminance = css => {
+          const rgb = channels(css).map(n => { const x = n / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+          return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        };
+        const background = getComputedStyle(link).backgroundColor;
+        const contrast = selector => {
+          const text = getComputedStyle(link.querySelector(selector)).color;
+          const a = luminance(text), b = luminance(background);
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        };
+        return { code: contrast('code'), description: contrast('span'), noteSize: parseFloat(getComputedStyle(document.querySelector('#sandboxNote')).fontSize),
+          transition: getComputedStyle(link).transitionDuration,
+          pageWidth: document.documentElement.scrollWidth, viewportWidth: document.documentElement.clientWidth };
+      });
+      expect(sample.code, `${theme} title contrast at ${viewport.width}px`).toBeGreaterThanOrEqual(4.5);
+      expect(sample.description, `${theme} description contrast at ${viewport.width}px`).toBeGreaterThanOrEqual(4.5);
+      expect(sample.noteSize, 'sandbox warning text size').toBeGreaterThanOrEqual(12);
+      expect(sample.transition, 'reduced-motion preference').toBe('0s');
+      expect(sample.pageWidth).toBeLessThanOrEqual(sample.viewportWidth + 1);
+    }
+  }
 });

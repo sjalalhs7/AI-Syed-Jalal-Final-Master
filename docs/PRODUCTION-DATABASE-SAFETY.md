@@ -120,8 +120,13 @@ later parts may still be attempted. The bundle also alters constraints and may
 insert a bootstrap row. Its limited destructive-statement check is not a backup,
 a transaction, or a guarantee that production data is safe.
 
-If a repair reports any failed migrations or an unexpected state, stop and
-review it with the database owner; do not blindly retry or overwrite production.
+If a repair reports any failed migrations, an error or an uncertain outcome,
+stop and review it with the database owner; do not blindly retry or overwrite
+production. A browser timeout only stops waiting; it does not establish that the
+server-side operation stopped. Workspace keeps a review warning and hides the
+repair button for the current page after such a result, but this is not a
+permanent lock: a page reload clears it and the API does not verify backup or
+rehearsal claims. Review the database before considering another attempt.
 After an approved successful operation, check `/api/ready` and the Admin
 Diagnostics count, then independently inspect migrations, columns and indexes
 and exercise affected features with approved safe test data. **24 of 24 table
