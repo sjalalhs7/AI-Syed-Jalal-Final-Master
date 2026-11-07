@@ -82,6 +82,35 @@ export async function onRequest(ctx){
    const x=await readBody(request);
    const provider=String(x.provider||'').toLowerCase();
    if(!PROVIDER_IDS.includes(provider))return reply({error:'Unknown provider. Choose one of: '+PROVIDER_IDS.join(', ')},400);
+   // Test mode: send a live prompt to the provider to verify the key works
+   if(x.test===true){
+     const stored=await storedKeysSafe(db);
+     const key=stored[provider]||x.key||env[provider.toUpperCase()+'_API_KEY']||'';
+     if(!key)return reply({error:'No key configured for '+provider+'. Save a key first.'},400);
+     try{
+       let result='';
+       if(provider==='gemini'){
+         const up=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(x.model||'gemini-2.5-flash')+':generateContent',{method:'POST',headers:{'x-goog-api-key':key,'content-type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:x.prompt||'Hello'}]}],generationConfig:{maxOutputTokens:200}}),signal:AbortSignal.timeout(30000)});
+         if(!up.ok)return reply({ok:false,error:'Gemini API error: HTTP '+up.status},400);
+         const d=await up.json();result=(d.candidates?.[0]?.content?.parts||[]).map(z=>z.text||'').join('\n')||'No output';
+       }else if(provider==='openai'){
+         const up=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+key,'content-type':'application/json'},body:JSON.stringify({model:x.model||'gpt-4o-mini',messages:[{role:'user',content:x.prompt||'Hello'}],max_tokens:200}),signal:AbortSignal.timeout(30000)});
+         if(!up.ok)return reply({ok:false,error:'OpenAI API error: HTTP '+up.status},400);
+         const d=await up.json();result=d.choices?.[0]?.message?.content||'No output';
+       }else if(provider==='anthropic'){
+         const up=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json'},body:JSON.stringify({model:x.model||'claude-3-5-haiku-latest',max_tokens:200,messages:[{role:'user',content:x.prompt||'Hello'}]}),signal:AbortSignal.timeout(30000)});
+         if(!up.ok)return reply({ok:false,error:'Anthropic API error: HTTP '+up.status},400);
+         const d=await up.json();result=(d.content||[]).filter(z=>z.type==='text').map(z=>z.text||'').join('\n')||'No output';
+       }else if(provider==='deepseek'){
+         const up=await fetch('https://api.deepseek.com/chat/completions',{method:'POST',headers:{authorization:'Bearer '+key,'content-type':'application/json'},body:JSON.stringify({model:x.model||'deepseek-chat',messages:[{role:'user',content:x.prompt||'Hello'}],max_tokens:200}),signal:AbortSignal.timeout(30000)});
+         if(!up.ok)return reply({ok:false,error:'DeepSeek API error: HTTP '+up.status},400);
+         const d=await up.json();result=d.choices?.[0]?.message?.content||'No output';
+       }else if(provider==='elevenlabs'){
+         return reply({ok:true,note:'ElevenLabs key saved. Test by using the Read aloud button in JalalAi, Workspace or JARVIS voice.'});
+       }
+       return reply({ok:true,provider:provider,output:result,note:'Live provider call succeeded. Key is working.'});
+     }catch(e){return reply({ok:false,error:'Provider test failed: '+String(e.message||e)},500);}
+   }
    const stored=await storedKeysSafe(db);
    if(x.remove===true){
      delete stored[provider];
