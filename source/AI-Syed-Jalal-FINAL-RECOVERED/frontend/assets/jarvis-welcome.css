@@ -1,0 +1,58 @@
+/* Small, dismissible welcome controls shared by direct-entry pages. */
+.aj-welcome-notice {
+  position:fixed;
+  /* Keep the theme menu above the welcome so both remain usable on phones. */
+  z-index:2147481000;
+  left:50%;
+  bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+  transform:translateX(-50%);
+  width:min(450px, calc(100vw - 28px));
+  max-height:min(75vh, 480px);
+  overflow:auto;
+  box-sizing:border-box;
+  padding:15px;
+  border:1px solid var(--aj-line, #cedfe0);
+  border-radius:20px;
+  background:var(--aj-solid, #fff);
+  color:var(--aj-ink, #193643);
+  box-shadow:0 16px 48px #18374438, inset 0 1px 0 #fff;
+  font:14px/1.4 system-ui,-apple-system,sans-serif;
+  text-align:left;
+}
+.aj-welcome-notice[hidden], .aj-welcome-notice [hidden] { display:none !important; }
+.aj-welcome-notice *, .aj-welcome-notice *::before, .aj-welcome-notice *::after { box-sizing:border-box; }
+.aj-welcome-notice-head { display:flex; align-items:flex-start; gap:11px; }
+.aj-welcome-notice-icon {
+  display:grid; place-items:center; flex:none; width:38px; height:38px;
+  border-radius:13px; color:var(--aj-accent, #246a75);
+  background:linear-gradient(135deg,var(--aj-wash-one, #b8e6e2),var(--aj-wash-three, #d7dcfa));
+  font-size:20px; box-shadow:inset 0 1px 2px #fff;
+}
+.aj-welcome-notice-copy { flex:1; min-width:0; }
+.aj-welcome-notice-copy strong { display:block; color:var(--aj-ink, #193643); font-size:14px; line-height:1.3; }
+.aj-welcome-notice .aj-welcome-notice-copy p {
+  margin:3px 0 0; color:var(--aj-muted, #506873) !important; font:12px/1.4 system-ui,-apple-system,sans-serif;
+}
+.aj-welcome-notice button, .aj-welcome-notice summary { cursor:pointer; font:700 12px/1.3 system-ui,-apple-system,sans-serif; }
+.aj-welcome-notice-close {
+  flex:none; display:grid; place-items:center; width:36px; height:36px; padding:0;
+  border:0; border-radius:50%; color:var(--aj-muted, #506873); background:transparent;
+  font-size:22px !important;
+}
+.aj-welcome-notice-close:hover { background:var(--aj-soft, #e8f2f3); }
+.aj-welcome-notice-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:11px 0 0 49px; }
+.aj-welcome-notice-listen, .aj-welcome-notice-stop {
+  min-height:36px; padding:8px 14px; border:1px solid transparent; border-radius:999px;
+}
+.aj-welcome-notice-listen { background:var(--aj-accent, #246a75); color:#fff; }
+.aj-welcome-notice-listen:disabled { opacity:.55; cursor:not-allowed; }
+.aj-welcome-notice-stop { background:var(--aj-soft, #e8f2f3); color:var(--aj-ink, #193643); border-color:var(--aj-line, #cedfe0); }
+.aj-welcome-notice details { flex:1 1 auto; min-width:110px; color:var(--aj-muted, #506873); font-size:12px; }
+.aj-welcome-notice summary { min-height:36px; display:flex; align-items:center; color:var(--aj-accent, #246a75); }
+.aj-welcome-notice summary::before { content:'▸'; margin-right:5px; }
+.aj-welcome-notice details[open] summary::before { content:'▾'; }
+.aj-welcome-notice details p { margin:6px 0 0; color:var(--aj-ink, #193643) !important; font:12px/1.5 system-ui,-apple-system,sans-serif; }
+.aj-welcome-notice :is(button,summary):focus-visible { outline:3px solid var(--aj-accent, #246a75); outline-offset:3px; }
+@media (max-width:760px) {
+  .aj-welcome-notice { bottom:calc(75px + env(safe-area-inset-bottom, 0px)); }
+}

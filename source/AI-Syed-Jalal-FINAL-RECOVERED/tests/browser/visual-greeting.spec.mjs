@@ -3,11 +3,15 @@ import { test, expect } from '@playwright/test';
 const choices = ['glass', 'water', 'clay', 'ice', 'fire', 'rainbow'];
 const phrase = 'Assalamualaikum kia haal hy apka Allah pak apko apni Aman main rakhay, ameen phir drood e pak prhiay.';
 const durood = 'Allahumma salli ala Muhammadin wa ala aali Muhammad.';
+const urdu = 'السلام علیکم۔ کیا حال ہے آپ کا؟ اللہ پاک آپ کو اپنی امان میں رکھے، آمین۔ پھر درودِ پاک پڑھیے۔ اللّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ۔';
 
 async function installFakeSpeech(page, mode = 'normal') {
   await page.addInitScript(mode => {
     window.__spoken = [];
+    window.__audioPlays = [];
     window.__micCalls = 0;
+    window.__hasGesture = false;
+    document.addEventListener('click', event => { if (event.isTrusted) window.__hasGesture = true; }, true);
     try { Object.defineProperty(navigator, 'mediaDevices', { configurable:true, value:{ getUserMedia:() => { window.__micCalls++; throw new Error('Unexpected microphone request'); } } }); } catch {}
     class Utterance { constructor(text) { this.text = text; this.lang = ''; this.voice = null; } }
     const voices = [{ name:'Aisha', lang:'ur-PK', voiceURI:'Aisha' }, { name:'Daniel', lang:'en-GB', voiceURI:'Daniel' }];
@@ -18,23 +22,35 @@ async function installFakeSpeech(page, mode = 'normal') {
       speak: utterance => {
         window.__spoken.push({ text:utterance.text, lang:utterance.lang, voice:utterance.voice?.name || null });
         window.__utterance = utterance;
-        if (mode === 'blocked' && window.__spoken.length === 1) utterance.onerror?.({ error:'not-allowed' });
-        else if (mode !== 'pending' || window.__spoken.length > 1) utterance.onstart?.();
+        if (mode === 'blocked' && !window.__hasGesture) utterance.onerror?.({ error:'not-allowed' });
+        else if (mode !== 'pending' || window.__hasGesture) utterance.onstart?.();
       }
     };
+    class AudioDouble {
+      constructor(src) { this.src = src; window.__lastAudio = this; }
+      play() {
+        window.__audioPlays.push(this.src);
+        if (mode === 'blocked' && !window.__hasGesture) return Promise.reject(new DOMException('User gesture required', 'NotAllowedError'));
+        if (mode === 'pending' && !window.__hasGesture) return new Promise(() => {});
+        this.onplaying?.();
+        return Promise.resolve();
+      }
+      pause() { window.__audioPauses = (window.__audioPauses || 0) + 1; }
+    }
+    Object.defineProperty(window, 'Audio', { configurable:true, value:AudioDouble });
     Object.defineProperty(window, 'speechSynthesis', { configurable:true, value:speech });
     Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable:true, value:Utterance });
   }, mode);
 }
 
-test('JARVIS attempts the exact opening greeting and a short Durood with the shared voice', async ({ page }) => {
+test('JARVIS uses the saved browser voice, including Urdu script for Urdu voices', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await installFakeSpeech(page);
   await page.addInitScript(() => localStorage.setItem('aj-speech-voice-v1', 'Aisha|ur-PK'));
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => window.__spoken.length)).toBe(1);
   const spoken = await page.evaluate(() => window.__spoken[0]);
-  expect(spoken.text).toBe(`${phrase} ${durood}`);
+  expect(spoken.text).toBe(urdu);
   expect(spoken.voice).toBe('Aisha');
   expect(spoken.lang).toBe('ur-PK');
   await expect(page.locator('.aj-welcome')).toContainText(phrase);
@@ -51,23 +67,26 @@ test('JARVIS attempts the exact opening greeting and a short Durood with the sha
   expect(errors).toEqual([]);
 });
 
-test('blocked or pending autoplay offers an honest tap-to-listen retry', async ({ page }) => {
+test('blocked autoplay shows a visible tap-to-listen retry', async ({ page }) => {
   await installFakeSpeech(page, 'blocked');
   await page.goto('/');
-  await expect(page.locator('#aj-welcome-status')).toContainText('could not start');
-  await page.locator('#aj-welcome-play').click();
+  await expect(page.locator('#aj-welcome-notice')).toBeVisible();
+  await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
+  await page.locator('#aj-welcome-notice-play').click();
   await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
-  expect(await page.evaluate(() => window.__spoken.length)).toBe(2);
+  expect(await page.evaluate(() => window.__audioPlays.length)).toBe(2);
+  expect(await page.evaluate(() => window.__micCalls)).toBe(0);
 });
 
-test('silent autoplay does not claim success; unavailable speech keeps the text accessible', async ({ page, context }) => {
+test('silent autoplay does not claim success; unavailable audio keeps the text accessible', async ({ page, context }) => {
   await installFakeSpeech(page, 'pending');
   await page.goto('/');
-  await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap', { timeout:5000 });
+  await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap', { timeout:6000 });
   await page.locator('#aj-welcome-play').click();
   await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
   const noSpeech = await context.newPage();
   await noSpeech.addInitScript(() => {
+    Object.defineProperty(window, 'Audio', { configurable:true, value:undefined });
     Object.defineProperty(window, 'speechSynthesis', { configurable:true, value:undefined });
     Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable:true, value:undefined });
   });
@@ -75,6 +94,7 @@ test('silent autoplay does not claim success; unavailable speech keeps the text 
   await expect(noSpeech.locator('#aj-welcome-status')).toContainText('not available');
   await expect(noSpeech.locator('#aj-welcome-play')).toBeDisabled();
   await expect(noSpeech.locator('.aj-welcome')).toContainText(durood);
+  await noSpeech.close();
 });
 
 test('all six light choices persist across existing pages without changing other stored data', async ({ page }) => {
@@ -157,8 +177,8 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     await expect(page.locator('.nav .brand img')).toHaveAttribute('src', 'assets/approved-sj-rainbow-crown.svg');
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
-    await expect(page.locator('#aj-welcome-status')).toContainText('could not start');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v155-light-shell'))).toBe(true);
+    await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v156-jarvis-welcome'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -214,5 +234,5 @@ test('the updated service worker keeps unrelated origin caches', async ({ page }
   const names = await page.evaluate(() => caches.keys());
   expect(names).toContain('other-app-test-cache');
   expect(names).not.toContain('aj-v154-shell');
-  expect(names).toContain('aj-v155-light-shell');
+  expect(names).toContain('aj-v156-jarvis-welcome');
 });

@@ -97,6 +97,7 @@
   }
 
   function speak(text, onComplete) {
+    window.AJWelcome?.interruptForAssistant();
     if (!text) { onComplete?.(false); return; }
     if (!voiceSupport().speak) {
       setStatus('This browser cannot speak the reply. It stays available as text.');
@@ -151,6 +152,7 @@
   }
 
   function startListening() {
+    window.AJWelcome?.interruptForAssistant();
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Speech) { endConversation(); setStatus('Voice input is not supported in this browser (try Chrome or Edge). Type the command instead.'); return; }
     if (!user) { endConversation(); setStatus('Sign in first, then press Start listening.'); return; }
