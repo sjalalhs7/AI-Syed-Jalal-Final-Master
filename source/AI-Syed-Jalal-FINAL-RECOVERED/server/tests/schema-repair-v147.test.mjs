@@ -8,8 +8,8 @@ import { splitSqlStatements, runPart } from '../../frontend/functions/schema-rep
 const root = new URL('../../', import.meta.url);
 
 test('the bundled schema repairs a database missing the newer tables', async () => {
-  // Reproduces the live deployment exactly: a database that only has the 13 older
-  // tables, which is what /api/ready reported in production (schemaTables:13).
+  // Only the table names model production readiness. The live columns,
+  // constraints, data and migration history were not inspected here.
   const LIVE_HAS = ['app_users','sessions','records','audit_events','record_history',
     'documents','approvals','ai_runs','auth_rate_limits','assistant_tasks',
     'assistant_notes','platform_conversations','platform_messages'];
@@ -19,7 +19,7 @@ test('the bundled schema repairs a database missing the newer tables', async () 
   const db = await PGlite.create();
   try {
     for (const part of SCHEMA_PARTS) await db.exec(part.sql);
-    // Drop the 8 to recreate the production state.
+    // Remove the missing names in this disposable test database.
     for (const t of missingNames) await db.query(`DROP TABLE IF EXISTS ${t} CASCADE`);
     const before = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
     const haveBefore = before.rows.map(r => r.table_name);
@@ -35,13 +35,13 @@ test('the bundled schema repairs a database missing the newer tables', async () 
   } finally { await db.close(); }
 });
 
-test('the bundle contains no destructive SQL', () => {
+test('the bundle does not match the limited blocked-statement patterns', () => {
   for (const part of SCHEMA_PARTS) {
-    assert.deepEqual(destructiveStatements(part.sql), [], `${part.name} is not additive-only`);
+    assert.deepEqual(destructiveStatements(part.sql), [], `${part.name} matches a blocked pattern`);
   }
 });
 
-test('replaying the whole bundle is a no-op', async () => {
+test('replaying the bundle succeeds in an isolated local fixture', async () => {
   const db = await PGlite.create();
   try {
     for (const part of SCHEMA_PARTS) await db.exec(part.sql);

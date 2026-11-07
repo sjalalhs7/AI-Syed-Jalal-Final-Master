@@ -95,15 +95,16 @@ export async function missingTables(db) {
   return REQUIRED_TABLES.filter(t => !have.has(t));
 }
 
-/** Destructive statements anywhere in the bundle. Must always be empty. */
+/** Match a limited set of destructive statements; this is not a safety proof. */
 export function unsafeStatements() {
   return SCHEMA_PARTS.flatMap(p => destructiveStatements(p.sql).map(s => `${p.name}: ${s}`));
 }
 
 /**
- * Apply every bundled migration. Additive only, safe to replay.
- * Never throws for an individual part: failures are reported so the caller can
- * show what partly worked instead of a generic 500.
+ * Attempt every bundled migration. Some statements alter constraints or insert
+ * bootstrap data. This HTTP path executes statements individually, without a
+ * transaction spanning the whole repair: failures can leave partial changes.
+ * Individual failures are reported so the caller can review what happened.
  */
 export async function applySchemaRepair(db) {
   const unsafe = unsafeStatements();
