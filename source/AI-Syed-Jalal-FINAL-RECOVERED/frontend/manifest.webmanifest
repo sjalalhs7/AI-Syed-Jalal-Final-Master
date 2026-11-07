@@ -8,7 +8,11 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["tabbed", "window-controls-overlay", "minimal-ui"],
+  "display_override": [
+    "tabbed",
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#06101d",
   "theme_color": "#07101f",
@@ -37,7 +41,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "assets/approved-sj-rainbow-crown.svg",
+      "src": "assets/brand/sjs-logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
@@ -145,8 +149,13 @@
     {
       "action": "./notes.html?opened=file",
       "accept": {
-        "text/plain": [".txt"],
-        "text/markdown": [".md", ".markdown"]
+        "text/plain": [
+          ".txt"
+        ],
+        "text/markdown": [
+          ".md",
+          ".markdown"
+        ]
       }
     }
   ],
@@ -178,7 +187,9 @@
   "tab_strip": {
     "home_tab": {
       "scope_patterns": [
-        { "pathname": "./index.html" }
+        {
+          "pathname": "./index.html"
+        }
       ]
     },
     "new_tab_button": {
@@ -199,8 +210,16 @@
       "update": 3600,
       "multiple": false,
       "icons": [
-        { "src": "./assets/app-icons/widget-16.png", "sizes": "16x16", "type": "image/png" },
-        { "src": "./assets/app-icons/widget-48.png", "sizes": "48x48", "type": "image/png" }
+        {
+          "src": "./assets/app-icons/widget-16.png",
+          "sizes": "16x16",
+          "type": "image/png"
+        },
+        {
+          "src": "./assets/app-icons/widget-48.png",
+          "sizes": "48x48",
+          "type": "image/png"
+        }
       ],
       "screenshots": [
         {

@@ -3,7 +3,7 @@
 This repository contains the unified AI-Syed Jalal platform on `main`: the recovered source lineage, the repaired runnable application, and **SJ Agent Studio** (`/agent.html`). Historical recovery archives are preserved unchanged and are also available in the published `v1.0.0` GitHub Release.
 
 ## Locked design rule
-The approved Login Page + Homepage + Logo identity, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Older concept boards remain historical references, not replacements for the approved design.
+The approved Login Page + Homepage layout, theme language and hierarchy are locked: add capabilities without unnecessary redesign, and older concept boards stay historical references. The logo is now the **SJS** monogram (V152) and supersedes the earlier crowned-SJ mark; it ships in `frontend/assets/brand/` with small-size, maskable, monochrome and social variants.
 
 ## Quick links
 
@@ -18,7 +18,7 @@ The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`:
 - `/capabilities.html` — a live probe of the ten OS integrations (shortcuts, file handlers, launch handler, protocol handlers, share target, widgets, side panel, window controls overlay, tabbed display, note taking) on the device you are using.
 - `/notes.html` — Quick Notes: the destination for the app shortcut, the OS widget, the note-taking entry and handled `.txt`/`.md` files.
 
-Release notes: `V151-PWA-CAPABILITIES-2026-11-07.md` (OS integration) · `V142-FINAL-2026-11-05.md` (final handoff) · `V141-PAGE-BUILDER-2026-11-05.md` · `V140-ARENA-TOOLBOX-2026-11-04.md`. Gates: 51 static · 142 server · 80 frontend · 50 browser · self-check 100/100 · 23 tables from an empty database.
+Release notes: `V152-SJS-BRAND-2026-11-07.md` (SJS identity) · `V151-PWA-CAPABILITIES-2026-11-07.md` (OS integration) · `V142-FINAL-2026-11-05.md` (final handoff) · `V141-PAGE-BUILDER-2026-11-05.md` · `V140-ARENA-TOOLBOX-2026-11-04.md`. Gates: 51 static · 148 server · 80 frontend · 50 browser · self-check 100/100 · 23 tables from an empty database.
 
 ## Source lineage
 - V122-MERGED is the larger recovered source base: 9,950 files and 282,418,696 bytes uncompressed in its original archive.
