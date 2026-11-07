@@ -23,11 +23,11 @@ async function liveState() {
   return { db, missing };
 }
 
-test('repairing the live incomplete state restores every required table', async () => {
+test('repairing a local fixture with the missing table names restores those names', async () => {
   const { db, missing } = await liveState();
   try {
     const before = await missingTables(adapter(db));
-    assert.deepEqual(before.sort(), missing.sort(), 'fixture must match the production outage');
+    assert.deepEqual(before.sort(), missing.sort(), 'fixture must model the reported missing table names');
 
     const result = await applySchemaRepair(adapter(db));
     assert.equal(result.ok, true, `still missing: ${result.missing.join(', ')}`);
@@ -53,7 +53,7 @@ test('repairing a complete database changes nothing', async () => {
   } finally { await db.close(); }
 });
 
-test('the bundle is additive-only, so the repair cannot destroy data', () => {
+test('the bundle does not match the limited blocked-statement patterns', () => {
   assert.deepEqual(unsafeStatements(), []);
   for (const p of SCHEMA_PARTS) assert.deepEqual(destructiveStatements(p.sql), []);
 });

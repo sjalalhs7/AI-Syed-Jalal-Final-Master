@@ -40,21 +40,19 @@ explain these steps.
 
 ## Live database
 
-On 7 November 2026, before this update, the public `/api/ready` endpoint reported
-**13 of 23** required tables. The new reporting migration adds one required
-table, so the new code checks for **24**. Counts may change; check the live
-endpoint again. It checks required table names, not every migration, column,
-index, data item or provider.
-A database connection and a successful local test do not prove production is
-ready.
+On 7 November 2026, the public `/api/ready` endpoint reported **13 of 24**
+required table names. Counts may change; check the live endpoint again. It
+checks required table names, not every migration, column, index, data item or
+provider. A database connection and a successful local test do not prove
+production is ready.
 
-The owner should review the existing database and take a suitable Neon backup,
-then sign in as an Admin, open **Workspace → Operations → Database Schema**,
-and use **Repair schema** if they approve applying the bundled migrations. The
-route requires Admin authentication and an explicit confirmation. Review any
-failed migrations, re-check `/api/ready`, then exercise affected features with
-safe test data. Do not share or commit credentials. This repository update does
-**not** itself apply migrations to production.
+Before any approved repair, the owner must verify a restorable **full database**
+backup and rehearse against an isolated target. The Workspace Records Backup
+exports active records only and is not a complete database backup. Repair can
+leave partial changes if statements fail. See
+[`PRODUCTION-DATABASE-SAFETY.md`](PRODUCTION-DATABASE-SAFETY.md) for the
+recovery, authorization and verification steps. Do not share or commit
+credentials. This repository update does **not** apply migrations to production.
 
 ## Google Play — still blocked
 

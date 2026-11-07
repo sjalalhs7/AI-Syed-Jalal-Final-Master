@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { REQUIRED_TABLES } from "../functions/schema-bundle.mjs";
 
 const source = await readFile(new URL("../functions/api/[[path]].js", import.meta.url), "utf8");
 
@@ -10,23 +11,16 @@ test("API explicitly reports missing Neon configuration instead of pretending re
 });
 
 test("readiness requires rate-limit, Agent Studio and Arena migrations before declaring production ready", () => {
-  assert.ok(source.includes("auth_rate_limits"));
-  assert.ok(source.includes("platform_conversations"));
-  assert.ok(source.includes("platform_messages"));
-  // V133 must also demand its own read model, so a half-migrated database cannot look ready.
-  assert.ok(source.includes("agent_skills"));
-  assert.ok(source.includes("agent_self_checks"));
-  // V135 adds the Arena tables; readiness now demands all twenty.
-  assert.ok(source.includes("arena_battles"));
-  assert.ok(source.includes("arena_responses"));
-  assert.ok(source.includes("arena_artifacts"));
-  assert.ok(source.includes("arena_ratings"));
-  // V136 adds the agent run trace table.
-  assert.ok(source.includes("agent_runs"));
-  // V138 adds the expert review evidence table.
-  assert.ok(source.includes("expert_reviews"));
-  // Readiness is now driven by the shared REQUIRED_TABLES list so the count and
-  // the list can never drift apart; assert the behaviour it must produce.
+  // The bundle, not an unrelated SQL literal in the handler, is the source of
+  // truth for the table names required by both readiness and diagnostics.
+  for (const name of ["auth_rate_limits", "platform_conversations", "platform_messages",
+    "agent_skills", "agent_self_checks", "arena_battles", "arena_responses",
+    "arena_artifacts", "arena_ratings", "agent_runs", "expert_reviews",
+    "app_settings", "app_bootstrap", "content_reports"]) {
+    assert.ok(REQUIRED_TABLES.includes(name), `${name} must be required`);
+  }
+  assert.equal(new Set(REQUIRED_TABLES).size, REQUIRED_TABLES.length);
+  // Readiness is driven by the shared list, so its count and names cannot drift.
   assert.ok(source.includes("REQUIRED_TABLES"), "readiness must use the shared table list");
   assert.ok(source.includes("ok?200:503"), "readiness must return 503 when incomplete");
   assert.ok(source.includes("missing"), "readiness must report which tables are missing");
