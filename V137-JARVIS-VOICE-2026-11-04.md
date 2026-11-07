@@ -1,5 +1,7 @@
 # V137 — JARVIS voice console: every option verified
 
+> Historical release: V153 supersedes this document's talk-control, conversation, cancellation and privacy descriptions. See `V153-JARVIS-CONVERSATION-2026-11-07.md` for current behavior.
+
 Date: 4 November 2026 · Base: `main` @ `4a6c7bb` (V136) · Repo: `sjalalhs7/AI-Syed-Jalal-Final-Master`
 
 ## What was asked

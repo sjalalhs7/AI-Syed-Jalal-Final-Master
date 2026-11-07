@@ -15,6 +15,7 @@ test('static host detection is loaded before page scripts on primary surfaces', 
     assert.ok(html.includes('assets/host-mode.js'));
     assert.ok(html.indexOf('assets/host-mode.js') < html.indexOf('</head>'));
   }
+  assert.ok(hostMode.includes("const STATIC_PACKAGE = false;"));
   assert.ok(hostMode.includes("location.hostname.endsWith('.github.io')"));
   assert.ok(hostMode.includes('window.AJ_STATIC_HOST'));
   assert.ok(hostMode.includes('ajStaticHostBanner'));
@@ -22,7 +23,7 @@ test('static host detection is loaded before page scripts on primary surfaces', 
 
 test('homepage login explains static hosting instead of posting to a missing API', () => {
   assert.ok(index.includes('if(window.AJ_STATIC_HOST)'));
-  assert.ok(index.includes('static GitHub Pages copy cannot sign in'));
+  assert.ok(index.includes('static website copy cannot sign in'));
   assert.ok(index.includes('id="togglePassword"'));
   assert.ok(index.includes('Social sign-in is not enabled in this build'));
 });
@@ -39,7 +40,7 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v152-shell'"));
+  assert.ok(sw.includes("const CACHE='aj-v153-shell'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
   assert.ok(sw.includes("new URL('api/',self.location).pathname"));

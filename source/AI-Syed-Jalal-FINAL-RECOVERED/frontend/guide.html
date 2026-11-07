@@ -7,10 +7,10 @@
 <header class="topbar"><a class="brand" href="./"><img src="assets/brand/sjs-logo.svg" alt="Alsyed Jalal AI — SJS logo"><span><strong>AI-Syed Jalal</strong><small>START HERE · SIMPLE, CLEAR, READY TO USE</small></span></a><nav aria-label="Main navigation"><a class="btn" href="jarvis.html">JARVIS voice</a><a class="btn" href="allinone.html">All-in-one</a><a class="btn" href="toolbench.html">Toolbench</a><a class="btn" href="pagebuilder.html">Page Builder</a><a class="btn" href="critic.html">Expert Critic</a><a class="btn" href="agent.html">Agent Studio</a><a class="btn" href="agent-lab.html">Agent Lab</a><a class="btn" href="arena.html">Arena</a><a class="btn" href="jalalai.html">Open JalalAi</a><a class="btn" href="notes.html">Quick Notes</a><a class="btn" href="capabilities.html">App capabilities</a><a class="btn" href="workspace.html">Workspace</a></nav></header>
 <main><section class="intro"><div><div class="eyebrow">YOUR QUICK START</div><h1>Start with one click. Keep control.</h1><p>Use the assistant, organize your work, and see exactly what is connected.</p></div><span class="status-pill" id="guideStatus" role="status">Checking application…</span></section>
 <section class="panel guide-start" aria-labelledby="startTitle"><div><h2 id="startTitle">Ready to use now</h2><p id="startMessage">Open Agent Studio and choose “Try the local preview”. No AI key is needed for the built-in tools.</p><p class="hint" id="sandboxNote">Preview is a disposable shared sandbox. Use test data only.</p></div><div class="composer-row"><a class="btn primary" href="agent.html">1. Open Agent Studio →</a><button class="btn" id="guidePreviewBtn" type="button" hidden>Start preview for me</button><a class="btn" href="workspace.html">2. Open Workspace</a></div></section>
-<section class="guide-grid" aria-label="Live capability status"><article class="panel side-panel"><h2>Application</h2><p class="guide-state" id="appState">Checking…</p><p>Assistant, tasks, notes, records and workspace tools.</p></article><article class="panel side-panel"><h2>Cloud AI</h2><p class="guide-state" id="cloudState">Checking…</p><p>Optional. Needed for open-ended AI answers, not for local tools.</p></article><article class="panel side-panel"><h2>Voice on this device</h2><p class="guide-state" id="voiceState">Checking…</p><p>Microphone permission is requested only when you press Speak.</p></article><article class="panel side-panel"><h2>Your session</h2><p class="guide-state" id="sessionState">Checking…</p><p id="sessionHelp">Sign in or start the preview from JalalAi.</p></article></section>
+<section class="guide-grid" aria-label="Live capability status"><article class="panel side-panel"><h2>Application</h2><p class="guide-state" id="appState">Checking…</p><p>Assistant, tasks, notes, records and workspace tools.</p></article><article class="panel side-panel"><h2>Cloud AI</h2><p class="guide-state" id="cloudState">Checking…</p><p>Optional. Needed for open-ended AI answers, not for local tools.</p></article><article class="panel side-panel"><h2>Voice on this device</h2><p class="guide-state" id="voiceState">Checking…</p><p>Microphone permission is requested only when you start listening.</p></article><article class="panel side-panel"><h2>Your session</h2><p class="guide-state" id="sessionState">Checking…</p><p id="sessionHelp">Sign in or start the preview from JalalAi.</p></article></section>
 <section class="panel guide-section" aria-labelledby="mapTitle"><section class="panel guide-section" aria-labelledby="voiceTestTitle" id="voice-test">
 <h2 id="voiceTestTitle">Test the voice assistant on this device</h2>
-<p>Voice runs in your browser, not on the server. This test speaks a sentence out loud and reports exactly what happened, so you can confirm it works before relying on it.</p>
+<p>Speech is provided by your browser or its speech service. This test asks the browser to speak a sentence; listen to verify your device volume and voice.</p>
 <p id="voiceTestState" class="muted">Not tested yet.</p>
 <button class="btn primary" type="button" id="voiceTestBtn">Speak a test sentence</button>
 <p id="voiceTestResult" class="muted" role="status" aria-live="polite"></p>
@@ -33,7 +33,7 @@
 <a href="refactor-plan.html"><code>Architecture record</code><span>What merged, what deliberately stayed separate, and what was refused.</span></a>
 </div></section>
 <section class="panel guide-section"><h2>What to type in JalalAi</h2><p>These commands work without a cloud AI key. Press Enter to send.</p><div class="guide-commands"><a href="jalalai.html"><code>calculate (1200 + 350) * 15%</code><span>Safe calculator</span></a><a href="jalalai.html"><code>plan: Launch my website</code><span>Structured project plan</span></a><a href="jalalai.html"><code>critic: Review my proposal</code><span>Critical-review checklist</span></a><a href="jalalai.html"><code>add task: Review the proposal</code><span>Confirm before saving</span></a><a href="jalalai.html"><code>save note: My private note</code><span>Confirm before saving</span></a><a href="jalalai.html"><code>show tasks</code><span>Read your saved tasks</span></a><a href="jalalai.html"><code>search records: project name</code><span>Search workspace records</span></a><a href="jalalai.html"><code>help</code><span>Show all working commands</span></a></div></section>
-<div class="guide-grid"><section class="panel guide-section"><h2>Use the workspace</h2><ol><li><strong>Data Vault:</strong> add, search, edit, import and export records.</li><li><strong>Document Studio:</strong> enter details, preview the A4 sheet, then print.</li><li><strong>AI Command:</strong> use Local tools now; choose Cloud AI only when configured.</li><li><strong>Settings:</strong> change theme, password and other sessions.</li><li><strong>Admin:</strong> user management, diagnostics, backup and confirmed merge restore.</li></ol><a class="btn" href="workspace.html">Open Workspace →</a></section><section class="panel guide-section"><h2>Use voice safely</h2><ol><li>Open JalalAi and press <strong>Speak</strong>.</li><li>Allow the microphone only if you want dictation.</li><li>Review the transcript, then press <strong>Send</strong>.</li><li>Press <strong>Read reply</strong> for browser speech, or <strong>Stop</strong> to cancel.</li></ol><p>If your browser does not support speech recognition, keep typing. Browser speech may use your browser vendor’s service; it is not guaranteed to be on-device.</p></section></div>
+<div class="guide-grid"><section class="panel guide-section"><h2>Use the workspace</h2><ol><li><strong>Data Vault:</strong> add, search, edit, import and export records.</li><li><strong>Document Studio:</strong> enter details, preview the A4 sheet, then print.</li><li><strong>AI Command:</strong> use Local tools now; choose Cloud AI only when configured.</li><li><strong>Settings:</strong> change theme, password and other sessions.</li><li><strong>Admin:</strong> user management, diagnostics, backup and confirmed merge restore.</li></ol><a class="btn" href="workspace.html">Open Workspace →</a></section><section class="panel guide-section"><h2>Use JARVIS voice</h2><ol><li><a href="jarvis.html">Open JARVIS</a> and sign in or start the local preview.</li><li>Press <strong>Start listening</strong> and allow microphone access if your browser asks.</li><li>Review the words, then press <strong>Run command</strong>. Or type instead.</li><li>For a hands-free exchange, opt in to <strong>Continue the conversation</strong>; press <strong>Stop</strong> whenever you want to end it.</li><li>Tasks and notes need your explicit confirmation. Cloud conversations need a configured server-side provider.</li></ol><p>Your browser’s speech service may process audio online. Voice support and Urdu availability vary by device; there is no background wake word.</p><a class="btn" href="jarvis.html">Open JARVIS →</a></section></div>
 <section class="panel guide-section" id="deployment"><h2>Website hosting, cloud AI and external services</h2><p><strong>GitHub Pages is a static website preview.</strong> It can show the pages, but it cannot run the login API, database or server-side AI. For real sign-in and saved data, open the secure application server (Cloudflare Pages + Neon) or run the local preview with <code>npm ci</code> and <code>npm run dev</code>. The banner links to setup options.</p><p><strong>Local tools work now.</strong> Open-ended cloud answers need a server-side provider key and a successful live provider request. Configure keys only in your hosting provider’s secret settings—never paste them into chat or frontend files. See <a href="https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/blob/main/source/AI-Syed-Jalal-FINAL-RECOVERED/APPLICATION-STATUS.md">the deployment checklist</a>.</p><p><strong>Not connected:</strong> OpenJarvis desktop control, Gmail/Calendar, contacts, WhatsApp, scheduled briefings, purchases or autonomous external actions. The app will not pretend to perform them.</p><p><strong>Agent Lab (<a href="agent-lab.html">agent-lab.html</a>):</strong> runs a graded self-check against the live application — API, database, security boundaries, agent behaviour, honesty labels, the 3,500-skill library and the page inventory — and stores the evidence per account. A passing run is evidence about this deployment, not a production certificate.</p><p><strong>Premium ElevenLabs voice</strong> is separate from browser speech and is not enabled by default.</p></section>
 <section class="panel guide-section"><h2>If something does not work</h2><ul><li><strong>“Sign in”:</strong> open JalalAi and use “Try the local preview”, or sign in with your account.</li><li><strong>Microphone blocked:</strong> allow microphone permission in browser/site settings, or type instead.</li><li><strong>Cloud unavailable:</strong> use Local tools; the owner must configure and verify the provider.</li><li><strong>Old screen after an update:</strong> reload once. Private pages and API responses are not cached.</li><li><strong>Production use:</strong> do not use the shared preview for real data. Follow the deployment checklist and verify Neon/Cloudflare staging first.</li></ul></section>
 <script>
@@ -49,7 +49,8 @@
   // Report what the browser supports before anything is pressed. Chrome exposes
   // an empty voice list until voiceschanged fires, so this is a capability check,
   // not a promise that audio will come out.
-  const total = window.speechSynthesis ? window.speechSynthesis.getVoices().length : 0;
+  let total = 0;
+  try { total = window.speechSynthesis?.getVoices?.().length || 0; } catch { /* no named voices exposed */ }
   state.textContent = `Output: ${canSpeak() ? 'supported' : 'not supported'} · Input: ${canHear() ? 'supported' : 'not supported'} · Voices installed: ${total}`;
 
   btn.addEventListener('click', () => {
@@ -58,23 +59,32 @@
       result.textContent = 'This browser has no speech synthesis, so read-aloud is unavailable. Typing still works.';
       return;
     }
-    const utterance = new SpeechSynthesisUtterance('Voice is working. This sentence was spoken by your browser, not by a server.');
+    const utterance = new SpeechSynthesisUtterance('This is your browser speech voice. Please listen to check your device.');
     const started = Date.now();
-    let spoke = false;
+    let spoke = false, finished = false;
     utterance.onstart = () => { spoke = true; result.textContent = 'Speaking…'; };
     utterance.onend = () => {
-      result.textContent = `Done. The browser spoke the sentence in ${Date.now() - started} ms. If you heard nothing, check your system volume and that the tab is not muted — the browser reported success either way.`;
+      finished = true;
+      result.textContent = spoke
+        ? `The browser reported speech complete in ${Date.now() - started} ms. If you heard nothing, check your volume and that the tab is not muted.`
+        : 'The browser ended without reporting that speech started. Check your device voice and volume.';
     };
     utterance.onerror = event => {
+      finished = true;
       result.textContent = `The browser refused to speak: ${event.error || 'unknown error'}. Typing still works.`;
     };
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      finished = true;
+      result.textContent = 'The browser could not start speech. Check your device voice, or keep typing.';
+    }
     // If nothing started within 2 s, say so instead of hanging silently.
     setTimeout(() => {
-      if (!spoke) result.textContent = 'No audio started. This device may have no installed voice engine; typing still works.';
+      if (!spoke && !finished) result.textContent = 'No audio started. This device may have no installed voice engine; typing still works.';
     }, 2000);
   });
 })();
 </script>
-</main><footer class="hint">AI-Syed Jalal · Approved SJ identity preserved · Clear labels, explicit confirmation, no fake integrations.</footer></div></body></html>
+</main><footer class="hint">AI-Syed Jalal · Approved SJS identity preserved · Clear labels, explicit confirmation, no fake integrations.</footer></div></body></html>

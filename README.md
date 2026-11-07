@@ -7,8 +7,9 @@ The approved Login Page + Homepage layout, theme language and hierarchy are lock
 
 ## Quick links
 
-The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`:
+The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`. Start with [START-HERE.md](START-HERE.md).
 
+- `/jarvis.html` — SJS-branded voice and text assistant, optional conversation, real tools and explicit confirmations.
 - `/allinone.html` — one request, every specialist that can serve it, each answer labelled with why.
 - `/toolbench.html` — the agent's deterministic tools by hand (dates, units, JSON, hashes, WCAG contrast, CSV, code audit, diff, page builder).
 - `/pagebuilder.html` — one sentence in, a complete single-file HTML page out; sandboxed preview, self-audit, real download.
@@ -18,7 +19,7 @@ The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`:
 - `/capabilities.html` — a live probe of the ten OS integrations (shortcuts, file handlers, launch handler, protocol handlers, share target, widgets, side panel, window controls overlay, tabbed display, note taking) on the device you are using.
 - `/notes.html` — Quick Notes: the destination for the app shortcut, the OS widget, the note-taking entry and handled `.txt`/`.md` files.
 
-Release notes: `V152-SJS-BRAND-2026-11-07.md` (SJS identity) · `V151-PWA-CAPABILITIES-2026-11-07.md` (OS integration) · `V142-FINAL-2026-11-05.md` (final handoff) · `V141-PAGE-BUILDER-2026-11-05.md` · `V140-ARENA-TOOLBOX-2026-11-04.md`. Gates: 51 static · 148 server · 80 frontend · 50 browser · self-check 100/100 · 23 tables from an empty database.
+Release notes: `V153-JARVIS-CONVERSATION-2026-11-07.md` (voice assistant) · `V152-SJS-BRAND-2026-11-07.md` (SJS identity) · `V151-PWA-CAPABILITIES-2026-11-07.md` (OS integration) · `V142-FINAL-2026-11-05.md` (final handoff) · `V141-PAGE-BUILDER-2026-11-05.md` · `V140-ARENA-TOOLBOX-2026-11-04.md`. The V153 gate results and limitations are recorded in its release notes.
 
 ## Source lineage
 - V122-MERGED is the larger recovered source base: 9,950 files and 282,418,696 bytes uncompressed in its original archive.
@@ -51,7 +52,7 @@ Provider secrets stay server-side. Do not commit API keys or production credenti
 
 ## Website and login status
 
-- **GitHub Pages website:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/ opens the static frontend. `.github/workflows/pages.yml` publishes `source/AI-Syed-Jalal-FINAL-RECOVERED/frontend` when the repository Pages source is set to GitHub Actions; the root `index.html` also provides a legacy-Pages launcher to the same frontend.
+- **GitHub Pages website:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/ is the configured static website address; live reachability must be checked separately. `.github/workflows/pages.yml` publishes `source/AI-Syed-Jalal-FINAL-RECOVERED/frontend` when the repository Pages source is set to GitHub Actions; the root `index.html` also provides a legacy-Pages launcher to the same frontend.
 - **Important:** GitHub Pages is static hosting. It can display the login page and public guides, but it cannot run the login API, database, saved conversations or server-side AI. The site detects this and shows setup guidance instead of pretending sign-in succeeded.
 - **Full application:** use the secure Cloudflare Pages + Neon deployment, or run locally from `source/AI-Syed-Jalal-FINAL-RECOVERED` with `npm ci` and `npm run dev`, then open `/guide.html`.
 - Production sign-in still requires owner-controlled `DATABASE_URL`, `CSRF_SECRET`, applied migrations and provider keys. No credentials are stored in this repository.
@@ -78,14 +79,23 @@ evidence and its fix. On a used preview it reported **ready, 97/100**; on an emp
 39/100**. Readiness now requires **21** tables. See
 [V138-EXPERT-CRITIC-2026-11-04.md](V138-EXPERT-CRITIC-2026-11-04.md).
 
-## V137 — JARVIS voice console (4 November 2026)
+## V153 — JARVIS conversation (7 November 2026)
 
-**JARVIS** (`jarvis.html`) is a hands-free voice front end for the same bounded agent runtime:
-**Hold to talk**, optional auto-run on the final transcript, hands-free reading of replies, a shared
-browser voice + language, and a live tool trace for every command. The voice surface contract lives in
-`frontend/functions/voice-surfaces.mjs` and is graded by the self-check (`voice.surfaces`, 19 checks
-total), three static checks and three browser journeys that assert what was actually spoken.
-See [V137-JARVIS-VOICE-2026-11-04.md](V137-JARVIS-VOICE-2026-11-04.md).
+**JARVIS** (`/jarvis.html`) now provides a voice and text console with optional
+multi-turn listening, selectable cloud providers, bounded page-only cloud
+context, real local tools and explicit task/note confirmation. It uses the SJS
+logo and preserves the approved homepage/login design. Speech is browser- and
+device-dependent; no physical microphone or live cloud provider was verified in
+this environment. Read [START-HERE.md](START-HERE.md) for setup, privacy and
+limitations, and [the V153 release notes](V153-JARVIS-CONVERSATION-2026-11-07.md)
+for the test evidence. GitHub Pages is static; a configured backend is needed for
+sign-in and application functions.
+
+## V137 — original JARVIS voice console (4 November 2026)
+
+The original bounded voice surface and its shared voice preference are described
+in [V137-JARVIS-VOICE-2026-11-04.md](V137-JARVIS-VOICE-2026-11-04.md). V153
+supersedes its descriptions of the talk control, conversation and Stop behavior.
 
 ## V136 — real agent runtime (4 November 2026)
 

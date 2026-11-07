@@ -81,5 +81,7 @@ test('the voice self-test actually speaks and reports failure honestly', () => {
   assert.match(guide, /onerror/, 'must handle a refusal');
   assert.match(guide, /no installed voice engine/, 'must tell the user when nothing started');
   // It must not claim success just because speak() was called.
-  assert.match(guide, /browser reported success either way/);
+  assert.match(guide, /The browser reported speech complete/);
+  assert.match(guide, /If you heard nothing/);
+  assert.match(guide, /without reporting that speech started/);
 });

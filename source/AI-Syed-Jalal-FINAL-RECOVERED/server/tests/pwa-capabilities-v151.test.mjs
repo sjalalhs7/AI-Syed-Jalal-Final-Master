@@ -161,9 +161,12 @@ test('the widget definition resolves to real template, data and preview files', 
 });
 
 test('the service worker implements the widget lifecycle without caching private data', () => {
-  for (const event of ['widgetinstall', 'widgetresume', 'widgetclick', 'widgetuninstall', 'periodicsync']) {
+  for (const event of ['widgetinstall', 'widgetresume', 'widgetclick', 'widgetuninstall']) {
     assert.ok(sw.includes(`addEventListener('${event}'`), `service worker does not handle ${event}`);
   }
+  assert.ok(!sw.includes("addEventListener('periodicsync'"), 'widgets must not register background sync');
+  assert.ok(!sw.includes('periodicSync.register'), 'no new periodic job may be registered');
+  assert.ok(sw.includes("periodicSync?.unregister('aj-widget-refresh')"), 'legacy refresh jobs are removed');
   assert.ok(sw.includes('self.widgets.updateByTag'), 'the widget must be rendered through the widget API');
   assert.ok(sw.includes('notes.html?new=1'), 'tapping the widget must open a new note');
   // The widget renders before sign-in, so it may not fetch account routes.

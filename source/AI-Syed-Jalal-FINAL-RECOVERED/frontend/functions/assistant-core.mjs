@@ -1,4 +1,6 @@
 // Deterministic, permission-bounded local tools. No eval, shell, OS control or invented AI.
+import { extractArithmetic, isArithmeticRequest } from './spoken-arithmetic.mjs';
+import { timeIn } from './toolbox.mjs';
 export const PROFILE_IDS = ['general', 'coding', 'analysis', 'critic', 'planner', 'architect', 'reviewer', 'writer'];
 export function calculate(expression) {
   const input = String(expression).replace(/^calculate\s*/i, '').trim();
@@ -22,54 +24,61 @@ export function calculate(expression) {
   if (index !== tokens.length || !Number.isFinite(result) || Math.abs(result) > Number.MAX_SAFE_INTEGER) throw new Error('The calculation is invalid or outside the supported range.');
   return `${input} = ${Number(result.toPrecision(12))}`;
 }
+// These patterns only prepare a proposal. The separate authenticated confirmation
+// endpoint is the only place that saves it, irrespective of the selected mode.
+export function proposedAssistantAction(message) {
+  const text = String(message || '').trim();
+  const task = text.match(/^(?:please\s+)?(?:add|create|remember)(?: a)? task(?:\s*:\s*|\s+)([^\s:][\s\S]*)$/i);
+  if (task && task[1].trim()) return { type: 'create_task', title: task[1].trim() };
+  const note = text.match(/^(?:please\s+)?(?:save|add|take)(?: a)? note(?:\s*:\s*|\s+)([^\s:][\s\S]*)$/i);
+  if (note && note[1].trim()) return { type: 'create_note', content: note[1].trim() };
+  return null;
+}
+const NAMED_CLOCK = /\b(?:time|clock)\s+(?:is it\s+|is\s+|it is\s+)?(?:in|at)\s+([a-z][a-z .'-]{1,28}?)(?=$|\s+(?:and|then|also|plus|but)\b|[,;.!?])/i;
+export function isClockQuestion(message) {
+  const text = String(message || '').trim();
+  return NAMED_CLOCK.test(text) || /^(?:(?:what(?:'s| is)?|tell me|show me)\s+(?:the\s+)?(?:current\s+)?(?:time|date|today(?:'s date)?)|what time is it)(?:\s+(?:now|today|and date))?[?.!]*$/i.test(text);
+}
+export function isSimpleGreeting(message) {
+  return /^(?:hi|hello|hey|salam|assalam(?:[-\s]+o[-\s]+alaikum)?)[\s!.?]*$/i.test(String(message || '').trim());
+}
 export function localAssistant(message, profile = 'general', now = new Date()) {
   const text = String(message || '').trim(), lower = text.toLowerCase();
   const base = { ok: true, mode: 'local', simulated: false, provider: 'local-tools', agentId: profile };
-  if (/^(hi|hello|salam|assalam|hey)\b/.test(lower)) return { ...base, output: 'Assalam-o-alaikum! I’m JalalAi. I can calculate, plan, review a proposal, manage your tasks and notes, and search your workspace. Cloud AI is optional. What would you like to work on?' };
-  if (/\b(time|date|today)\b/.test(lower) && /\b(what|current|tell|show)\b/.test(lower)) return { ...base, output: `Pakistan time: ${new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', dateStyle: 'full', timeStyle: 'long' }).format(now)}.`, tool: 'clock' };
-  const explicitCalculation = /^(calculate|calc|what is [\d(])/.test(lower);
-  // A sentence that also says "calculate" is ambiguous; a specific profile must
-  // still answer in its own frame, so only the general profile takes the bait.
-  const calculationRequested = /\b(calculate|calc|compute)\b/i.test(text);
-  // Only answer with arithmetic when it was actually asked for. A critic told to
-  // "critique the risk of (1200+350)*15%" must critique, not silently compute.
-  const profileHasFrame = ['planner', 'critic', 'coding', 'analysis', 'architect', 'reviewer', 'writer'].includes(profile);
-  // ...but a message that asks for nothing except the sum is still a sum. Strip the
-  // instruction, the expression and filler; if nothing else is left, compute it
-  // whichever profile is active. Only a calculation *buried in* a real request
-  // ("... and critique the launch risk") defers to the profile's own frame.
-  const strippedExpression = text
-    .replace(/^(?:please\s+)?(?:calculate|calc|compute|what is)\s*/i, '')
-    .replace(/[?.,!]+$/g, '');
-  const calcRuns = (strippedExpression.match(/[\d\s().+\-*/%]+/g) || []).map(run => run.trim()).filter(run => /\d/.test(run));
-  const calcRemainder = calcRuns
-    .reduce((rest, run) => rest.replace(run, ' '), strippedExpression)
-    .replace(/\b(please|for me|now|the result|result|it|that|this)\b/gi, '')
-    .replace(/[\s,]+/g, '');
-  const calculationOnly = Boolean(calcRuns.length) && calcRemainder === '';
-  if ((explicitCalculation || calculationRequested) && (!profileHasFrame || profile === 'general' || calculationOnly)) {
-    // People write "calculate 40*12 and show my tasks". Evaluate the arithmetic
-    // run inside the sentence instead of failing on the trailing words — the same
-    // rule the agent runtime's calculator tool uses, so both agree.
-    const cleaned = text.replace(/^(?:calculate|calc|what is)\s*/i, '').replace(/[?.,!]+$/g, '');
-    const runs = (cleaned.match(/[\d\s().+\-*/%]+/g) || []).map(run => run.trim()).filter(run => /\d/.test(run));
-    const expression = runs.sort((a, b) => b.length - a.length)[0];
-    if (expression) {
-      const answer = calculate(expression);
-      const trailing = runs.length > 1 || cleaned.replace(expression, '').replace(/[\s,]+/g, '').length > 0;
-      return { ...base, output: trailing ? `${answer}\n\n(Calculated “${expression.trim()}” from your message; the rest of the request was not evaluated.)` : answer, tool: 'calculator' };
+  const action = proposedAssistantAction(text);
+  if (action?.type === 'create_task') return { ...base, output: `Ready to add “${action.title}” to your tasks. Confirm below; nothing has been saved yet.`, action };
+  if (action?.type === 'create_note') return { ...base, output: 'I prepared this note. Confirm below to save it to your private workspace.', action };
+  if (isSimpleGreeting(text)) return { ...base, output: 'Assalam-o-alaikum! I’m JalalAi. I can calculate, plan, review a proposal, manage your tasks and notes, and search your workspace. Cloud AI is optional. What would you like to work on?' };
+  if (isClockQuestion(text)) {
+    const place = text.match(NAMED_CLOCK)?.[1];
+    if (place) {
+      try { return { ...base, output: timeIn(place, now), tool: 'clock' }; }
+      catch (error) { return { ...base, output: error.message, tool: 'clock' }; }
     }
-    return { ...base, output: 'I could not find an arithmetic expression in that message. Try “calculate (1200 + 350) * 15%”.', tool: 'calculator' };
+    return { ...base, output: `Pakistan time: ${new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', dateStyle: 'full', timeStyle: 'long' }).format(now)}.`, tool: 'clock' };
   }
-  const task = text.match(/^(?:add|create|remember)(?: a)? task\s*:?\s*(.+)$/i);
-  if (task) return { ...base, output: `Ready to add “${task[1].trim()}” to your tasks. Confirm below; nothing has been saved yet.`, action: { type: 'create_task', title: task[1].trim() } };
-  const note = text.match(/^(?:save|add|take)(?: a)? note\s*:?\s*([\s\S]+)$/i);
-  if (note) return { ...base, output: 'I prepared this note. Confirm below to save it to your private workspace.', action: { type: 'create_note', content: note[1].trim() } };
+  const explicitCalculation = isArithmeticRequest(text);
+  const parsed = explicitCalculation ? extractArithmetic(text) : null;
+  // Keep a specialist's frame for a compound request, but answer a standalone
+  // calculation in every profile. A question merely mentioning calculation is
+  // not hijacked from the cloud conversational engine.
+  const profileHasFrame = ['planner', 'critic', 'coding', 'analysis', 'architect', 'reviewer', 'writer'].includes(profile);
+  if (explicitCalculation && (!profileHasFrame || !parsed?.remainder)) {
+    if (parsed) {
+      try {
+        const answer = calculate(parsed.expression);
+        return { ...base, output: parsed.remainder ? `${answer}\n\n(Calculated the expression; the rest of the request was not evaluated.)` : answer, tool: 'calculator' };
+      } catch (error) {
+        return { ...base, output: `Calculation failed: ${error.message}`, tool: 'calculator' };
+      }
+    }
+    return { ...base, output: 'I could not understand that arithmetic. Try “calculate six times seven” or “calculate (1200 + 350) * 15%”.', tool: 'calculator', needsProvider: true };
+  }
   if (/\b(list|show|my)\b.*\btasks\b/.test(lower)) return { ...base, output: 'Opening your current tasks.', tool: 'list_tasks' };
   if (/\b(list|show|my)\b.*\bnotes\b/.test(lower)) return { ...base, output: 'Opening your saved notes.', tool: 'list_notes' };
   const search = text.match(/^search (?:records|workspace)(?: for)?\s*:?\s*(.+)$/i);
   if (search) return { ...base, output: `Search your workspace for “${search[1].trim()}”.`, tool: 'search_records', query: search[1].trim() };
-  if (/\b(help|what can you do|capabilities|commands)\b/.test(lower)) return { ...base, output: 'Available without an AI key:\n• calculate (1200 + 350) * 15%\n• add task: Review the project proposal\n• save note: Your private note\n• show tasks / show notes\n• search records: project name\n• plan: Launch a professional website\n• critic: Review this proposal…\n\nVoice input uses your browser’s speech service when supported. “Read reply” uses an on-device browser voice. Cloud AI, Gmail, WhatsApp and computer control are not silently connected.' };
+  if (/\b(help|what can you do|capabilities|commands)\b/.test(lower)) return { ...base, output: 'Available without an AI key:\n• calculate (1200 + 350) * 15%\n• add task: Review the project proposal\n• save note: Your private note\n• show tasks / show notes\n• search records: project name\n• plan: Launch a professional website\n• critic: Review this proposal…\n\nVoice input uses your browser’s speech service when supported. “Read reply” uses a browser voice, which may be provided online. Cloud AI, Gmail, WhatsApp and computer control are not silently connected.' };
   const goal = text.replace(/^(plan|critic|review|analyze|analyse|code|architect|write|draft)\s*:?\s*/i, '').trim();
   // An explicitly selected profile always answers in its own frame; the keyword
   // shortcuts below only apply to the general profile.
@@ -84,6 +93,6 @@ export function localAssistant(message, profile = 'general', now = new Date()) {
   if (profile === 'architect' || (!specific && /^architect\b/i.test(text))) return { ...base, output: `Architecture review for: ${goal}\n\n1. Boundaries: which module owns this decision, and what does it expose?\n2. Data: what is stored, for how long, and who can read it?\n3. Contracts: what shape does the caller depend on, and what breaks it?\n4. Failure modes: timeout, partial write, duplicate request, empty state.\n5. Operations: how do you observe it, back it up and roll it back?\n6. Reversibility: the smallest change that can be undone in one deploy.\n\nThis is a structured architecture checklist from local tools, not an external design review. Attach the real diagram or schema for a provider-backed critique.` };
   if (profile === 'reviewer' || (!specific && /^review\b/i.test(text))) return { ...base, output: `Review checklist for: ${goal}\n\n• Correctness — does it do what the description says, including the failure path?\n• Security — untrusted input, authorisation on every read, secrets outside the repo.\n• Honesty — does the UI claim anything the code cannot do?\n• Accessibility — keyboard path, focus order, labels, contrast, reduced motion.\n• Tests — one test per claim, and a test that fails when the code is wrong.\n• Release — migration order, rollback, and what the user sees while it deploys.\n\nEscalate anything that touches money, identity or personal data to a human owner before shipping. This local checklist is not a substitute for that human review.` };
   if (profile === 'writer' || (!specific && /^write\b/i.test(text))) return { ...base, output: `Drafting frame for: ${goal}\n\n1. Reader: who is this for, and what do they already know?\n2. One sentence: the single point they must remember.\n3. Structure: claim → evidence → what it means for them.\n4. Cut: remove every adjective that no number supports.\n5. Proof: what can the reader verify themselves?\n6. Call to action: the one next step.\n\nI can structure the writing, but local mode does not produce provider-quality prose. Connect a cloud provider for a generated draft, and check every factual claim yourself.` };
-  return { ...base, output: 'I understood your message, but general conversational AI is not connected yet. I can still calculate, create a plan or critical review, and manage tasks/notes. Type “help” for working commands, or configure a server-side AI provider for open-ended answers. I have not invented a cloud response.', needsProvider: true };
+  return { ...base, output: 'I cannot answer that open-ended question with local tools alone. I can still calculate, create a plan or critical review, and manage tasks and notes. Type “help” for commands, or select Cloud AI with a configured server-side provider. I have not invented a cloud response.', needsProvider: true };
 }
 

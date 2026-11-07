@@ -1,5 +1,7 @@
 # V151 — The app now behaves like an app on your desktop, not just a tab
 
+> Historical note: V153 removed the periodic widget refresh registration to honor the no-background-sync requirement. The current widget refreshes on install/resume and removes the legacy job.
+
 Date: 7 November 2026 · Base: `main` @ `cf16c2e` (V150.1) · Repo: `sjalalhs7/AI-Syed-Jalal-Final-Master`
 
 ## What changed

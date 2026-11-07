@@ -24,7 +24,7 @@ class FakeSelect {
   change(value) { this.value = value; for (const handler of this.listeners.change || []) handler({ target: this }); }
 }
 
-function harness({ supported = true, voices = [], stored = {}, selects = [] } = {}) {
+function harness({ supported = true, undefinedSynth = false, voices = [], stored = {}, selects = [] } = {}) {
   const store = new Map(Object.entries(stored));
   const state = { voices };
   const speechListeners = {}, windowListeners = {};
@@ -45,6 +45,7 @@ function harness({ supported = true, voices = [], stored = {}, selects = [] } = 
     clearInterval: () => {},
   };
   if (!supported) { delete window.speechSynthesis; delete window.SpeechSynthesisUtterance; }
+  if (undefinedSynth) window.speechSynthesis = undefined;
   const document = { readyState: 'complete', querySelectorAll: () => selects, addEventListener: () => {} };
   const sandbox = {
     window, document, Option: FakeOption, console,
@@ -69,6 +70,13 @@ test('unsupported browsers get an explained, disabled control instead of a dead 
   assert.equal(select.attributes['aria-disabled'], 'true');
   assert.match(select.options[0].textContent, /not supported/i);
   assert.equal(api.list().length, 0);
+});
+
+test('an exposed but undefined speech synthesizer is treated as unsupported', () => {
+  const select = new FakeSelect();
+  const { api } = harness({ undefinedSynth: true, selects: [select] });
+  assert.equal(api.supported, false);
+  assert.equal(select.disabled, true);
 });
 
 test('named voices are listed and the remembered choice is restored', () => {
@@ -134,6 +142,26 @@ test('voices that arrive asynchronously are picked up without a page reload', ()
   state.voices = VOICES;
   for (const handler of speechListeners.voiceschanged || []) handler();
   assert.equal(select.options.length, VOICES.length + 1);
+});
+
+test('a saved voice survives an initially empty browser voice list', () => {
+  const select = new FakeSelect();
+  const { api, store, state, speechListeners } = harness({ voices: [], stored: { [KEY]: 'Aisha|ur-PK' }, selects: [select] });
+  assert.equal(store.get(KEY), 'Aisha|ur-PK');
+  assert.equal(select.value, '');
+  state.voices = VOICES;
+  for (const handler of speechListeners.voiceschanged || []) handler();
+  assert.equal(select.value, 'Aisha|ur-PK');
+  assert.equal(api.preferredId(), 'Aisha|ur-PK');
+});
+
+test('choosing system default does not resurrect the legacy voice after reload', () => {
+  const select = new FakeSelect();
+  const first = harness({ voices: VOICES, stored: { 'jalalai-speech-voice-v1': 'Daniel|en-GB' }, selects: [select] });
+  select.change('');
+  const second = harness({ voices: VOICES, stored: Object.fromEntries(first.store), selects: [new FakeSelect()] });
+  assert.equal(second.api.preferredId(), '');
+  assert.equal(second.api.resolve('en-US').name, 'Samantha');
 });
 
 test('every read-aloud surface resolves its voice through the shared module', async () => {

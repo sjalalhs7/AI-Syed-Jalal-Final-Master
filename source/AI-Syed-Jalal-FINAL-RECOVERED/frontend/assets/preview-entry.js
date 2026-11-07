@@ -18,7 +18,10 @@
           if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); csrf = session.csrfToken || ''; }
           const response = await fetch('/api/demo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: '{}' });
           if (!response.ok) throw new Error((await response.json()).error || 'Preview could not start');
-          if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); if (!session.authenticated) throw new Error('Preview session was not established'); location.reload(); } else location.href = 'dashboard.html';
+          if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); if (!session.authenticated) throw new Error('Preview session was not established'); location.reload(); } else {
+            if (typeof window.AJNavigateAfterSignIn === 'function') window.AJNavigateAfterSignIn();
+            else location.href = 'dashboard.html';
+          }
         } catch (error) { note.textContent = error.message; note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
       };
       form.append(button, note);
