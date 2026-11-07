@@ -152,6 +152,18 @@
     }
     user = session.user; $('loginBanner').hidden = true; $('quickStart').hidden = true; await refreshState(); $('connectionStatus').textContent = 'Connected · ' + user.username; setStatus('Ready. Your microphone is off.'); updateControls();
   }
+  // Hand-off from the share target and the protocol handler: the text the other
+  // app sent is placed in the composer so the person reviews it before sending.
+  // It is never sent automatically.
+  function adoptHandoff() {
+    let text = '';
+    try { text = sessionStorage.getItem('aj-share-prompt-v1') || ''; sessionStorage.removeItem('aj-share-prompt-v1'); } catch { return; }
+    if (!text) return;
+    $('prompt').value = text.slice(0, 10000);
+    updateControls();
+    addMessage('Received from another app. It is in the composer so you can review or edit it before sending — nothing has been sent yet.', 'assistant', 'JalalAi · shared content');
+    setStatus('Shared content is in your composer. Press Send when you are ready.');
+  }
   $('chatForm').onsubmit = event => { event.preventDefault(); send(); };
   $('prompt').addEventListener('input', updateControls);
   $('prompt').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
@@ -197,5 +209,5 @@
     $('loginBanner').hidden = false; $('quickStart').hidden = false; $('demoBtn').hidden = true; $('demoBtn').disabled = true; $('demoBtn').style.display = 'none'; $('sendBtn').disabled = true;
     $('loginMessage').textContent = 'Static website preview: JalalAi needs the secure application server for sign-in, tasks, notes and AI. Open the secure app, or run npm run dev locally. See Setup options in the banner.';
     $('connectionStatus').textContent = 'Static preview · backend not connected'; setStatus('Open the secure app or local preview to begin.'); updateControls();
-  } else signIn().catch(error => { $('connectionStatus').textContent = 'Connection unavailable'; setStatus(error.message); $('loginBanner').hidden = false; $('loginMessage').textContent = 'The server could not be reached. Reload after the application server is running.'; });
+  } else signIn().then(adoptHandoff).catch(error => { $('connectionStatus').textContent = 'Connection unavailable'; setStatus(error.message); $('loginBanner').hidden = false; $('loginMessage').textContent = 'The server could not be reached. Reload after the application server is running.'; });
 })();

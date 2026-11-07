@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<script src="assets/host-mode.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#070914">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<meta name="description" content="A web+ajalal link was opened in the app. Review where it points before doing anything with it.">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg"><link rel="manifest" href="manifest.webmanifest">
+<title>Link opened in Alsyed Jalal AI</title>
+<link rel="stylesheet" href="assets/v101-palette.css"><link rel="stylesheet" href="assets/jalalai.css"><link rel="stylesheet" href="assets/pwa-surfaces.css">
+<script src="assets/pwa-surfaces.js" defer></script><script src="assets/pwa-handlers.js" defer></script>
+<style>
+.url-box{background:#0a1726;border:1px solid var(--line);border-radius:12px;padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;overflow-wrap:anywhere}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:16px 0}
+.fact{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0b1727}
+.fact b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.warn{border-color:#7a5a2a;background:#221a0e;color:#ffd58a}
+</style>
+</head><body>
+<div class="shell">
+<header class="topbar"><a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ rainbow crown logo"><span><strong>Opened by link</strong><small>PROTOCOL HANDLER · REVIEW BEFORE YOU ACT</small></span></a>
+<nav aria-label="Main navigation"><a class="btn" href="guide.html">Start here</a><a class="btn" href="notes.html">Quick Notes</a><a class="btn" href="jalalai.html">JalalAi</a><a class="btn" href="capabilities.html">App capabilities</a></nav></header>
+
+<main>
+<section class="intro"><div><div class="eyebrow">PROTOCOL HANDLING</div><h1>A <code>web+ajalal</code> link opened the app.</h1><p>The link is shown exactly as received. Nothing was fetched, and no action was taken on your behalf.</p></div><span class="status-pill" id="protocolState" role="status">Checking the link…</span></section>
+
+<section class="panel" id="protocolPanel"><div class="panel-body">
+  <h2 id="linkTitle">The link</h2>
+  <p class="url-box" id="rawUrl">—</p>
+  <div class="facts" id="facts"></div>
+  <div class="panel" id="warning" hidden><div class="panel-body warn" id="warningText"></div></div>
+  <div class="composer-row">
+    <button class="btn primary" type="button" id="askBtn">Ask JalalAi about this link</button>
+    <button class="btn" type="button" id="noteBtn">Save it as a note</button>
+    <button class="btn" type="button" id="copyBtn">Copy the link</button>
+  </div>
+  <div class="statusline" id="protocolStatus" role="status" aria-live="polite"></div>
+  <p class="hint">The app never opens the link for you. Opening a link another person sent is your decision, made in your own browser.</p>
+</div></section>
+
+<aside class="panel side-panel" style="padding:18px"><h2>How this works</h2><p>Any page can link to <code>web+ajalal://…</code> once this app is installed and chosen as the handler for that scheme. The manifest declares the handler; the operating system owns the choice.</p><p>A protocol handler is a convenience, not a trust signal: treat the link like any other link.</p></aside>
+</main>
+<footer class="page-foot"><span>Alsyed Jalal AI · Protocol handler</span><a href="capabilities.html">App capabilities</a><a href="guide.html">Start here</a></footer>
+</div>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body></html>

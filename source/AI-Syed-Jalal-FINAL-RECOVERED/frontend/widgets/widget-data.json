@@ -1,0 +1,7 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "title": "AI-Syed Jalal",
+  "subtitle": "Quick note: capture a thought before it goes.",
+  "footer": "Saved notes live in your private workspace, only after you press Save.",
+  "actionTitle": "New note"
+}
