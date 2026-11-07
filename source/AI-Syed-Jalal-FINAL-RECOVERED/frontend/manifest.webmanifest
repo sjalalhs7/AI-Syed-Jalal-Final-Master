@@ -1,6 +1,6 @@
 {
   "id": "./",
-  "name": "AI-Syed Jalal — Professional AI Workspace",
+  "name": "AI-Syed Jalal \u2014 Professional AI Workspace",
   "short_name": "AI-Syed Jalal",
   "description": "Professional AI workspace for chat, research, coding, data analysis, documents and AI agents.",
   "lang": "en",
@@ -14,8 +14,8 @@
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#06101d",
-  "theme_color": "#07101f",
+  "background_color": "#f2f8f8",
+  "theme_color": "#f2f8f8",
   "categories": [
     "business",
     "productivity",
@@ -41,7 +41,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "assets/brand/sjs-logo.svg",
+      "src": "assets/approved-sj-rainbow-crown.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
@@ -198,7 +198,7 @@
   },
   "widgets": [
     {
-      "name": "Alsyed Jalal — New note",
+      "name": "Alsyed Jalal \u2014 New note",
       "short_name": "New note",
       "description": "Start a note in your private workspace, or open the last one you saved.",
       "tag": "aj-new-note",

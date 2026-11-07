@@ -358,7 +358,7 @@
   $('readBtn').onclick = () => speak(lastReply);
   $('stopBtn').onclick = () => { stopVoice(); if (requestController) requestController.abort(); setStatus('Stopped.'); };
   $('exportBtn').onclick = event => exportConversation(event.shiftKey ? 'json' : 'markdown');
-  $('themeBtn').onclick = () => { const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = next; localStorage.setItem('sj-agent-theme', next); };
+  $('themeBtn').onclick = () => window.AJTheme?.open();
   $('toolsBtn').onclick = () => { const panel = $('toolsPanel'); panel.hidden = !panel.hidden; $('studio').classList.toggle('tools-open', !panel.hidden); };
   $('toolsClose').onclick = () => { $('toolsPanel').hidden = true; $('studio').classList.remove('tools-open'); };
   $('sidebarOpen').onclick = () => $('sidebar').classList.add('open');
@@ -367,7 +367,7 @@
   $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=agent.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; messages = []; conversations = []; currentId = null; stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
   document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); newConversation(); } if (event.key === 'Escape') { closeSidebar(); $('toolsPanel').hidden = true; $('studio').classList.remove('tools-open'); } });
   window.addEventListener('pagehide', () => { stopVoice(); requestController?.abort(); });
-  const savedTheme = localStorage.getItem('sj-agent-theme'); if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+  document.documentElement.dataset.theme = 'light';
   setMode('chat', false);
   if (window.AJ_STATIC_HOST) {
     $('authGate').hidden = false; $('conversationArea').hidden = true; $('demoBtn').hidden = true; $('demoBtn').disabled = true; $('demoBtn').style.display = 'none';

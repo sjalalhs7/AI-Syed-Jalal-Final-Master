@@ -219,7 +219,7 @@ test('fixed app navigation, branded mobile navigation, and sign-in return work',
   await page.locator('#previewAccessBtn').click();
   await expect(page).toHaveURL(/jarvis\.html$/);
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
-  await expect(page.locator('.brand img')).toHaveAttribute('src', 'assets/brand/sjs-logo.svg');
+  await expect(page.locator('.brand img')).toHaveAttribute('src', 'assets/approved-sj-rainbow-crown.svg');
   await expect(page.locator('.topbar nav a[href="guide.html"]')).toBeVisible();
   const action = await page.locator('#talkBtn').boundingBox();
   expect(action.y + action.height).toBeLessThanOrEqual(844);

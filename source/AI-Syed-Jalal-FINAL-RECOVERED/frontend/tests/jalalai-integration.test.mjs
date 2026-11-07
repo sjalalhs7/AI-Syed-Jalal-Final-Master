@@ -9,9 +9,9 @@ const api = readFileSync(new URL('functions/api/[[path]].js', base), 'utf8');
 
 test('JalalAi stays linked from the existing workspace and keeps the approved logo', () => {
   assert.match(workspace, /jalalai\.html/);
-  assert.match(workspace, /assets\/brand\/sjs-logo\.svg/);
+  assert.match(workspace, /assets\/approved-sj-rainbow-crown\.svg/);
   assert.match(page, /AI-Syed Jalal/);
-  assert.match(page, /brand\/sjs-logo\.svg/);
+  assert.match(page, /approved-sj-rainbow-crown\.svg/);
 });
 const client = readFileSync(new URL('assets/jalalai.js', base), 'utf8');
 const routes = readFileSync(new URL('functions/assistant-routes.mjs', base), 'utf8');

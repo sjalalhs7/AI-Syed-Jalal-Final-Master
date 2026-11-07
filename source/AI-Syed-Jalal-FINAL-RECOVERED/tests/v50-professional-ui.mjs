@@ -5,7 +5,7 @@ const html=await fs.readFile(path.join(root,'frontend/workspace.html'),'utf8');
 const js=await fs.readFile(path.join(root,'frontend/assets/preview-entry.js'),'utf8');
 const must=['loginForm','loginApiUrl','username','password','logoutBtn','themeBtn','view-home','view-data','view-documents','view-operations','view-ai-command','sideNav','mobileNav','statRecords','topOperator'];
 for(const x of must) if(!html.includes(x)) throw new Error(`missing ${x}`);
-if(!html.includes('assets/brand/sjs-logo.svg')) throw new Error('approved logo asset not wired');
+if(!html.includes('assets/approved-sj-rainbow-crown.svg')) throw new Error('approved logo asset not wired');
 if(!html.includes('PROFESSIONAL AI WORKSPACE')) throw new Error('professional branding missing');
 if(!html.includes('AI-Syed')) throw new Error('brand credit missing');
 if((html.match(/if\(view==='ai-command'\)renderAICommand\(\);/g)||[]).length!==1) throw new Error('duplicate AI navigation render wiring remains');
