@@ -121,6 +121,8 @@ test('schema repair requires an authenticated Admin, valid CSRF and explicit con
     assert.equal(preview.data.preview.transactional, false);
     assert.match(preview.data.preview.warning, /partial changes/i);
     assert.match(preview.data.error, /restorable full database backup/i);
+    assert.match(preview.data.error, /rehearsing on an isolated target/i);
+    assert.match(preview.data.error, /obtaining authorization/i);
     assert.equal(Number((await db.query("SELECT count(*) AS n FROM auth_rate_limits WHERE scope='schema-repair'")).rows[0].n), 0,
       'a preview without confirmation must not write a rate-limit row');
 

@@ -1,4 +1,4 @@
-// Applies the bundled additive migrations to a database that is behind.
+// Attempts the bundled schema and migration statements on a database that is behind.
 //
 // Kept separate from the HTTP handler so it can be tested against a real
 // Postgres engine without importing the Cloudflare runtime.

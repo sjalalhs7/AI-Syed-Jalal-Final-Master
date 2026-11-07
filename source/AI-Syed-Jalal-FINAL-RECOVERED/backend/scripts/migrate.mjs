@@ -11,12 +11,12 @@ if(!process.env.DATABASE_URL){
   console.error([
     'DATABASE_URL is not set, so there is nothing to migrate.',
     '',
-    'Copy the connection string from your Neon project dashboard',
-    '  (Neon → your project → Dashboard → Connection string)',
-    'then run:',
-    '  DATABASE_URL="postgresql://..." npm run db:migrate',
-    '',
-    'This applies the bundled schema and migrations; /api/ready checks required table names.'
+    'This command applies schema and migrations to its configured database.',
+    'For production, first verify a restorable full database backup, rehearse',
+    'on an isolated target and obtain explicit owner approval.',
+    'Set DATABASE_URL through an approved secret mechanism; do not paste it',
+    'into chat, a repository or shell history. Only then run npm run db:migrate.',
+    '/api/ready checks table names, not full schema or data integrity.'
   ].join('\n'));
   process.exit(1);
 }

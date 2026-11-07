@@ -17,8 +17,6 @@ services:
       SESSION_COOKIE_SECURE: "true"
       SESSION_COOKIE_NAME: aj_session
       TRUST_PROXY: "true"
-      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.production}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -30,7 +28,8 @@ services:
       PUBLIC_CHAT_ENABLED: ${PUBLIC_CHAT_ENABLED:-false}
       PUBLIC_CHAT_DAILY_MAX: ${PUBLIC_CHAT_DAILY_MAX:-300}
       PUBLIC_CHAT_PROVIDER: ${PUBLIC_CHAT_PROVIDER:-deepseek}
-    command: sh -c "node scripts/migrate.mjs && node server.mjs"
+    # Never run schema migrations implicitly on a production container restart.
+    command: ["node", "server.mjs"]
     expose:
       - "8787"
     healthcheck:
@@ -54,7 +53,8 @@ services:
       PGSSL: "true"
       PGSSL_REJECT_UNAUTHORIZED: "true"
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.production}
+      # The seed script validates its password when the owner explicitly runs it.
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     command: ["node", "scripts/seed.mjs"]
     networks: [internal]
 
