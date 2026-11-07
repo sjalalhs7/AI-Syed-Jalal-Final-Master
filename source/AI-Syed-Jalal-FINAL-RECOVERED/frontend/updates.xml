@@ -2,12 +2,13 @@
 <rss version="2.0">
   <channel>
     <title>AI-Syed Jalal Updates</title>
-    <link>https://sjalalhs7.github.io/employee-register/</link>
+    <link>https://ai-syed-jalal-live.pages.dev/</link>
     <description>Product and engineering updates for AI-Syed Jalal.</description>
     <item>
-      <title>V53 Discoverability &amp; Professional Engineering Release</title>
-      <link>https://sjalalhs7.github.io/employee-register/</link>
-      <description>SEO metadata, structured data, sitemap, robots.txt, PWA discoverability and launch workflow improvements.</description>
+      <title>JARVIS voice and text assistant</title>
+      <link>https://ai-syed-jalal-live.pages.dev/about-jarvis</link>
+      <guid isPermaLink="true">https://ai-syed-jalal-live.pages.dev/about-jarvis</guid>
+      <description>Learn how JARVIS helps with local tools, tasks, notes and optional cloud AI.</description>
     </item>
   </channel>
 </rss>

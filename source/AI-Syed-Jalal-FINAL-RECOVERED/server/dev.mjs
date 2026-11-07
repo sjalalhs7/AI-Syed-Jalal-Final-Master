@@ -27,7 +27,7 @@ const { onRequest } = await import('../.data/api.mjs');
 const env = { ...process.env, LOCAL_PREVIEW: 'true', DATABASE_URL: 'local-pglite', CSRF_SECRET: localSecret, COOKIE_SECURE: 'false' };
 const adapter = { query: async (sql, params = []) => (await db.query(sql, params)).rows };
 const frontend = resolve(root, 'frontend');
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.xml': 'application/xml; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2' };
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -48,7 +48,15 @@ const server = http.createServer(async (req, res) => {
     let path = resolve(frontend, '.' + decodeURIComponent(url.pathname));
     if (path !== frontend && !path.startsWith(frontend + sep)) { res.writeHead(403); res.end(); return; }
     if (url.pathname.endsWith('/')) path = resolve(path, 'index.html');
-    if (!(await stat(path)).isFile()) throw new Error('Not a file');
+    // Match Cloudflare Pages' public extensionless HTML URLs in local preview.
+    // Keep .html URLs working too, for GitHub Pages and standalone archives.
+    try {
+      if (!(await stat(path)).isFile()) throw new Error('Not a file');
+    } catch (error) {
+      if (error.code !== 'ENOENT' || extname(path)) throw error;
+      path += '.html';
+      if (!(await stat(path)).isFile()) throw new Error('Not a file');
+    }
     const content = await readFile(path);
     res.writeHead(200, { 'Content-Type': types[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'microphone=(self), camera=(), geolocation=()' });
     res.end(req.method === 'HEAD' ? undefined : content);

@@ -161,7 +161,7 @@ test('the sitemap lists exactly the pages that are not marked noindex', () => {
 
   const sitemap = readFileSync(new URL('sitemap.xml', frontend), 'utf8');
   const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  const listed = new Set(locs.map(l => l.split('/').pop() || 'index.html').map(f => f || 'index.html'));
+  const listed = new Set(locs.map(l => { const path = new URL(l).pathname; return path === '/' ? 'index.html' : path.replace(/^\//, '') + '.html'; }));
 
   assert.deepEqual([...listed].sort(), [...publicPages].sort(),
     'sitemap and noindex tags disagree');
