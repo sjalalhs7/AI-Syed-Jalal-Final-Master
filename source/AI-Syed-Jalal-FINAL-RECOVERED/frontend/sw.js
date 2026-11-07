@@ -1,4 +1,4 @@
-const CACHE='aj-v152-shell';
+const CACHE='aj-v153-shell';
 const ASSETS=['./','./index.html','./guide.html','./capabilities.html','./protocol.html','./assets/guide.js','./assets/guide.css','./assets/jalalai.js','./assets/jalalai.css','./assets/preview-entry.js','./assets/pwa-surfaces.css','./assets/pwa-handlers.js','./manifest.webmanifest','./assets/app-mark.svg','./assets/alsyed-jalal-logo.svg','./assets/v101-palette.css','./assets/ai-widget.js','./assets/agent.js','./assets/agent.css','./assets/host-mode.js','./assets/speech-preferences.js','./assets/app-icons/icon-192.png','./assets/app-icons/icon-512.png','./assets/app-icons/icon-maskable-512.png','./assets/app-icons/apple-touch-icon-180.png','./assets/brand/sjs-logo.svg','./assets/brand/sjs-compact.svg','./assets/brand/favicon.svg','./widgets/widget-data.json','./widgets/new-note-template.json'];
 
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
@@ -29,7 +29,6 @@ self.addEventListener('fetch',e=>{
  * data, and a failed fetch must leave the previous content in place.
  * ------------------------------------------------------------------------- */
 const WIDGET_TAG='aj-new-note';
-const WIDGET_REFRESH_TAG='aj-widget-refresh';
 
 async function widgetDefinition(widget){
   try{
@@ -53,16 +52,14 @@ async function refreshWidget(widget){
   }catch{/* Offline or the host dropped the widget: keep the last good content. */}
 }
 
-async function scheduleWidgetRefresh(){
-  try{
-    if(self.registration.periodicSync&&!await self.registration.periodicSync.getTags().then(t=>t.includes(WIDGET_REFRESH_TAG)))
-      await self.registration.periodicSync.register(WIDGET_REFRESH_TAG,{minInterval:3600000});
-  }catch{/* Periodic sync needs an installed app and permission; the install event still renders. */}
+// Remove a refresh job created by older versions. Current widgets refresh on
+// install/resume only; this app does not register background sync.
+async function removeLegacyWidgetRefresh(){
+  try{await self.registration.periodicSync?.unregister('aj-widget-refresh')}catch{}
 }
-
-self.addEventListener('widgetinstall',e=>e.waitUntil((async()=>{await scheduleWidgetRefresh();await refreshWidget(e.widget)})()));
+self.addEventListener('activate',e=>e.waitUntil(removeLegacyWidgetRefresh()));
+self.addEventListener('widgetinstall',e=>e.waitUntil(refreshWidget(e.widget)));
 self.addEventListener('widgetresume',e=>e.waitUntil(refreshWidget(e.widget)));
-self.addEventListener('periodicsync',e=>{if(e.tag===WIDGET_REFRESH_TAG)e.waitUntil(refreshWidget(null))});
 
 // A tap anywhere on the widget opens a new note. If the app is already open we
 // focus that window and navigate it, so the user never ends up with duplicates.
@@ -74,6 +71,4 @@ self.addEventListener('widgetclick',e=>e.waitUntil((async()=>{
   await self.clients.openWindow(target);
 })()));
 
-self.addEventListener('widgetuninstall',e=>e.waitUntil((async()=>{
-  try{if(self.registration.periodicSync&&await self.registration.periodicSync.getTags().then(t=>t.includes(WIDGET_REFRESH_TAG)))await self.registration.periodicSync.unregister(WIDGET_REFRESH_TAG)}catch{}
-})()));
+self.addEventListener('widgetuninstall',e=>e.waitUntil(removeLegacyWidgetRefresh()));

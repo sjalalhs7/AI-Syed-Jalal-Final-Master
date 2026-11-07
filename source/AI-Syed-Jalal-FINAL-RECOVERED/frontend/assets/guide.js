@@ -9,7 +9,7 @@
       state('appState', 'Backend not connected', 'warn');
       state('cloudState', 'Unknown · needs server', 'warn');
       state('sessionState', 'Sign-in unavailable here', 'warn');
-      $('startMessage').textContent = 'GitHub Pages hosts the static website files. Login, saved data and cloud AI require the secure application server or the local preview.';
+      $('startMessage').textContent = 'This is a static website copy. Login, saved data and cloud AI require the secure application server or the local preview.';
       $('sandboxNote').textContent = 'Run npm ci && npm run dev in the application folder, then open /guide.html locally. For production, deploy the frontend with Cloudflare Pages Functions and configure Neon.';
       $('guidePreviewBtn').hidden = true;
       const recognition = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -29,7 +29,7 @@
       $('guidePreviewBtn').hidden = !health.localPreview;
       const recognition = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
       const synthesis = Boolean(window.speechSynthesis);
-      state('voiceState', recognition && synthesis ? 'Input + output supported' : recognition ? 'Input supported · output unavailable' : synthesis ? 'Typing + read-aloud available' : 'Typing available', recognition || synthesis ? 'ok' : 'warn');
+      state('voiceState', recognition && synthesis ? 'Input + output APIs detected' : recognition ? 'Input API detected · output unavailable' : synthesis ? 'Typing + read-aloud API detected' : 'Typing available', recognition || synthesis ? 'ok' : 'warn');
       state('sessionState', session.authenticated ? 'Signed in · ' + session.user.role : 'Not signed in', session.authenticated ? 'ok' : 'warn');
       $('sessionHelp').textContent = session.authenticated ? 'You can open Agent Studio, JalalAi or the Workspace now.' : 'Use the preview button or sign in from the homepage.';
     } catch (error) {

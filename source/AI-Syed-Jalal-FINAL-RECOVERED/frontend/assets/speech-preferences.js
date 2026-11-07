@@ -7,7 +7,8 @@
  * voice once and it is honoured everywhere and remembered across visits.
  *
  * Privacy: this only configures the browser's own speech engine. It performs no
- * network requests and never reads or stores spoken text.
+ * network requests and never reads or stores spoken text. The browser's speech
+ * service may still process audio or read-aloud text under its own terms.
  */
 (() => {
   if (window.AJSpeech) return;
@@ -17,10 +18,10 @@
   const LEGACY_KEYS = ['jalalai-speech-voice-v1'];
   const SELECTOR = 'select[data-aj-voice]';
   const CHANGE_EVENT = 'aj-speech-voice-change';
-  const supported = 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
+  const supported = Boolean(window.speechSynthesis && typeof window.SpeechSynthesisUtterance === 'function');
 
   const storage = {
-    get(key) { try { return window.localStorage.getItem(key) || ''; } catch { return ''; } },
+    get(key) { try { return window.localStorage.getItem(key); } catch { return null; } },
     set(key, value) { try { window.localStorage.setItem(key, value); } catch { /* private mode: keep in-memory only */ } },
   };
 
@@ -38,7 +39,10 @@
   }
 
   function preferredId() {
-    return storage.get(KEY) || memoryPreference || migrateLegacyPreference();
+    const saved = storage.get(KEY);
+    // An intentionally selected system default is an empty string, not a
+    // missing preference. Do not resurrect the old voice on the next visit.
+    return saved !== null ? saved : (memoryPreference || migrateLegacyPreference());
   }
 
   const voiceId = voice => `${voice.name}|${voice.lang}`;
@@ -87,12 +91,15 @@
 
   function fillSelect(select) {
     const current = select.value || preferredId();
+    const voices = list();
     select.replaceChildren(new Option('System default', ''));
-    for (const voice of list()) select.add(new Option(`${voice.name} (${voice.lang})`, voiceId(voice)));
+    for (const voice of voices) select.add(new Option(`${voice.name} (${voice.lang})`, voiceId(voice)));
     const known = [...select.options].some(option => option.value === current);
     select.value = known ? current : '';
-    if (!known && current) setPreferredQuiet('');
-    select.title = list().length
+    // getVoices() is often temporarily empty during page load. Preserve the
+    // preference until a real list arrives before declaring it unavailable.
+    if (!known && current && voices.length) setPreferredQuiet('');
+    select.title = voices.length
       ? 'Used by every read-aloud button in this application.'
       : 'Your browser has not exposed named voices yet; the default voice is used.';
   }
@@ -147,7 +154,7 @@
 
   function start() {
     refresh();
-    window.speechSynthesis.addEventListener('voiceschanged', refresh);
+    window.speechSynthesis.addEventListener?.('voiceschanged', refresh);
     // Some engines populate getVoices() asynchronously without firing
     // voiceschanged, so poll briefly instead of leaving an empty list forever.
     let attempts = 0;

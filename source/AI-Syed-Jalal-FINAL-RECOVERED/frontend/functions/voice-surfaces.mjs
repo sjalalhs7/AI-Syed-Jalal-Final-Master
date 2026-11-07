@@ -37,9 +37,9 @@ export const VOICE_CONTRACT = Object.freeze({
 export const VOICE_LIMITS = Object.freeze([
   'Speech recognition is the browser engine (Web Speech API). Chrome and Edge support it; Firefox does not, and Safari support varies by version.',
   'Read-aloud uses the browser speech-synthesis engine and the voices that device exposes. No audio is generated on the server.',
-  'Your microphone stays off until you press the talk button, and it stops automatically when the transcript is final.',
+  'The microphone starts only after you press the talk button. Optional conversation mode reopens it between turns until you stop it, an error occurs, or the tab is hidden.',
   'Spoken requests use the same endpoints, limits and confirmations as typed ones. Voice never grants extra permissions.',
-  'Audio is never stored: no recording is uploaded, and the transcript is ordinary chat text you can edit before sending.'
+  'The application does not receive or store audio; the browser speech provider may process it under its own terms. Transcripts are text; agent and research prompts and traces may be saved to your account.'
 ]);
 
 /** True when a page source ships the shared module and a bindable voice selector. */

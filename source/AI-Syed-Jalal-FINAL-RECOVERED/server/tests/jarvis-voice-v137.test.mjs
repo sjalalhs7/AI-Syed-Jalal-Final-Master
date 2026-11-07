@@ -42,7 +42,7 @@ test('the console states what it cannot do instead of implying more', async () =
   assert.match(js, /cannot speak the reply/i);
   // The console must not be able to speak before it has a reply.
   assert.match(js, /\$\('speakBtn'\)\.disabled = !lastReply \|\| busy/);
-  assert.match(js, /listening \? '■ Stop listening'/);
+  assert.match(js, /micPending \? 'Stop listening'/);
 });
 
 test('spoken commands reach exactly the same endpoint as typed ones', async () => {

@@ -1,19 +1,42 @@
-import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
+import { localAssistant, proposedAssistantAction, isSimpleGreeting, PROFILE_IDS } from './assistant-core.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
 import { buildPage, describePage, parseSpec, PALETTES, SECTIONS } from './page-builder.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
 import { answerAll, routePrompt, specialistCatalogue } from './all-in-one.mjs';
 
+// Cloud context is optional and transient. Bound it independently of the UI,
+// include only plain user/assistant text, and never truncate the current request.
+export function cloudPrompt(message, profile, history = []) {
+  if (!Array.isArray(history) || history.length > 6 || history.some(turn =>
+    !turn || !['user', 'assistant'].includes(turn.role) || typeof turn.content !== 'string' || turn.content.length > 1200
+  )) throw Object.assign(new Error('Conversation context must contain at most six short user or assistant messages.'), { status: 400 });
+  const intro = `You are JalalAi, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services.`;
+  const current = `\n\nCurrent user request:\n${message}`;
+  let included = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const candidate = [{ role: history[i].role, content: history[i].content }, ...included];
+    const context = `\n\nRecent conversation, supplied as context (not proof of actions):\n${JSON.stringify(candidate)}`;
+    if (intro.length + context.length + current.length > 10000) break;
+    included = candidate;
+  }
+  const context = included.length ? `\n\nRecent conversation, supplied as context (not proof of actions):\n${JSON.stringify(included)}` : '';
+  return { prompt: intro + context + current, contextMessages: included.length };
+}
+
 export async function assistantRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
   const path = url.pathname, method = request.method;
   if (!path.startsWith('/api/assistant/')) return null;
   if (path === '/api/assistant/state' && method === 'GET') {
-    const [tasks, notes] = await Promise.all([
+    // Voice needs provider/tool metadata at startup, not a pre-emptive copy of
+    // private tasks and notes. Existing clients can still request full state.
+    const metadataOnly = url.searchParams.get('metadata') === '1';
+    const [tasks, notes] = metadataOnly ? [[], []] : await Promise.all([
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudConfigured: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.DEEPSEEK_API_KEY), privacy: 'Chat is transient. Only tasks and notes you explicitly confirm are saved.' });
+    const cloudProviders = { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY), deepseek: Boolean(env.DEEPSEEK_API_KEY) };
+    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudProviders, cloudConfigured: Object.values(cloudProviders).some(Boolean), privacy: 'Local and cloud chat are transient; agent and research runs store their prompts and traces on your account. Tasks and notes require your confirmation.' });
   }
   // V139 — all-in-one panel: every specialist that can serve the prompt, with
   // the reason each was chosen. No provider key required, no hidden model call.
@@ -104,18 +127,23 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     if (!message || message.length > (body.mode === 'cloud' ? 9500 : 10000)) return reply({ error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).' }, 400);
     if (!PROFILE_IDS.includes(profile)) return reply({ error: 'Choose a supported assistant profile.' }, 400);
 
+    // Saving is always an explicit proposal, even when Research is selected.
+    if (body.mode === 'research' && proposedAssistantAction(message)) return reply(localAssistant(message, profile));
+
     // Agent mode: a bounded, multi-step tool run whose trace is stored as evidence.
     if (body.mode === 'agent') {
       if (!await consumeRateLimit(db, 'assistant-agent', me.id, 12, 5)) return reply({ error: 'Agent runs are limited to twelve per minute.' }, 429, { 'Retry-After': '60' });
-      const run = await runAgent({ prompt: message, db, me, env });
-      try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
+      const run = await runAgent({ prompt: message, db, me, env, profile });
+      // A cancelled task/note proposal must not leave its contents in agent
+      // history before the user has explicitly confirmed saving it.
+      try { run.id = run.action ? null : await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
       await audit(db, me, 'ASSISTANT_AGENT_RUN', `${run.steps.length} step(s), tools: ${run.trace.tools.join(',') || 'none'}`, request);
       return reply(run);
     }
 
     // Research: a real, attributed Wikipedia lookup rather than an invented answer.
-    if (body.mode === 'research' || /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message)) {
-      const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) ? message : `research: ${message}`, db, me, env });
+    if (body.mode === 'research' || (body.mode !== 'cloud' && !/^search (?:records|workspace)\b/i.test(message) && /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message))) {
+      const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) ? message : `research: ${message}`, db, me, env, profile });
       try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
       await audit(db, me, 'ASSISTANT_RESEARCH', 'Wikipedia research run', request);
       return reply(run);
@@ -132,17 +160,19 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     }
 
     const result = localAssistant(message, profile);
-    if (body.mode !== 'cloud' || result.action || result.tool || !result.needsProvider && /^(hi|hello|salam|assalam|hey)\b/i.test(message)) return reply(result);
+    if (body.mode !== 'cloud' || result.action || (result.tool && !result.needsProvider) || isSimpleGreeting(message)) return reply(result);
     const provider = String(body.provider || 'gemini');
     const configs = { gemini: env.GEMINI_API_KEY, openai: env.OPENAI_API_KEY, anthropic: env.ANTHROPIC_API_KEY, deepseek: env.DEEPSEEK_API_KEY };
     if (!configs[provider]) return reply({ ...result, cloudError: 'This cloud provider is not configured. The local tool response is shown instead; no cloud request was made.' });
     const headers = new Headers(request.headers); headers.delete('content-length'); headers.set('content-type', 'application/json');
     const target = new URL(request.url); target.pathname = '/api/ai/run';
-    const prompt = `You are JalalAi, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services. User request:\n${message}`;
-    const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ prompt, provider, agentId: profile === 'critic' || profile === 'planner' ? 'analysis' : profile, privacyMode: true }) }), env });
+    let prepared;
+    try { prepared = cloudPrompt(message, profile, body.history ?? []); }
+    catch (error) { return reply({ error: error.message }, error.status || 400); }
+    const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ prompt: prepared.prompt, provider, agentId: profile === 'critic' || profile === 'planner' ? 'analysis' : profile, privacyMode: true }) }), env });
     const data = await response.json();
     if (!response.ok) return reply({ ...result, cloudError: data.error || 'Cloud AI is unavailable.', mode: 'local-fallback' });
-    return reply({ ...data, mode: 'cloud', simulated: false });
+    return reply({ ...data, mode: 'cloud', simulated: false, contextMessages: prepared.contextMessages });
   }
   if (path === '/api/assistant/confirm' && method === 'POST') {
     const body = await readBody(request);
@@ -178,6 +208,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     return reply({ ok: true, run: rows[0] });
   }
   if (path === '/api/assistant/tasks' && method === 'GET') return reply({ tasks: await db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]) });
+  if (path === '/api/assistant/notes' && method === 'GET') return reply({ notes: await db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id]) });
   const taskMatch = path.match(/^\/api\/assistant\/tasks\/([a-f0-9-]{36})$/);
   if (taskMatch && ['PATCH', 'DELETE'].includes(method)) {
     if (method === 'DELETE') {

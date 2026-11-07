@@ -76,3 +76,34 @@ test('production cannot enable preview login or insecure cookies through a flag 
   const response = await onRequest({ request: new Request('https://production.test/api/demo', { method: 'POST' }), env: { DATABASE_URL: 'postgres://unused', LOCAL_PREVIEW: 'true', COOKIE_SECURE: 'false' } });
   assert.equal(response.status, 404);
 });
+
+test('agent and research voice commands only prepare writes until a CSRF-protected confirmation', async () => {
+  const { c, token } = await account();
+  const task = await c('/assistant/chat', 'POST', { message: 'add task: Voice follow-up', mode: 'agent' }, token);
+  assert.equal(task.status, 200);
+  assert.equal(task.data.action.type, 'create_task');
+  assert.equal(task.data.needsProvider, false);
+  assert.equal(task.data.id, null, 'an unconfirmed proposal must not persist its text in agent history');
+  assert.equal((await c('/assistant/agent/runs')).data.total, 0);
+  assert.equal((await c('/assistant/tasks')).data.tasks.length, 0);
+  assert.equal((await c('/assistant/confirm', 'POST', { confirmed: true, action: task.data.action })).status, 403);
+  assert.equal((await c('/assistant/confirm', 'POST', { confirmed: false, action: task.data.action }, token)).status, 400);
+  assert.equal((await c('/assistant/tasks')).data.tasks.length, 0);
+  assert.equal((await c('/assistant/confirm', 'POST', { confirmed: true, action: task.data.action }, token)).status, 200);
+  assert.equal((await c('/assistant/tasks')).data.tasks[0].title, 'Voice follow-up');
+  const metadata = await c('/assistant/state?metadata=1');
+  assert.deepEqual(metadata.data.tasks, []);
+  assert.deepEqual(metadata.data.notes, []);
+  assert.ok(metadata.data.tools.length > 0);
+  assert.equal((await c('/assistant/state')).data.tasks.length, 1);
+
+  const note = await c('/assistant/chat', 'POST', { message: 'save note: Voice research idea', mode: 'research' }, token);
+  assert.equal(note.data.action.type, 'create_note');
+  assert.equal((await c('/assistant/state')).data.notes.length, 0);
+  const other = await account();
+  assert.equal((await other.c('/assistant/tasks')).data.tasks.length, 0, 'saved tasks remain account scoped');
+  assert.equal((await other.c('/assistant/state')).data.notes.length, 0, 'another account cannot see the proposal');
+  assert.equal((await c('/assistant/confirm', 'POST', { confirmed: true, action: note.data.action }, token)).status, 200);
+  assert.equal((await c('/assistant/notes')).data.notes[0].content, 'Voice research idea');
+  assert.equal((await other.c('/assistant/notes')).data.notes.length, 0, 'notes are account scoped');
+});

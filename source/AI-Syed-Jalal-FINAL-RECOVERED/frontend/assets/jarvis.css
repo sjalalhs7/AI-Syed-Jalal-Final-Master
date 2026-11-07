@@ -1,59 +1,90 @@
-/* V137 — JARVIS voice console.
-   Reuses the JalalAi visual language (same palette, same panels) and adds only
-   what is specific to a voice surface: the core indicator, the listening wave
-   and the live trace column. */
+/* JARVIS uses the SJS gold, emerald and navy identity; shared layout and
+   accessibility primitives come from the existing assistant stylesheet. */
 @import url('./jalalai.css');
-
-body { background: radial-gradient(ellipse at 50% -10%, #0d3b4d 0, transparent 55%), var(--bg); }
-
-.jarvis-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
-.console { display: flex; flex-direction: column; }
-.console-head { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.console-head h2 { font-size: 15px; margin: 0; }
+:root { --accent: #f8d47b; --green: #79e4b2; }
+body { background: radial-gradient(ellipse at 52% -18%, #173a37 0, transparent 48%), radial-gradient(ellipse at 5% 25%, #37260f 0, transparent 38%), #080d19; }
+.shell { max-width: 1480px; }
+.topbar { min-width: 0; }
+.topbar .brand { flex: 0 0 auto; }
+.topbar .brand img { width: 52px; height: 52px; }
+.topbar nav { min-width: 0; overflow-x: auto; scrollbar-width: thin; padding: 8px 0; }
+.topbar nav .btn { flex: 0 0 auto; }
+.intro { padding-top: 34px; }
+.intro h1 { font-size: clamp(34px, 4.5vw, 52px); letter-spacing: -.045em; }
+.intro p { max-width: 690px; font-size: 15px; line-height: 1.65; }
+.eyebrow, .console-kicker { color: var(--accent); letter-spacing: .15em; font-size: 10px; font-weight: 800; }
+.jarvis-grid { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 20px; align-items: start; }
+.panel { border-color: #32443f; background: linear-gradient(145deg, #132131f7, #0c1523f7); box-shadow: 0 16px 42px #0002; }
+.console { display: flex; flex-direction: column; min-width: 0; }
+.console-head { padding: 17px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.console-head h2 { font-size: 20px; letter-spacing: -.02em; margin: 2px 0; }
 .console-head small { color: var(--muted); }
-
-/* Core: a calm idle ring that reacts to what the console is actually doing. */
-.core { position: relative; width: 46px; height: 46px; display: grid; place-items: center; }
-.core span { position: absolute; inset: 0; border-radius: 50%; border: 1px solid #2f6f86; opacity: .55; }
-.core span:nth-child(2) { inset: 6px; border-color: #4a8fa8; }
-.core span:nth-child(3) { inset: 12px; background: #16394a; border-color: #65d9f5; box-shadow: 0 0 14px #2c7c92; }
-.core[data-state="listening"] span { animation: core-pulse 1.4s ease-in-out infinite; border-color: #75e2b4; }
+.console-head-right { display: flex; gap: 12px; align-items: center; }
+.mic-indicator { border: 1px solid #445462; border-radius: 99px; padding: 5px 10px; font-size: 11px; font-weight: 700; color: #c3d1df; white-space: nowrap; }
+.mic-indicator[data-active="true"] { color: #b9f8d8; border-color: #3ba27a; background: #17392d; }
+.core { position: relative; width: 46px; height: 46px; display: grid; place-items: center; flex: none; }
+.core span { position: absolute; inset: 0; border-radius: 50%; border: 1px solid #a2884f; opacity: .58; }
+.core span:nth-child(2) { inset: 6px; border-color: #dbbd70; }
+.core span:nth-child(3) { inset: 12px; background: #433615; border-color: #ffd878; box-shadow: 0 0 14px #97733a; }
+.core[data-state="starting"] span, .core[data-state="listening"] span { animation: core-pulse 1.4s ease-in-out infinite; border-color: #79e4b2; }
 .core[data-state="listening"] span:nth-child(3) { background: #14483c; box-shadow: 0 0 20px #2f9c7c; }
-.core[data-state="thinking"] span { animation: core-spin 1.6s linear infinite; border-style: dashed; border-color: #79def3; }
-.core[data-state="speaking"] span:nth-child(3) { animation: core-pulse 0.9s ease-in-out infinite; background: #1c3350; box-shadow: 0 0 22px #3f7fb0; }
-.core[data-state="research"] span:nth-child(3) { background: #1b2c4a; border-color: #9db6ff; }
+.core[data-state="thinking"] span { animation: core-spin 1.6s linear infinite; border-style: dashed; border-color: #ffd878; }
+.core[data-state="speaking"] span:nth-child(3) { animation: core-pulse .9s ease-in-out infinite; background: #54421b; box-shadow: 0 0 22px #d5a847; }
 @keyframes core-pulse { 0%, 100% { transform: scale(1); opacity: .55; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes core-spin { to { transform: rotate(360deg); } }
-
-/* Wave: silent while idle, animated only while the microphone is open. */
-.wave { display: flex; align-items: center; justify-content: center; gap: 5px; height: 34px; border-bottom: 1px solid var(--line); background: rgba(8, 18, 30, .5); }
-.wave i { width: 3px; height: 6px; border-radius: 2px; background: #2c445e; transition: height .2s ease, background .2s ease; }
-.wave[data-state="listening"] i { background: #75e2b4; animation: wave-bar .9s ease-in-out infinite; }
-.wave[data-state="speaking"] i { background: #79def3; animation: wave-bar 1.1s ease-in-out infinite; }
+.wave { display: flex; align-items: center; justify-content: center; gap: 5px; height: 32px; border-bottom: 1px solid var(--line); background: #08131bb3; }
+.wave i { width: 3px; height: 6px; border-radius: 2px; background: #41544e; }
+.wave[data-state="listening"] i { background: #79e4b2; animation: wave-bar .9s ease-in-out infinite; }
+.wave[data-state="speaking"] i { background: #f8d47b; animation: wave-bar 1.1s ease-in-out infinite; }
 .wave i:nth-child(2) { animation-delay: .1s; } .wave i:nth-child(3) { animation-delay: .2s; }
 .wave i:nth-child(4) { animation-delay: .3s; } .wave i:nth-child(5) { animation-delay: .4s; }
 .wave i:nth-child(6) { animation-delay: .5s; } .wave i:nth-child(7) { animation-delay: .6s; }
-@keyframes wave-bar { 0%, 100% { height: 6px; } 50% { height: 22px; } }
-
-.jarvis-grid .chatlog { height: 400px; }
-.btn.big { min-height: 48px; padding: 11px 18px; font-weight: 700; min-width: 186px; }
-/* The talk button changes label while listening; a fixed width keeps it from
-   moving under the pointer, which would also break a second click. */
-#talkBtn[aria-pressed="true"] { border-color: #75e2b4; color: #a9f0d4; background: #133a30; }
-#stopBtn[aria-pressed="true"] { border-color: #ff9da9; color: #ffc2c9; }
-
+@keyframes wave-bar { 0%, 100% { height: 6px; } 50% { height: 21px; } }
+.session-steps { display: flex; gap: 10px 22px; flex-wrap: wrap; padding: 13px 22px; color: #b4c6d1; border-bottom: 1px solid #ffffff0b; font-size: 12px; }
+.session-steps b { color: #f8d47b; margin-right: 5px; }
+.jarvis-grid .chatlog { height: 350px; }
+.message.assistant { border: 1px solid #31443d; background: #152638; }
+.message .meta { color: #f8d47b; }
+.composer-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.text-button { border: 0; padding: 4px; background: transparent; color: #f5d58a; font-size: 12px; text-decoration: underline; }
+.btn.big { min-height: 48px; padding: 11px 18px; font-weight: 750; min-width: 175px; border-color: #9a803f; color: #ffedc0; background: #302919; }
+.btn.big:hover { background: #44371c; }
+.btn.primary { background: linear-gradient(135deg, #ffe38c, #f4bd52); border-color: #f4ca70; color: #231804; }
+.composer-row .primary { margin-left: 0; }
+#talkBtn[aria-pressed="true"] { border-color: #79e4b2; color: #c4f6dc; background: #163c31; }
+.statusline { color: #c4d4df; line-height: 1.5; }
+.side-panel h2 { margin: 4px 0 14px; font-size: 17px; letter-spacing: -.02em; }
+.side-panel p, .side-panel .check, .side-panel .field label, .limits li { font-size: 13px; line-height: 1.5; }
+.side-heading { display: flex; align-items: center; justify-content: space-between; }
+.settings-icon { color: #f6cf76; font-size: 22px; }
+.check { gap: 9px; color: #d3dfe6; }
+.check input { flex: none; width: 16px; height: 16px; accent-color: #65d7a6; }
+.check small { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 3px; }
+.conversation-option { margin: 14px 0; padding: 11px; border: 1px solid #44624e; border-radius: 10px; background: #18332970; }
+.field { margin: 13px 0; }
+.inline-link, .limits-panel a { color: #aeeacb; font-size: 12px; }
 .agent-trace-empty { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; font-size: 12px; color: var(--muted); }
-.limits { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
-.limits li { position: relative; padding-left: 18px; font-size: 12px; color: var(--muted); }
-.limits li::before { content: "✕"; position: absolute; left: 0; color: #ff9da9; font-size: 11px; }
 .side-panel .agent-trace { margin-top: 0; }
-
-@media (max-width: 1000px) { .jarvis-grid { grid-template-columns: minmax(0, 1fr) 300px; } }
+.limits-panel summary { font-weight: 750; cursor: pointer; }
+.limits { padding-left: 18px; margin: 12px 0; display: grid; gap: 9px; color: var(--muted); }
+.quick button { font-size: 12px; }
+footer { margin-top: 22px !important; }
+@media (max-width: 1000px) { .jarvis-grid { grid-template-columns: minmax(0, 1fr) 320px; } }
 @media (max-width: 760px) {
+  .topbar { height: auto; align-items: center; flex-wrap: wrap; padding: 10px 0 2px; gap: 2px; }
+  .topbar .brand img { width: 46px; height: 46px; }
+  .intro { padding: 18px 0 14px; }
+  .topbar nav { order: 2; margin: 0; width: 100%; }
+  .topbar nav a.btn { display: inline-flex; }
   .jarvis-grid { grid-template-columns: 1fr; }
-  .jarvis-grid .chatlog { height: 360px; }
+  .sidebar { display: grid; grid-template-columns: 1fr; }
+  .sidebar .side-panel:first-child { grid-column: auto; }
+  .jarvis-grid .chatlog { height: 160px; }
+  .jarvis-grid .message { font-size: 14px; }
+  .wave { height: 24px; }
+  .session-steps { flex-wrap: nowrap; justify-content: space-between; gap: 6px; font-size: 10px; }
+  .session-steps span { white-space: nowrap; }
   .btn.big { width: 100%; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .core[data-state] span, .wave[data-state] i { animation: none !important; }
-}
+@media (max-width: 440px) { .topbar nav a.btn { display: inline-flex; } .session-steps { gap: 6px 14px; padding: 12px; } .console-head { padding: 14px; } .mic-indicator { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .core[data-state] span, .wave[data-state] i { animation: none !important; } }

@@ -15,7 +15,8 @@
  *    answer says the tool failed.
  */
 
-import { calculate, localAssistant } from './assistant-core.mjs';
+import { calculate, localAssistant, proposedAssistantAction, isClockQuestion } from './assistant-core.mjs';
+import { extractArithmetic, isArithmeticRequest } from './spoken-arithmetic.mjs';
 import { searchWikipedia } from './wikipedia-adapter.mjs';
 import { TOOLBOX_TOOLS, planFromToolbox } from './toolbox.mjs';
 
@@ -29,7 +30,6 @@ export const AGENT_TOOLS = [
   ...TOOLBOX_TOOLS.map(tool => ({ ...tool }))
 ];
 
-const MATH = /^[\s\d().+\-*/%]+$/;
 const RESEARCH_HINT = /^(?:research|look up|search the web|find out about|what is|who is|tell me about|explain)\b/i;
 const RECORD_HINT = /\b(records?|workspace|customers?|entries|database)\b/i;
 const TASK_HINT = /\b(tasks?|notes?|to-?do)\b/i;
@@ -47,29 +47,34 @@ function truncate(value, max = 220) {
 }
 
 /** Chooses a bounded plan from the prompt. Never invents a step it cannot run. */
-export function planFor(prompt) {
+export function planFor(prompt, profile = 'general') {
   const text = String(prompt || '').trim();
   const lower = text.toLowerCase();
   const steps = [];
+  // Exact task/note requests are always proposals, never implicit writes. This
+  // must run before keyword routing: a note can itself contain 'show my tasks'.
+  const action = proposedAssistantAction(text);
+  if (action) return [step('prepare-action', 'Prepare a save for your confirmation', 'none', async () => ({
+    observation: localAssistant(text, profile).output, action, data: null, noTool: true
+  }))];
   const researchQuery = text.replace(/^(?:research|look up|search the web(?: for)?|find out about|tell me about|what is|who is|explain)\s*:?\s*/i, '').trim();
 
   // "What is the time in New York?" is a clock question, not an encyclopedia
   // lookup. Without this exclusion the research step fires first, and if the
   // Wikipedia request fails the user gets a network error instead of the time.
-  const isClockQuestion = /\b(?:time|clock)\b\s*(?:is it|is|it is)?\s*(?:in|at)\b/i.test(text);
-  const wantsResearch = !isClockQuestion && (RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower)));
-  const wantsMath = /^(?:calculate|calc|what is [\d(])/i.test(text) || (MATH.test(text.replace(/^(?:calculate|calc)\s*/i, '')) && /\d/.test(text) && /[+\-*/%]/.test(text));
+  const clockQuestion = isClockQuestion(text);
+  const wantsMath = isArithmeticRequest(text);
+  const wantsResearch = !wantsMath && !clockQuestion && (RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower)));
   const wantsRecords = RECORD_HINT.test(lower) && /\b(search|find|list|show|which)\b/i.test(lower);
   const wantsTasks = TASK_HINT.test(lower) && /\b(list|show|my|open|pending)\b/i.test(lower);
+  const includeTasks = /\b(?:tasks?|to-?do)\b/i.test(text);
+  const includeNotes = /\bnotes?\b/i.test(text);
 
   if (wantsMath) steps.push(step('calculate', 'Evaluate the expression deterministically', 'calculator', async () => {
-    // Pull just the arithmetic run out of a sentence, so "calculate 40*3 and show
-    // my tasks" evaluates "40*3" instead of failing on the trailing words.
-    const cleaned = text.replace(/^(?:calculate|calc|what is)\s*/i, '').replace(/[?.,!]+$/g, '');
-    const runs = cleaned.match(/[\d\s().+\-*/%]+/g) || [];
-    const expression = runs.map(run => run.trim()).filter(run => /\d/.test(run)).sort((a, b) => b.length - a.length)[0] || '';
-    if (!expression) return { observation: 'No arithmetic expression was found in that message.', data: null };
-    return { observation: calculate(expression), data: null };
+    const parsed = extractArithmetic(text);
+    if (!parsed) return { observation: 'I could not understand that arithmetic. Try “calculate six times seven” or use numbers and symbols.', data: null, noTool: true };
+    const answer = calculate(parsed.expression);
+    return { observation: parsed.remainder ? `${answer}\nOnly the arithmetic portion was calculated; see other steps for any remaining requests.` : answer, data: null };
   }));
 
   if (wantsResearch && researchQuery.length >= 2) {
@@ -99,14 +104,18 @@ export function planFor(prompt) {
 
   if (wantsTasks) {
     steps.push(step('tasks', 'Read your saved tasks and notes', 'tasks', async ({ db, me }) => {
+      // Do not read or speak private notes just because the user asked for tasks,
+      // or vice versa. Only the requested categories leave the database.
       const [tasks, notes] = await Promise.all([
-        db.query("SELECT title,status FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 15", [me.id]),
-        db.query('SELECT content FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [me.id])
+        includeTasks ? db.query("SELECT title,status FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 15", [me.id]) : [],
+        includeNotes ? db.query('SELECT content FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [me.id]) : []
       ]);
-      const open = tasks.filter(item => item.status !== 'done');
       const parts = [];
-      parts.push(tasks.length ? `${open.length} open task(s) of ${tasks.length}:\n` + tasks.map(item => `${item.status === 'done' ? '✓' : '○'} ${truncate(item.title, 90)}`).join('\n') : 'No tasks saved yet.');
-      if (notes.length) parts.push(`${notes.length} recent note(s):\n` + notes.map(note => `• ${truncate(note.content, 90)}`).join('\n'));
+      if (includeTasks) {
+        const open = tasks.filter(item => item.status !== 'done');
+        parts.push(tasks.length ? `${open.length} open task(s) of ${tasks.length}:\n` + tasks.map(item => `${item.status === 'done' ? '✓' : '○'} ${truncate(item.title, 90)}`).join('\n') : 'No tasks saved yet.');
+      }
+      if (includeNotes) parts.push(notes.length ? `${notes.length} recent note(s):\n` + notes.map(note => `• ${truncate(note.content, 90)}`).join('\n') : 'No notes saved yet.');
       return { observation: parts.join('\n\n'), data: { tasks, notes } };
     }));
   }
@@ -127,7 +136,7 @@ export function planFor(prompt) {
   if (!steps.length) {
     // No tool fits: hand over to the profile engine and say plainly that no tool ran.
     steps.push(step('answer', 'Answer with the selected local profile (no external tool)', 'none', async () => {
-      const result = localAssistant(text, 'general');
+      const result = localAssistant(text, profile);
       return { observation: result.output, data: null, noTool: true, needsProvider: Boolean(result.needsProvider) };
     }));
   }
@@ -139,11 +148,12 @@ export function planFor(prompt) {
  * failure with its message, and the run continues so the user still gets answers
  * from the steps that worked.
  */
-export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
+export async function runAgent({ prompt, db, me, env, profile = 'general', timeoutMs = 9000 }) {
   const started = Date.now();
-  const plan = planFor(prompt);
+  const plan = planFor(prompt, profile);
   const steps = [];
   const artifacts = [];
+  let action = null;
   for (const item of plan) {
     const at = Date.now();
     let timer;
@@ -152,6 +162,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
         item.run({ db, me, env }),
         new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${item.title} timed out after ${timeoutMs} ms`)), timeoutMs); })
       ]);
+      if (outcome.action) action = outcome.action;
       const files = (outcome.artifacts || []).map(file => ({ ...file, from: item.tool }));
       artifacts.push(...files);
       steps.push({
@@ -174,10 +185,9 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
   // reported as a failure, never counted as evidence.
   const usedTools = steps.filter(item => item.ok && item.tool !== 'none' && !item.noTool);
   const failed = steps.filter(item => !item.ok);
-  // Cleared only by a step that actually produced an answer. A run where every
-  // step is "no tool" or "source list" still needs a model, so it says so.
+  // A local answer or prepared action can be useful without an external tool.
+  // Only say a provider is needed when the step explicitly says so or all tools fail.
   const needsProvider = steps.some(item => item.needsProvider)
-    || steps.every(item => item.noTool || item.sourcesOnly || !item.ok)
     || (failed.length > 0 && steps.every(item => item.tool === 'none' || !item.ok));
 
   const header = usedTools.length
@@ -187,7 +197,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
   const body = steps.map((item, index) => `Step ${index + 1} · ${item.title}\n${item.ok ? item.observation : `FAILED: ${item.observation}`}`).join('\n\n');
   const footer = [
     'What this run does not prove: it used only the tools listed above, each call is shown with its result, and nothing was executed outside this application except the Wikipedia request when present.',
-    needsProvider ? 'This question needs a cloud model for a generated answer; no provider key is configured, so no model output was invented.' : ''
+    needsProvider ? 'This question needs a cloud model for a generated answer. Switch to Cloud AI and select a configured provider; no model output was invented in this run.' : ''
   ].filter(Boolean).join('\n');
 
   return {
@@ -209,6 +219,7 @@ export async function runAgent({ prompt, db, me, env, timeoutMs = 9000 }) {
     output: `${header}\n\n${body}\n\n${footer}`,
     // Only real generated files appear here; a step that produced nothing adds nothing.
     artifacts,
+    ...(action ? { action } : {}),
     needsProvider
   };
 }

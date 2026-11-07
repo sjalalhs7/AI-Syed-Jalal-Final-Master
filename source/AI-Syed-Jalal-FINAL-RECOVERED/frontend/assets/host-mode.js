@@ -1,7 +1,10 @@
 'use strict';
 (() => {
+  // The standalone static archive sets this flag at packaging time; the
+  // normal source deployment uses its actual host/API instead.
+  const STATIC_PACKAGE = false;
   const params = new URLSearchParams(location.search);
-  const staticHost = location.hostname.endsWith('.github.io') || location.protocol === 'file:' || params.get('static') === '1';
+  const staticHost = STATIC_PACKAGE || location.hostname.endsWith('.github.io') || location.protocol === 'file:' || params.get('static') === '1';
   window.AJ_STATIC_HOST = staticHost;
   window.AJ_HOST_MODE = staticHost ? 'static' : 'server';
   if (!staticHost) return;
@@ -34,7 +37,7 @@
   }
 
   function guardAuthForms() {
-    const message = 'This static GitHub Pages copy cannot sign in by itself. Open the secure app server, or run the local preview with npm run dev. See Setup options.';
+    const message = 'This static website copy cannot sign in by itself. Open the secure app server, or run the local preview with npm run dev. See Setup options.';
     for (const form of document.querySelectorAll('#f, #loginForm')) {
       const explain = () => {
         const error = form.querySelector('#err') || form.querySelector('.login-note p') || form.querySelector('.auth-note');
