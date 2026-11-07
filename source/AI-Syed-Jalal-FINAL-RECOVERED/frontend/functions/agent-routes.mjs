@@ -22,7 +22,11 @@ function pageInventory() {
     { file: 'refactor-plan.html', label: 'Architecture and merge decisions' },
     { file: 'allinone.html', label: 'All-in-one specialist panel' },
     { file: 'toolbench.html', label: 'Toolbench — twelve tools' },
-    { file: 'pagebuilder.html', label: 'Page Builder — downloadable HTML' }
+    { file: 'pagebuilder.html', label: 'Page Builder — downloadable HTML' },
+    { file: 'notes.html', label: 'Quick Notes — shortcut, widget and file-handler target' },
+    { file: 'share-target.html', label: 'Shared content — web share target' },
+    { file: 'protocol.html', label: 'Link review — protocol handler' },
+    { file: 'capabilities.html', label: 'App capabilities — live OS integration probe' }
   ];
 }
 

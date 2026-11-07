@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head>
+<script src="assets/host-mode.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#070914">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<meta name="description" content="What this app can do as an installed app on this device: shortcuts, file handling, launch handler, protocol handlers, share target, widgets, side panel, window controls overlay, tabbed display and note taking — tested live, not promised.">
+<link rel="icon" href="assets/approved-sj-rainbow-crown.svg"><link rel="manifest" href="manifest.webmanifest">
+<title>App capabilities — Alsyed Jalal AI</title>
+<link rel="stylesheet" href="assets/v101-palette.css"><link rel="stylesheet" href="assets/jalalai.css"><link rel="stylesheet" href="assets/pwa-surfaces.css">
+<script src="assets/pwa-surfaces.js" defer></script>
+</head><body>
+<div class="shell">
+<header class="topbar"><a class="brand" href="./"><img src="assets/approved-sj-rainbow-crown.svg" alt="SJ rainbow crown logo"><span><strong>App capabilities</strong><small>WHAT THIS DEVICE ACTUALLY SUPPORTS</small></span></a>
+<nav aria-label="Main navigation"><a class="btn" href="guide.html">Start here</a><a class="btn" href="notes.html">Quick Notes</a><a class="btn" href="workspace.html">Workspace</a><a class="btn" href="jalalai.html">JalalAi</a></nav></header>
+
+<main>
+<section class="intro"><div><div class="eyebrow">PLATFORM INTEGRATION · MEASURED, NOT ADVERTISED</div><h1>What this app can do on this device.</h1><p>Ten ways an installed web app can integrate with the operating system. Each row below is checked <strong>live in your browser right now</strong>; where a capability is unavailable, the app says so instead of showing a dead button.</p></div><span class="status-pill" id="modePill" role="status">Detecting…</span></section>
+
+<section class="install-strip" id="installStrip">
+  <p id="installText">Checking whether this app can be installed here…</p>
+  <div class="composer-row"><button class="btn primary" type="button" id="installBtn" hidden>Install this app</button><a class="btn" href="guide.html">How to install</a></div>
+</section>
+
+<section class="panel" style="margin-bottom:20px"><div class="panel-body">
+  <h2>Display mode</h2>
+  <p class="hint" style="margin-top:0">The manifest asks for tabbed display first, then a custom title bar, then a plain standalone window; every browser falls back down that list to something it supports.</p>
+  <div class="display-chips" id="displayChips"></div>
+</div></section>
+
+<section class="panel"><div class="panel-body">
+  <table class="cap-table">
+    <caption>Live support probe. “Declared” means the app's manifest requests it; “This device” means your current browser reports that it can actually do it.</caption>
+    <thead><tr><th>Capability</th><th>This device</th><th>What it does here</th></tr></thead>
+    <tbody id="capRows"><tr><td colspan="3">Running the probe…</td></tr></tbody>
+  </table>
+</div></section>
+
+<div class="notes-layout" style="margin-top:20px">
+  <section class="panel"><div class="panel-body">
+    <h2>Try each one</h2>
+    <ul class="feature-list">
+      <li><strong>Shortcuts</strong><span>Install the app, then right-click (or long-press) its icon for <em>New note</em>, <em>Start here</em>, <em>Workspace</em> and <em>Arena</em>.</span></li>
+      <li><strong>File handling</strong><span>In your OS file manager, choose “Open with” for a <code>.txt</code> or <code>.md</code> file and pick this app. The text lands in <a href="notes.html">Quick Notes</a>.</span></li>
+      <li><strong>Launch handler</strong><span>With the app open, launching it again focuses the existing window instead of stacking a second one.</span></li>
+      <li><strong>Protocol handling</strong><span>After choosing this app as the handler, opening a <code>web+ajalal://</code> link lands on the <a href="protocol.html">link review page</a>.</span></li>
+      <li><strong>Share target</strong><span>On Android or ChromeOS, share text from another app and pick this app; it opens the <a href="share-target.html">share page</a>.</span></li>
+      <li><strong>Widget</strong><span>On Windows 11, add the <em>New note</em> widget from the widgets board.</span></li>
+      <li><strong>Note taking</strong><span>On ChromeOS, “New note” from the stylus tools or context menu opens a blank <a href="notes.html?new=1">Quick Notes</a>.</span></li>
+      <li><strong>Window controls overlay</strong><span>Desktop installs draw the header into the title bar area; the drag region is real, not a picture of one.</span></li>
+      <li><strong>Tabbed display</strong><span>ChromeOS installs get a tab strip; the new-tab button opens a new note.</span></li>
+      <li><strong>Edge side panel</strong><span>In Microsoft Edge this app can open docked beside the page you are reading, at 420&nbsp;px.</span></li>
+    </ul>
+  </div></section>
+
+  <aside class="sidebar">
+    <section class="panel side-panel"><h2>The manifest is the contract</h2><p>The declarations live in <code>manifest.webmanifest</code>. Read the file itself to check any claim on this page.</p><p><a class="btn small" href="manifest.webmanifest">Open the manifest</a></p></section>
+    <section class="panel side-panel"><h2>Why some rows are “not available”</h2><p>Capabilities differ by engine and operating system. Widgets are Windows-only, tabbed display is currently ChromeOS-only, and the share sheet exists on Android and ChromeOS. A “not available” row is information, not a failure.</p></section>
+    <section class="panel side-panel"><h2>Installed?</h2><p id="installedText">Checking…</p><button class="btn small" type="button" id="recheckBtn">Check again</button></section>
+  </aside>
+</div>
+</main>
+<footer class="page-foot"><span>Alsyed Jalal AI · App capabilities</span><a href="manifest.webmanifest">manifest.webmanifest</a><a href="guide.html">Start here</a></footer>
+</div>
+
+<script id="aj-capabilities">
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const rows = [
+    ['Shortcuts', 'shortcuts', 'New note, Start here, Workspace and Arena on the app icon menu.', 'Your browser exposes the launch queue the shortcut menu uses.'],
+    ['File handlers', 'fileHandlers', 'Open .txt/.md files from the OS into Quick Notes.', 'This browser can hand a file to the page and the page can read it locally.'],
+    ['Launch handler', 'launchHandler', 'Focus the running window instead of opening a duplicate.', 'Launches are observable, so the app can reuse the open window.'],
+    ['Protocol handlers', 'protocolHandlers', 'Handle web+ajalal:// links in the app.', 'The browser exposes protocol registration to pages.'],
+    ['Share target', 'shareTarget', 'Receive text and links from other apps\u2019 share sheets.', 'Your browser implements the API the share sheet calls. Whether the sheet lists the app is decided by your OS.'],
+    ['Widgets', 'widgets', 'New note widget on the Windows widgets board.', 'Rendered by the widget host. Only Windows 11 with a Chromium browser (plus the Edge widgets board) shows them; no page can query it.'],
+    ['Edge side panel', 'edgeSidePanel', 'Open docked in the Microsoft Edge side panel.', 'Requires Microsoft Edge; other browsers ignore the manifest entry.'],
+    ['Window controls overlay', 'windowControlsOverlay', 'Draw the app header into the desktop title bar.', 'Reported live: the OS gives the page a titlebar area to draw into.'],
+    ['Tabbed display', 'tabbed', 'Several app pages in one window with a tab strip.', 'Currently ChromeOS installs only; other platforms fall back to a standalone window.'],
+    ['Note taking', 'noteTaking', 'A “New note” entry in the operating system.', 'Offered by ChromeOS stylus tools and context menus; the manifest entry is advisory.'],
+  ];
+
+  function badge(ok, text) {
+    const span = document.createElement('span');
+    span.className = 'badge ' + (ok === true ? 'on' : ok === false ? 'off' : 'na');
+    span.textContent = text;
+    return span;
+  }
+
+  function render() {
+    const s = window.AJSurfaces;
+    const caps = s ? s.detect() : {};
+    const tbody = $('capRows');
+    tbody.replaceChildren();
+
+    $('modePill').textContent = caps.installed ? 'Installed · ' + caps.displayMode : 'Browser tab · not installed';
+    $('installedText').textContent = caps.installed
+      ? 'Running as an installed app in ' + caps.displayMode + ' mode.'
+      : 'Running in a browser tab. Install it to unlock shortcuts, file handling and widgets.';
+    $('installStrip').querySelector('p').textContent = caps.installed
+      ? 'Installed. The OS integration below is active — try a shortcut or hand it a .md file.'
+      : (s && s.installAvailable() ? 'This browser offers an install prompt, which means the app meets the installability requirements right now.' : 'Use your browser\u2019s install button (the icon in the address bar, or Share \u2192 Add to Home Screen) to install this app.');
+
+    for (const [label, key, detail, proof] of rows) {
+      const tr = document.createElement('tr');
+      const name = document.createElement('td'); name.textContent = label;
+      const state = document.createElement('td');
+      const value = caps[key];
+      state.appendChild(badge(value === true ? true : value === false ? false : null, value === true ? 'Available' : value === false ? 'Not available' : 'Decided by the OS'));
+      const what = document.createElement('td');
+      what.textContent = value === true
+        ? `${detail} ${proof}`
+        : value === false
+          ? `${detail} This browser or platform does not expose the API, so no control is shown for it here.`
+          : `${detail} ${proof}`;
+      tr.append(name, state, what);
+      tbody.appendChild(tr);
+    }
+
+    const chips = $('displayChips');
+    chips.replaceChildren();
+    const modes = ['tabbed', 'window-controls-overlay', 'standalone', 'minimal-ui', 'fullscreen', 'browser'];
+    for (const mode of modes) {
+      const el = document.createElement('span');
+      el.className = 'display-chip';
+      const active = caps.displayMode === mode;
+      if (active) el.setAttribute('aria-current', 'true');
+      el.textContent = mode + (active ? ' · now' : '');
+      chips.appendChild(el);
+    }
+
+    const area = caps.titlebarArea;
+    const t = document.createElement('p');
+    t.className = 'hint';
+    t.textContent = area ? `Titlebar area reported: ${Math.round(area.width)}×${Math.round(area.height)} px at ${Math.round(area.x)},${Math.round(area.y)}.` : 'No titlebar area is reported, so window controls overlay is not active in this window.';
+    chips.appendChild(t);
+  }
+
+  function wireInstall() {
+    const btn = $('installBtn');
+    const sync = () => { btn.hidden = !(window.AJSurfaces && window.AJSurfaces.installAvailable()); };
+    btn.onclick = async () => {
+      const result = await window.AJSurfaces.promptInstall();
+      $('installStrip').querySelector('p').textContent = result.outcome === 'accepted' ? 'Installing… the app will appear on your device shortly.' : 'The install prompt was dismissed. You can install again from your browser menu.';
+      sync();
+    };
+    window.addEventListener('aj-install-available', sync);
+    window.addEventListener('aj-installed', () => { $('installStrip').querySelector('p').textContent = 'Installed. Shortcuts, file handling and widgets are now available.'; sync(); });
+    sync();
+  }
+
+  function start() { render(); wireInstall(); $('recheckBtn').onclick = render; }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
+})();
+</script>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body></html>
