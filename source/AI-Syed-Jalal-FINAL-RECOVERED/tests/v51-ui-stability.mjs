@@ -6,7 +6,7 @@ const js=fs.readFileSync(new URL('frontend/assets/preview-entry.js',root),'utf8'
 const required=['loginForm','username','password','logoutBtn','themeBtn','view-home','view-data','view-documents','view-operations','view-ai-command','sideNav','mobileNav','statRecords','topOperator'];
 for(const x of required) assert.ok(html.includes(x),`missing UI contract: ${x}`);
 assert.ok(html.includes('v56-final-motion'),'approved motion layer missing');
-assert.ok(html.includes('brand/sjs-logo.svg'),'approved logo missing');
+assert.ok(html.includes('approved-sj-rainbow-crown.svg'),'approved logo missing');
 assert.ok(html.includes('data-final-ui="v56-complete-motion"'),'approved final UI marker missing');
 assert.ok(html.includes('prefers-reduced-motion'),'reduced-motion fallback missing');
 assert.ok(html.includes('prefers-reduced-motion'),'accessibility motion fallback missing');

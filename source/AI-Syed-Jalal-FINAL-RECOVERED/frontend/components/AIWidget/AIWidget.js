@@ -15,7 +15,7 @@ class AIWidget extends HTMLElement {
           <div class="messages" aria-live="polite"></div>
           <form class="form"><input maxlength="500" placeholder="Message…" aria-label="Message" autocomplete="off"><button class="send" type="submit">Send</button></form>
         </section>
-        <button class="toggle" type="button" aria-label="Open chat">💬</button>
+        <button class="toggle" type="button" aria-label="Open chat">✦</button>
       </div>`;
     const root = this.shadowRoot;
     const stylesheet = document.createElement('link');
@@ -48,7 +48,7 @@ class AIWidget extends HTMLElement {
         const link = document.createElement('a');
         link.href = new URL('../../workspace.html', import.meta.url).href;
         link.textContent = 'Open Workspace';
-        link.style.color = '#ffd15a';
+        link.style.color = 'var(--aj-accent, #246a75)';
         link.style.fontWeight = '700';
         reply.appendChild(link);
         return;
@@ -66,7 +66,7 @@ class AIWidget extends HTMLElement {
         const link = document.createElement('a');
         link.href = new URL('../../workspace.html', import.meta.url).href;
         link.textContent = 'Open Workspace';
-        link.style.color = '#ffd15a';
+        link.style.color = 'var(--aj-accent, #246a75)';
         link.style.fontWeight = '700';
         reply.appendChild(link);
         return;

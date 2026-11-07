@@ -1,4 +1,4 @@
-/* JARVIS uses the SJS gold, emerald and navy identity; shared layout and
+/* JARVIS uses the shared AI-Syed Jalal identity; shared layout and
    accessibility primitives come from the existing assistant stylesheet. */
 @import url('./jalalai.css');
 :root { --accent: #f8d47b; --green: #79e4b2; }

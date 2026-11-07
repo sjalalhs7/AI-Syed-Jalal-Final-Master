@@ -9,7 +9,7 @@ const sw = readFileSync(new URL('sw.js', base), 'utf8');
 
 test('Agent Studio exposes Direct, Agent and Compare with approved SJ identity', () => {
   assert.match(page, /data-mode="chat"/); assert.match(page, /data-mode="agent"/); assert.match(page, /data-mode="compare"/);
-  assert.match(page, /assets\/brand\/sjs-logo\.svg/); assert.match(page, /SJ Agent Studio/);
+  assert.match(page, /assets\/approved-sj-rainbow-crown\.svg/); assert.match(page, /SJ Agent Studio/);
 });
 test('Agent Studio uses authenticated same-origin APIs and CSRF', () => {
   assert.match(client, /credentials: 'same-origin'/); assert.match(client, /X-CSRF-Token/);
