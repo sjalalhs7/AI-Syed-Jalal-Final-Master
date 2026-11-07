@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/approved-sj-rainbow-crown.svg', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'jarvis.html', 'assets/jarvis.js', 'assets/jarvis.css', 'critic.html', 'assets/critic.js', 'assets/critic.css', 'refactor-plan.html', 'allinone.html', 'assets/allinone.js', 'assets/allinone.css', 'config/agent-skill-index.json'];
+const required = ['index.html', 'assets/v101-palette.css', 'assets/web-logo.svg', 'assets/app-logo.svg', 'assets/brand/sjs-logo.svg', 'assets/brand/sjs-mono.svg', 'assets/brand/favicon.svg', 'assets/app-icons/icon-512.png', 'manifest.webmanifest', 'sw.js', 'assets/ai-widget.js', 'guide.html', 'assets/guide.js', 'assets/guide.css', 'agent.html', 'assets/agent.js', 'assets/agent.css', 'assets/host-mode.js', 'assets/speech-preferences.js', 'agent-lab.html', 'assets/agent-lab.js', 'assets/agent-lab.css', 'arena.html', 'assets/arena.js', 'assets/arena.css', 'jarvis.html', 'assets/jarvis.js', 'assets/jarvis.css', 'critic.html', 'assets/critic.js', 'assets/critic.css', 'refactor-plan.html', 'allinone.html', 'assets/allinone.js', 'assets/allinone.css', 'config/agent-skill-index.json'];
 const missing = required.filter((p) => !existsSync(join(root, p)));
 assert.deepEqual(missing, [], `Missing required frontend files: ${missing.join(', ')}`);
 
 const html = read('index.html');
 const css = read('assets/v101-palette.css');
-const logo = read('assets/approved-sj-rainbow-crown.svg');
+const logo = read('assets/brand/sjs-logo.svg');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 const guide = read('guide.html');
 const agent = read('agent.html');
@@ -30,7 +30,7 @@ const checks = [
   ['fluid type utility present', /\.fluid-type/.test(css)],
   ['container query present', /@container/.test(css)],
   ['reduced motion support present', /prefers-reduced-motion/.test(css)],
-  ['approved rainbow SJ logo has accessible title', /<title id="title">SJ — Syed Jalal<\/title>/.test(logo)],
+  ['approved SJS logo has accessible title', /<title[^>]*>SJS — Alsyed Jalal AI<\/title>/.test(logo)],
   ['PWA manifest points to available icon', Array.isArray(manifest.icons) && manifest.icons.length > 0 && manifest.icons.every((i) => existsSync(join(root, i.src)))],
   ['login modal preserved', /id=["']login["']/.test(html)],
   ['AI widget preserved', /AIWidget\.js/.test(html)],

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t d">
+  <title id="t">SJS</title><desc id="d">Compact SJS mark for small sizes.</desc>
+  <defs>
+    <radialGradient id="tile" cx="50%" cy="22%" r="86%">
+      <stop offset="0" stop-color="#182046"/><stop offset="0.52" stop-color="#0b1122"/><stop offset="1" stop-color="#060a12"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="96" y1="160" x2="416" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff2b8"/><stop offset="0.32" stop-color="#ffd15a"/>
+      <stop offset="0.68" stop-color="#ff9500"/><stop offset="1" stop-color="#ffc84a"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="238" y1="150" x2="286" y2="372" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a4ffdb"/><stop offset="0.45" stop-color="#38e08c"/><stop offset="1" stop-color="#0c9d63"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="48" y1="120" x2="464" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd15a"/><stop offset="0.48" stop-color="#ff8b00"/>
+      <stop offset="0.78" stop-color="#38e08c"/><stop offset="1" stop-color="#43d9ff"/>
+    </linearGradient>
+    <filter id="lift" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <g font-family="SJS" font-size="228" font-weight="900" text-anchor="middle" filter="url(#lift)">
+    <text x="256" y="352" fill="url(#gold)">S<tspan fill="url(#emerald)">J</tspan>S</text>
+  </g>
+</svg>

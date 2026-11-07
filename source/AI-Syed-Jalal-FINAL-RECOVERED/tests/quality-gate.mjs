@@ -6,14 +6,14 @@ const root = new URL('..', import.meta.url).pathname;
 const frontend = path.join(root, 'frontend');
 const html = await fs.readFile(path.join(frontend, 'index.html'), 'utf8');
 const css = await fs.readFile(path.join(frontend, 'assets/v101-palette.css'), 'utf8');
-const logo = await fs.readFile(path.join(frontend, 'assets/approved-sj-rainbow-crown.svg'), 'utf8');
+const logo = await fs.readFile(path.join(frontend, 'assets/brand/sjs-logo.svg'), 'utf8');
 const guide = await fs.readFile(path.join(frontend, 'intelligence-evolution.html'), 'utf8');
 
 assert.match(html, /<html lang="en">/i, 'homepage language is declared');
 assert.match(html, /name="viewport"/i, 'homepage includes a responsive viewport');
 assert.match(html, /rel="canonical"/i, 'homepage includes canonical metadata');
 assert.match(html, /assets\/v101-palette\.css/, 'approved responsive stylesheet is loaded');
-assert.match(html, /assets\/approved-sj-rainbow-crown\.svg/, 'approved crowned SJ logo is loaded');
+assert.match(html, /assets\/brand\/sjs-logo\.svg/, 'approved SJS logo is loaded');
 assert.match(html, /id="login"/i, 'existing login interface remains present');
 assert.match(html, /AIWidget\.js/, 'AI widget module remains wired');
 assert.match(html, /manifest\.webmanifest/, 'PWA manifest remains linked');
