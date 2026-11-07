@@ -99,7 +99,12 @@ test('repair requires user confirmation and reports partial migration failures',
   await expect(page.locator('#schemaRepairResult')).toContainText('Cancelled');
   expect(calls).toBe(0);
   page.once('dialog', dialog => dialog.accept());
+  // Wait for the intercepted response before checking the UI. Otherwise the
+  // assertion can start while the mocked request is still being delivered.
+  const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/admin/schema/repair') && response.request().method() === 'POST');
   await button.click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(207);
   await expect(page.locator('#schemaRepairResult')).toContainText('Repair incomplete');
   await expect(page.locator('#schemaRepairResult')).toContainText('index failed');
   await expect(page.locator('#schemaRepairTag')).toHaveText('REVIEW REQUIRED');

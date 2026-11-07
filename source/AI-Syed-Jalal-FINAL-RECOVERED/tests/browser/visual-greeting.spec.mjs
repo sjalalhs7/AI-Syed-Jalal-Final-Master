@@ -3,7 +3,6 @@ import { test, expect } from '@playwright/test';
 const choices = ['glass', 'water', 'clay', 'ice', 'fire', 'rainbow'];
 const phrase = 'Assalamualaikum kia haal hy apka Allah pak apko apni Aman main rakhay, ameen phir drood e pak prhiay.';
 const durood = 'Allahumma salli ala Muhammadin wa ala aali Muhammad.';
-const urdu = 'السلام علیکم۔ کیا حال ہے آپ کا؟ اللہ پاک آپ کو اپنی امان میں رکھے، آمین۔ پھر درودِ پاک پڑھیے۔ اللّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ۔';
 
 async function installFakeSpeech(page, mode = 'normal') {
   await page.addInitScript(mode => {
@@ -43,25 +42,25 @@ async function installFakeSpeech(page, mode = 'normal') {
   }, mode);
 }
 
-test('JARVIS uses the saved browser voice, including Urdu script for Urdu voices', async ({ page }) => {
+test('the selected greeting recording wins over a saved female browser voice', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await installFakeSpeech(page);
   await page.addInitScript(() => localStorage.setItem('aj-speech-voice-v1', 'Aisha|ur-PK'));
   await page.goto('/');
-  await expect.poll(() => page.evaluate(() => window.__spoken.length)).toBe(1);
-  const spoken = await page.evaluate(() => window.__spoken[0]);
-  expect(spoken.text).toBe(urdu);
-  expect(spoken.voice).toBe('Aisha');
-  expect(spoken.lang).toBe('ur-PK');
+  await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  expect(await page.evaluate(() => window.__audioPlays)).toEqual([expect.stringMatching(/jarvis-welcome-ur-pk\.mp3\?v=157$/)]);
+  expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
   await expect(page.locator('.aj-welcome')).toContainText(phrase);
   await expect(page.locator('.aj-welcome')).toContainText(durood);
   await expect(page.locator('#aj-welcome-stop')).toBeVisible();
-  await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
   await page.locator('#aj-welcome-stop').click();
   await expect(page.locator('#aj-welcome-status')).toContainText('stopped');
+  expect(await page.evaluate(() => window.__audioPauses)).toBe(1);
   await page.locator('#aj-welcome-play').click();
-  expect(await page.evaluate(() => window.__spoken.length)).toBe(2);
-  await page.evaluate(() => window.__utterance.onend());
+  expect(await page.evaluate(() => window.__audioPlays.length)).toBe(2);
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  await page.evaluate(() => window.__lastAudio.onended());
   await expect(page.locator('#aj-welcome-status')).toContainText('finished');
   expect(await page.evaluate(() => window.__micCalls)).toBe(0);
   expect(errors).toEqual([]);
@@ -178,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v156-jarvis-welcome'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v157-selected-voice'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -224,15 +223,29 @@ test('maskable SJ artwork stays inside Android’s 80 percent safe circle', asyn
   expect(outside).toBe(0);
 });
 
-test('the updated service worker keeps unrelated origin caches', async ({ page }) => {
-  // Open a same-origin static asset before any page registers the worker.
+test('updating the service worker replaces the old greeting cache but keeps unrelated caches', async ({ page }) => {
+  await installFakeSpeech(page);
+  // Model a previous installation with both the old greeting and other app data.
+  // The v157 URLs must not use stale v156 content or a saved browser voice.
   await page.goto('/assets/visual-theme.js');
-  await page.evaluate(async () => { await caches.open('other-app-test-cache'); await caches.open('aj-v154-shell'); });
+  await page.evaluate(async () => {
+    localStorage.setItem('aj-speech-voice-v1', 'Aisha|ur-PK');
+    const other = await caches.open('other-app-test-cache');
+    await other.put('/other-app-data', new Response('preserve this'));
+    const old = await caches.open('aj-v156-jarvis-welcome');
+    await old.put('/assets/jarvis-welcome.js?v=156', new Response('window.__staleWelcomeRan = true;'));
+  });
   await page.goto('/');
+  await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
+  expect(await page.evaluate(() => window.__staleWelcomeRan)).toBeUndefined();
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  expect(await page.evaluate(() => window.__audioPlays)).toEqual([expect.stringMatching(/jarvis-welcome-ur-pk\.mp3\?v=157$/)]);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:20000 }).toBe(true);
   const names = await page.evaluate(() => caches.keys());
   expect(names).toContain('other-app-test-cache');
-  expect(names).not.toContain('aj-v154-shell');
-  expect(names).toContain('aj-v156-jarvis-welcome');
+  expect(names).not.toContain('aj-v156-jarvis-welcome');
+  expect(names).toContain('aj-v157-selected-voice');
+  expect(await page.evaluate(async () => (await (await caches.open('other-app-test-cache')).match('/other-app-data')).text())).toBe('preserve this');
+  expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
 });
