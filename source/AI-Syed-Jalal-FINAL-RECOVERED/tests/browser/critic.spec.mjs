@@ -19,7 +19,7 @@ test('Expert Critic: the verdict follows stored evidence, and every finding cite
 
   // A real review renders: score, verdict, seven dimensions, findings.
   await expect(page.locator('#verdict')).toBeVisible({ timeout: 45000 });
-  await expect(page.locator('.dim')).toHaveCount(7);
+  await expect(page.locator('.dim')).toHaveCount(8);
   const score = Number(await page.locator('#scoreValue').textContent());
   expect(score).toBeGreaterThanOrEqual(0);
   expect(score).toBeLessThanOrEqual(100);

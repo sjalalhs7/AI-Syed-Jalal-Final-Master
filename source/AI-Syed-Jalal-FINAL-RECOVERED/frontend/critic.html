@@ -39,6 +39,13 @@
         <p class="lede">Seven dimensions, graded from the evidence this deployment actually stores — audit events, agent runs, self-checks, Arena responses, table coverage and the shipped surfaces. Every finding names its evidence and the fix. Nothing is scored from a template.</p>
       </div>
       <div class="hero-actions">
+        <label class="chip-select" style="cursor:pointer;border:1px solid var(--line,#34564e);border-radius:99px;padding:5px 12px;background:#0d1a29;color:#cfdcec;font-size:12px;margin-right:10px">
+          <span style="margin-right:6px">Role:</span>
+          <select id="reviewRole" style="background:transparent;border:none;color:inherit;font:inherit;padding:0;margin:0;outline:none;appearance:none">
+            <option value="general">General reviewer</option>
+            <option value="web-developer">Web developer</option>
+          </select>
+        </label>
         <button class="btn primary" id="runBtn" type="button">Run the review</button>
         <a class="btn" href="refactor-plan.html">Architecture &amp; merge decisions</a>
       </div>
