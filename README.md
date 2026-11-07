@@ -1,9 +1,72 @@
-# AI-Syed-Jalal — Reconciled Recovery Master
+# 🚀 AI-Syed Jalal — Unified AI Assistant Platform
+
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen)](https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/)
+[![Tests](https://img.shields.io/badge/E2E%20Tests-40%2F40-brightgreen)](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions)
+[![Static Checks](https://img.shields.io/badge/Static%20Checks-51%2F51-brightgreen)](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions)
+[![Frontend Tests](https://img.shields.io/badge/Frontend%20Tests-81%2F81-brightgreen)](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions)
+[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-blue)](https://nodejs.org/)
+[![Playwright](https://img.shields.io/badge/Testing-Playwright-blueviolet)](https://playwright.dev/)
+
+**AI-Syed Jalal** is a complete, self-contained AI assistant platform with Agent Studio, JARVIS voice console, Arena blind battles, Expert Critic, Workspace CRM, Page Builder, Toolbench, and Agent Lab — all in one repository.
+
+## 🌐 Live Website
+
+👉 **[View the live GitHub Pages site → https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/](https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/)**
+
+Start at the **Quick Start Guide** (`/guide.html`) for a one-minute tour of all 15 working surfaces.
+
+---
 
 This repository contains the unified AI-Syed Jalal platform on `main`: the recovered source lineage, the repaired runnable application, and **SJ Agent Studio** (`/agent.html`). Historical recovery archives are preserved unchanged and are also available in the published `v1.0.0` GitHub Release.
 
 ## Locked design rule
 The approved Login Page + Homepage + Logo identity, theme language, and hierarchy are locked. Add capabilities without unnecessary redesign. Older concept boards remain historical references, not replacements for the approved design.
+
+## ✨ Features
+
+| Surface | Description |
+|---------|-------------|
+| 🤖 **JalalAi** | AI assistant with chat, calculator, tasks, notes, and local tools (no API key needed) |
+| 🎯 **Agent Studio** | Direct, Agent, and Compare modes with account-scoped history and export |
+| 🎤 **JARVIS Voice** | Voice-first console — hold to talk, auto-run, read replies aloud |
+| ⚔️ **Arena** | Blind battles between AI engines with deterministic rubric judging and leaderboard |
+| 🔍 **Expert Critic** | Grades the deployment from stored evidence with named limits |
+| 📊 **Workspace** | Records CRM, documents, approvals, admin, and settings |
+| 🛠️ **Toolbench** | 13 deterministic tools: dates, units, JSON, hashes, WCAG contrast, CSV, code audit, diff, page builder |
+| 📄 **Page Builder** | One sentence → complete single-file HTML page with preview, audit, and download |
+| 🧪 **Agent Lab** | Graded self-check suite with evidence storage per account |
+| 📱 **Dashboard** | Profile, skill catalogue, and quick assistant |
+| 🗺️ **Roadmaps** | Learning paths for technologies used by the platform |
+| 📦 **All-in-One** | One request, every specialist that fits answers, each labelled with why |
+
+## 🚀 Quick Start
+
+### Option 1: Live Website (Static)
+Visit **[https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/](https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/)** and open the Quick Start Guide.
+
+> ⚠️ GitHub Pages is static hosting. Public pages display fully. Private app shells (JalalAi, Workspace, etc.) show setup guidance for the full server deployment.
+
+### Option 2: Local Development (Full Features)
+```bash
+# Clone the repository
+git clone https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master.git
+cd AI-Syed-Jalal-Final-Master/source/AI-Syed-Jalal-FINAL-RECOVERED
+
+# Install dependencies
+npm ci
+
+# Start the local preview server
+npm run dev
+
+# Open the quick start guide
+# http://localhost:3100/guide.html
+```
+
+### Option 3: Production (Cloudflare Pages + Neon)
+The full application requires owner-controlled `DATABASE_URL`, `CSRF_SECRET`, applied migrations, and provider API keys. See `V142-FINAL-2026-11-05.md` and `FINAL-HANDOFF-V135.md` for production release gates.
+
+---
 
 ## Quick links
 
@@ -141,6 +204,25 @@ hardened V129 quality gate. It also lists what remains owner-controlled.
 
 See [FINAL-OK-REPORT.md](FINAL-OK-REPORT.md) for the final handoff status, test evidence, package checksum and remaining production gates. [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) preserves the historical explanation of GitHub's 263 red deletion marks and the Worker gateway repair.
 
+
+## 📢 Help Make AI-Syed Jalal #1 on GitHub
+
+This is a complete, open AI assistant platform. You can help it reach #1 ranking:
+
+- ⭐ **Star this repository** — shows community support
+- 🍴 **Fork it** — build your own AI assistant on top of this platform
+- 👀 **Watch** — get notified of new releases and updates
+- 🐛 **Report issues** — help us fix bugs and improve stability
+- 💡 **Suggest features** — shape the roadmap
+- 📢 **Share** — post about AI-Syed Jalal on social media with the live site link
+
+**Live site:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/
+
+## 🔗 Repository Topics
+
+`ai-assistant` `agent-studio` `voice-assistant` `arena-battles` `expert-critic` `workspace-crm` `page-builder` `toolbench` `javascript` `typescript` `cloudflare-pages` `neon-database` `github-pages` `open-source-ai`
+
+---
 
 ## Unified platform
 
