@@ -14,7 +14,7 @@ The Android package remains a **provisional TWA** (`dev.pages.ai_syed_jalal_live
 
 ## Welcome speech
 
-The homepage requests browser speech for the supplied Roman Urdu greeting followed by the short Durood “Allahumma salli ala Muhammadin wa ala aali Muhammad.” It honors the existing shared voice preference, displays the text, offers Listen and Stop controls, and does not activate the microphone. No application API receives the greeting; the browser/OS speech provider may process text under its own terms. Browser autoplay rules, unavailable voices or device settings may block audio; a tap-to-listen message is shown instead of claiming success. Voice quality and pronunciation vary and should be checked on a real phone and browser.
+The opening welcome was subsequently strengthened in V156 with the chosen Urdu recording, direct-page and app-resume support, and a prominent autoplay fallback. See `docs/V156-JARVIS-OPENING-GREETING.md` for the current behavior, privacy notes and device-testing limits.
 
 ## Validation
 

@@ -251,7 +251,8 @@ test('every precached asset exists, so the worker install cannot fail', () => {
   const assets = [...inner.matchAll(/'([^']*)'/g)].map(match => match[1]);
   assert.ok(assets.length > 10, 'the precache list is suspiciously short');
   const missing = assets.filter(path => {
-    const file = path.replace(/^\.\//, '');
+    // A cache-busting query changes the URL key, not the file on disk.
+    const file = path.split(/[?#]/, 1)[0].replace(/^\.\//, '');
     return file && !existsSync(join(frontend, file));
   });
   assert.deepEqual(missing, [], `precached files that do not exist:\n${missing.join('\n')}`);
