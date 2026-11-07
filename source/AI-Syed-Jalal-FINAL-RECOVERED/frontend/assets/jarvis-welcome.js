@@ -5,13 +5,10 @@
 
   const roman = 'Assalamualaikum kia haal hy apka Allah pak apko apni Aman main rakhay, ameen phir drood e pak prhiay.';
   const durood = 'Allahumma salli ala Muhammadin wa ala aali Muhammad.';
-  const urdu = 'السلام علیکم۔ کیا حال ہے آپ کا؟ اللہ پاک آپ کو اپنی امان میں رکھے، آمین۔ پھر درودِ پاک پڑھیے۔ اللّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ۔';
   const scriptUrl = document.currentScript?.src || new URL('assets/jarvis-welcome.js', location.href).href;
-  const recordingUrl = new URL('jarvis-welcome-ur-pk.mp3', scriptUrl).href;
+  const recordingUrl = new URL('jarvis-welcome-ur-pk.mp3?v=157', scriptUrl).href;
   const appRoot = new URL('../', scriptUrl);
   const visitKey = 'aj-welcome-visit-v1';
-  const synth = window.speechSynthesis;
-  const canSpeak = Boolean(synth && typeof synth.speak === 'function' && typeof window.SpeechSynthesisUtterance === 'function');
   const canPlay = typeof window.Audio === 'function';
   let current = null;
   let startTimer = null;
@@ -48,13 +45,8 @@
     const previous = current;
     current = null; // Ignore late media events and rejected play promises.
     if (!previous) return;
-    if (previous.kind === 'recording') {
-      previous.audio.onplaying = previous.audio.onended = previous.audio.onerror = null;
-      try { previous.audio.pause(); } catch (_) { /* Already stopped. */ }
-    } else {
-      previous.utterance.onstart = previous.utterance.onend = previous.utterance.onerror = null;
-      try { synth.cancel(); } catch (_) { /* Already stopped. */ }
-    }
+    previous.audio.onplaying = previous.audio.onended = previous.audio.onerror = null;
+    try { previous.audio.pause(); } catch (_) { /* Already stopped. */ }
   }
   function started(run) {
     if (current !== run || run.started) return;
@@ -89,88 +81,47 @@
     writeVisit('pending');
     controls(false);
     showNotice();
-    setStatus('Audio could not be played on this device. You can read the greeting below.');
+    setStatus('The selected JARVIS voice could not be played. Tap Listen to retry, or read the greeting.');
   }
   function armStartTimeout(run) {
     if (startTimer) clearTimeout(startTimer);
     startTimer = setTimeout(() => {
-      if (current !== run || run.started) return;
-      // Some speech engines never emit an error when a selected voice is missing.
-      if (run.kind === 'speech' && !run.triedRecording && canPlay) {
-        stopCurrent();
-        playRecording(run.fromTap, true);
-      } else blocked(run);
+      if (current === run && !run.started) blocked(run);
     }, 2500);
   }
-  function playbackFailure(run, error, fallback) {
+  function playbackFailure(run, error) {
     if (current !== run) return;
     const code = String(error?.name || error?.error || '').toLowerCase();
-    if (code === 'interrupted' || code === 'canceled' || code === 'cancelled' || code === 'aborterror') {
-      // Another voice action can cancel browser speech. Do not start the
-      // recording over the user's new assistant reply or microphone session.
-      stopCurrent();
-      writeVisit('played');
-      controls(false);
-      setStatus('Greeting stopped. Tap Listen to play it again.');
-      hideNotice();
-    } else if (code === 'notallowederror' || code === 'not-allowed' || code === 'securityerror') {
+    if (code === 'notallowederror' || code === 'not-allowed' || code === 'securityerror') {
       blocked(run);
-    } else if (fallback) {
-      stopCurrent();
-      fallback();
-    } else unavailable(run);
+    } else {
+      // Our own stop clears current before pausing. An abort for the current
+      // run is unexpected and should leave the selected voice retryable.
+      unavailable(run);
+    }
   }
-  function playRecording(fromTap, triedSpeech = false) {
+  function playRecording() {
     let audio;
     try { audio = new window.Audio(recordingUrl); }
     catch (_) {
-      if (canSpeak && !triedSpeech) { playSpeech(fromTap, true); return; }
-      const run = { kind: 'recording', audio: { pause() {} } }; current = run; unavailable(run); return;
+      const run = { audio: { pause() {} } };
+      current = run;
+      unavailable(run);
+      return;
     }
-    const run = { kind: 'recording', audio, started: false, fromTap, triedSpeech };
+    const run = { audio, started: false };
     current = run;
     audio.preload = 'auto';
     audio.onplaying = () => started(run);
     audio.onended = () => finished(run);
-    audio.onerror = () => playbackFailure(run, audio.error, canSpeak && !triedSpeech ? () => playSpeech(fromTap, true) : null);
+    audio.onerror = () => playbackFailure(run, audio.error);
     armStartTimeout(run);
     try {
       const playing = audio.play();
       if (playing && typeof playing.then === 'function') {
-        playing.then(() => started(run)).catch(error => playbackFailure(run, error, canSpeak && !triedSpeech ? () => playSpeech(fromTap, true) : null));
+        playing.then(() => started(run)).catch(error => playbackFailure(run, error));
       }
-    } catch (error) {
-      playbackFailure(run, error, canSpeak && !triedSpeech ? () => playSpeech(fromTap, true) : null);
-    }
-  }
-  function playSpeech(fromTap, triedRecording = false) {
-    let utterance;
-    try {
-      utterance = new window.SpeechSynthesisUtterance(`${roman} ${durood}`);
-      if (window.AJSpeech) window.AJSpeech.apply(utterance, { lang: 'en-US' });
-      else utterance.lang = 'en-US';
-      // Urdu-script text sounds natural on an Urdu voice; other selected voices
-      // receive the exact Roman Urdu and Durood shown on screen.
-      if (/^ur(?:-|$)/i.test(utterance.lang)) utterance.text = urdu;
-    } catch (_) {
-      if (canPlay && !triedRecording) { playRecording(fromTap, true); return; }
-      const run = { kind: 'speech', utterance: {} }; current = run; unavailable(run); return;
-    }
-    const run = { kind: 'speech', utterance, started: false, fromTap, triedRecording };
-    current = run;
-    utterance.onstart = () => started(run);
-    utterance.onend = () => finished(run);
-    utterance.onerror = error => playbackFailure(run, error, canPlay && !triedRecording ? () => playRecording(fromTap, true) : null);
-    armStartTimeout(run);
-    try { synth.speak(utterance); }
-    catch (error) { playbackFailure(run, error, canPlay && !triedRecording ? () => playRecording(fromTap, true) : null); }
-  }
-  function hasChosenDeviceVoice() {
-    // Honour even an explicitly chosen system default, but use the recorded
-    // Urdu JARVIS voice for a new visitor with no browser-voice preference.
-    const preferred = window.AJSpeech?.preferredId() || '';
-    try { return localStorage.getItem('aj-speech-voice-v1') !== null || Boolean(preferred); }
-    catch (_) { return Boolean(preferred); }
+    } catch (error) { playbackFailure(run, error); }
   }
   function start(fromTap) {
     clearTimers();
@@ -179,8 +130,9 @@
     showNotice();
     writeVisit('pending');
     setStatus(fromTap ? 'Starting the JARVIS greeting…' : 'Preparing the JARVIS greeting…');
-    if (canSpeak && (hasChosenDeviceVoice() || !canPlay)) playSpeech(fromTap);
-    else if (canPlay) playRecording(fromTap);
+    // The user selected this recorded JARVIS voice. Never replace the opening
+    // with a browser default or another saved assistant-reply voice.
+    if (canPlay) playRecording();
     else {
       if (inlinePlay) inlinePlay.disabled = true;
       if (noticePlay) noticePlay.disabled = true;

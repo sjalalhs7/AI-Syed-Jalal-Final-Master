@@ -18,6 +18,7 @@ async function mockWelcome(page, mode = 'normal') {
         window.__audioPlays.push(this.src);
         if (mode === 'blocked' && !window.__gesture) return Promise.reject(new DOMException('Tap required', 'NotAllowedError'));
         if (mode === 'broken') return Promise.reject(new DOMException('Unsupported media', 'NotSupportedError'));
+        if (mode === 'aborted') return Promise.reject(new DOMException('Playback interrupted', 'AbortError'));
         if (mode === 'pending' && !window.__gesture) return new Promise(resolve => { window.__resolveOldPlay = resolve; });
         this.onplaying?.();
         return Promise.resolve();
@@ -41,7 +42,7 @@ test('the selected recorded Urdu greeting is attempted on opening, reload and di
   await mockWelcome(page);
   await page.goto('/');
   await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
-  expect(await page.evaluate(() => window.__audioPlays)).toEqual([expect.stringMatching(/\/assets\/jarvis-welcome-ur-pk\.mp3$/)]);
+  expect(await page.evaluate(() => window.__audioPlays)).toEqual([expect.stringMatching(/\/assets\/jarvis-welcome-ur-pk\.mp3\?v=157$/)]);
   expect(await page.evaluate(() => window.__spoken)).toEqual([]);
   await page.reload();
   await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
@@ -94,11 +95,29 @@ test('returning to a hidden website attempts the welcome again without leaving a
   expect(await page.evaluate(() => window.__audioPlays)).toHaveLength(2);
 });
 
-test('a broken recording falls back to browser speech without losing the wording', async ({ page }) => {
+test('a broken selected recording never silently switches to an unrelated device voice', async ({ page }) => {
   await mockWelcome(page, 'broken');
   await page.goto('/');
-  await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
-  expect(await page.evaluate(() => window.__spoken)).toEqual([{ text:`${roman} ${durood}`, lang:'en-GB', voice:'Daniel' }]);
+  await expect(page.locator('#aj-welcome-notice-status')).toContainText('selected JARVIS voice could not be played');
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  await page.locator('#aj-welcome-notice summary').click();
+  await expect(page.locator('#aj-welcome-notice')).toContainText(roman);
+  await expect(page.locator('#aj-welcome-notice')).toContainText(durood);
+  await page.locator('#aj-welcome-notice-play').click();
+  expect(await page.evaluate(() => window.__audioPlays.length)).toBe(2);
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+});
+
+test('an unexpected playback abort keeps the selected greeting available to retry', async ({ page }) => {
+  await mockWelcome(page, 'aborted');
+  await page.goto('/');
+  await expect(page.locator('#aj-welcome-notice')).toBeVisible();
+  await expect(page.locator('#aj-welcome-notice-status')).toContainText('could not be played');
+  expect(await page.evaluate(() => sessionStorage.getItem('aj-welcome-visit-v1'))).toBe('pending');
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  await page.locator('#aj-welcome-notice-play').click();
+  expect(await page.evaluate(() => window.__audioPlays)).toHaveLength(2);
+  await expect(page.locator('#aj-welcome-notice')).toBeVisible();
 });
 
 test('a late old play promise cannot replace a user-initiated retry', async ({ page }) => {
@@ -114,12 +133,21 @@ test('a late old play promise cannot replace a user-initiated retry', async ({ p
 });
 
 test('the real recording decodes and tap-to-play works after offline installation', async ({ page, context, request }) => {
-  const audio = await request.get('/assets/jarvis-welcome-ur-pk.mp3');
+  const audio = await request.get('/assets/jarvis-welcome-ur-pk.mp3?v=157');
   expect(audio.ok()).toBe(true);
   expect(audio.headers()['content-type']).toContain('audio/mpeg');
+  await page.addInitScript(() => {
+    localStorage.setItem('aj-speech-voice-v1', 'Aisha|ur-PK');
+    window.__realSources = [];
+    window.__unexpectedSpeech = 0;
+    const originalPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function(...args) { window.__realSources.push(this.src); return originalPlay.apply(this, args); };
+    Object.defineProperty(window, 'speechSynthesis', { configurable:true, value:{ getVoices:() => [{ name:'Aisha', lang:'ur-PK' }], addEventListener:() => {}, speak:() => { window.__unexpectedSpeech++; } } });
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable:true, value:class { constructor(text) { this.text = text; } } });
+  });
   await page.goto('/');
   const decoded = await page.evaluate(async () => {
-    const response = await fetch('/assets/jarvis-welcome-ur-pk.mp3');
+    const response = await fetch('/assets/jarvis-welcome-ur-pk.mp3?v=157');
     const bytes = await response.arrayBuffer();
     const audioContext = new AudioContext();
     const buffer = await audioContext.decodeAudioData(bytes);
@@ -139,9 +167,12 @@ test('the real recording decodes and tap-to-play works after offline installatio
   try {
     await page.reload();
     await expect(page.locator('#aj-welcome-notice')).toBeVisible();
-    expect(await page.evaluate(async () => Boolean(await caches.match('./assets/jarvis-welcome-ur-pk.mp3')))).toBe(true);
+    expect(await page.evaluate(async () => Boolean(await caches.match('./assets/jarvis-welcome-ur-pk.mp3?v=157')))).toBe(true);
     await page.locator('#aj-welcome-notice-play').click();
     await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking', { timeout:10000 });
+    expect(await page.evaluate(() => window.__realSources.at(-1))).toMatch(/jarvis-welcome-ur-pk\.mp3\?v=157$/);
+    expect(await page.evaluate(() => window.__unexpectedSpeech)).toBe(0);
+    expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
     await page.locator('#aj-welcome-notice-stop').click();
     await expect(page.locator('#aj-welcome-notice-status')).toContainText('stopped');
   } finally { await context.setOffline(false); }
@@ -184,17 +215,25 @@ test('other existing assistant voice controls stop the welcome before listening 
   await expect(page.locator('#aj-welcome-notice')).toBeHidden();
 });
 
-test('an external speech cancellation never starts the recording over another reply', async ({ page }) => {
+test('system-default and saved browser voices cannot override the selected recording', async ({ page }) => {
   await mockWelcome(page);
-  await page.addInitScript(() => localStorage.setItem('aj-speech-voice-v1', 'Daniel|en-GB'));
+  await page.goto('/assets/visual-theme.js');
+  await page.evaluate(() => {
+    localStorage.setItem('aj-speech-voice-v1', '');
+    localStorage.setItem('legacy-user-data', '{"keep":true}');
+  });
   await page.goto('/');
   await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
-  await page.evaluate(() => {
-    // Use a newly installed controllable voice to recreate the browser event.
-    window.__activeWelcomeUtterance.onerror({ error:'interrupted' });
-  });
-  expect(await page.evaluate(() => window.__audioPlays)).toEqual([]);
-  await expect(page.locator('#aj-welcome-notice')).toBeHidden();
+  expect(await page.evaluate(() => window.__audioPlays)).toHaveLength(1);
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('');
+  await page.evaluate(() => localStorage.setItem('aj-speech-voice-v1', 'Daniel|en-GB'));
+  await page.reload();
+  await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
+  expect(await page.evaluate(() => window.__audioPlays)).toHaveLength(1);
+  expect(await page.evaluate(() => window.__spoken)).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Daniel|en-GB');
+  expect(await page.evaluate(() => localStorage.getItem('legacy-user-data'))).toBe('{"keep":true}');
 });
 
 test('opening an app link in a new tab counts as a new opening', async ({ page }) => {
