@@ -40,9 +40,11 @@ explain these steps.
 
 ## Live database
 
-On 7 November 2026, the public `/api/ready` endpoint reported **13 of 23**
-required tables. Counts may change; check the live endpoint again. It checks
-required table names, not every migration, column, index, data item or provider.
+On 7 November 2026, before this update, the public `/api/ready` endpoint reported
+**13 of 23** required tables. The new reporting migration adds one required
+table, so the new code checks for **24**. Counts may change; check the live
+endpoint again. It checks required table names, not every migration, column,
+index, data item or provider.
 A database connection and a successful local test do not prove production is
 ready.
 
@@ -56,8 +58,10 @@ safe test data. Do not share or commit credentials. This repository update does
 
 ## Google Play — still blocked
 
-The Android folder is a TWA **starting point**, not a release. It targets API 36
-and CI attempts a debug APK plus unsigned AAB. A successful build does not prove
+The Android folder is a TWA **starting point**, not a release. It targets API 36.
+The [Android CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42364305016)
+built a debug APK and unsigned AAB and inspected the APK target and permissions.
+Artifacts are test-only and may expire. A successful build does not prove
 installation, website association, microphone support, security, policy
 compliance or Play acceptance. The application ID is provisional. See
 [`android/README.md`](../android/README.md) for signing and Digital Asset Links.
@@ -74,9 +78,14 @@ Before submitting, the operator must:
   deletion, and a process that actually fulfills requests. The current source
   does not yet provide a complete deletion flow. Shared records, audit data,
   backups and third-party retention need an owner-approved policy.
-- Provide in-app reporting of offensive AI-generated content, review reports and
-  implement/test appropriate AI safeguards. The current source does not yet
-  provide a complete reporting workflow.
+- Reporting controls and an Admin review queue are included for the main AI
+  surfaces. Submitting is explicit and stores the chosen excerpt, reason, optional
+  context and account identity; chat history-off does not erase a report. An
+  Admin reviews the oldest open reports under **Workspace → Operations → AI
+  content reports**. Production reporting requires the new database migration.
+  Establish a confidential moderation process, define report retention and
+  deletion, test it in production, and use reports to improve content filtering
+  and safeguards. Marking a report reviewed does not itself moderate content.
 - Repair and test the production backend, provider calls, account/reviewer
   access, permissions and every advertised feature; prepare accurate listing
   copy, graphics, content rating and other Play declarations.
@@ -88,6 +97,6 @@ Before submitting, the operator must:
 Google references: [target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878),
 [User Data and privacy policy](https://support.google.com/googleplay/android-developer/answer/10144311),
 [account deletion](https://support.google.com/googleplay/android-developer/answer/13327111),
-[AI-generated content](https://support.google.com/googleplay/android-developer/answer/18258653),
+[AI-generated content](https://support.google.com/googleplay/android-developer/answer/13985936),
 [developer account testing](https://support.google.com/googleplay/android-developer/answer/14151465),
 and [Trusted Web Activity setup](https://developer.chrome.com/docs/android/trusted-web-activity/quick-start/).

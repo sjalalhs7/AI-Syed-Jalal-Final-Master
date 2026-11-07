@@ -1,0 +1,12 @@
+.aj-report-dialog{width:min(92vw,640px);max-height:90vh;overflow:auto;border:1px solid #6483a6;border-radius:16px;padding:22px;background:#101a2a;color:#f4f7fb;box-shadow:0 20px 70px #000a;font:15px/1.5 system-ui,sans-serif}
+.aj-report-dialog::backdrop{background:#020712cc}
+.aj-report-dialog h2{margin:0 0 8px;font-size:22px;color:#fff}
+.aj-report-dialog p{margin:8px 0 14px;color:#d5dfed}
+.aj-report-dialog label{display:block;margin:12px 0;font-weight:650}
+.aj-report-dialog textarea,.aj-report-dialog select{box-sizing:border-box;display:block;width:100%;margin-top:5px;padding:9px;border:1px solid #6d839d;border-radius:8px;background:#06101d;color:#fff;font:inherit}
+.aj-report-dialog textarea{resize:vertical}
+.aj-report-actions{display:flex;gap:10px;flex-wrap:wrap}
+.aj-report-actions button{padding:9px 14px;border:1px solid #8fa5be;border-radius:8px;background:#254560;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.aj-report-actions button:disabled{opacity:.6;cursor:default}
+.aj-report-actions button:focus-visible,.aj-report-dialog textarea:focus-visible,.aj-report-dialog select:focus-visible{outline:3px solid #74dcf0;outline-offset:2px}
+.aj-report-dialog .aj-report-status{min-height:1.4em;margin:12px 0 0}

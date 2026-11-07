@@ -94,6 +94,7 @@
         ? `No answer. This local tool only runs deterministic commands; it refuses open-ended prompts instead of inventing one.\n\n${item.content}`
         : `Engine did not answer: ${item.content}`;
     const foot = el('div', { class: 'card-foot' });
+    if (item.status === 'ok' && window.AJReport) foot.append(window.AJReport.button(item.content, 'arena'));
     if (judgeScore) {
       const bars = el('div', { class: 'bars' });
       for (const [key, value] of Object.entries(judgeScore.subscores || {})) bars.append(bar(key, value, key === 'code' ? 35 : key === 'safety' ? 15 : 25));

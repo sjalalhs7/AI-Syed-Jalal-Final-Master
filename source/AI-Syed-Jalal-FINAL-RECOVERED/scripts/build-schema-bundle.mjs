@@ -14,7 +14,7 @@ const REQUIRED = ['app_users','sessions','records','audit_events','record_histor
   'approvals','ai_runs','auth_rate_limits','assistant_tasks','assistant_notes',
   'platform_conversations','platform_messages','agent_skills','agent_self_checks',
   'arena_battles','arena_responses','arena_artifacts','arena_ratings','agent_runs','expert_reviews',
-  'app_settings','app_bootstrap'];
+  'app_settings','app_bootstrap','content_reports'];
 
 const parts = files.map(file => {
   const sql = fs.readFileSync(file, 'utf8');

@@ -42,7 +42,7 @@
     const content = document.createElement('span'); content.textContent = text; node.appendChild(content);
     if (role === 'assistant') {
       const actions = document.createElement('div'); actions.className = 'message-actions';
-      const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(text); actions.appendChild(read); node.appendChild(actions);
+      const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(text); actions.appendChild(read); if (window.AJReport) actions.appendChild(window.AJReport.button(text, 'jalalai')); node.appendChild(actions);
       lastReply = text;
     }
     if (result?.action) {

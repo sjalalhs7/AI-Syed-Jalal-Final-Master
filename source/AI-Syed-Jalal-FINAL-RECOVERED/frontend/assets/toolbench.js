@@ -109,6 +109,7 @@
       const body = document.createElement('pre'); body.className = 'answer-body';
       body.textContent = step.ok ? step.observation : `This tool failed: ${step.observation}`;
       card.append(head, body);
+      if (window.AJReport) card.appendChild(window.AJReport.button(body.textContent, 'toolbench'));
       if (step.noTool) {
         const note = document.createElement('p'); note.className = 'needs';
         note.textContent = 'No tool fitted this request, so the local profile answered instead. That is labelled here rather than passed off as a tool result.';

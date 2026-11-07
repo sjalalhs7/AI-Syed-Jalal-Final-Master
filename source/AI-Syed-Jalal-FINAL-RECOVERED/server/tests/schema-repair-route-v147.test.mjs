@@ -78,3 +78,36 @@ test('/api/ready reports the missing tables and the fix, and does not blame sign
     assert.ok(route.includes(f), `/api/ready omits ${f}`);
   }
 });
+
+test('a failed migration is never reported successful merely because tables exist', async () => {
+  const { db } = await liveState();
+  let failedOnce = false;
+  const flaky = {
+    query: async (sql, args) => {
+      if (!failedOnce && /CREATE INDEX IF NOT EXISTS idx_records_region\s+ON records/i.test(sql)) {
+        failedOnce = true;
+        throw new Error('simulated index migration failure');
+      }
+      return (await db.query(sql, args)).rows;
+    }
+  };
+  try {
+    const result = await applySchemaRepair(flaky);
+    assert.equal(failedOnce, true);
+    assert.deepEqual(result.missing, [], 'all required tables were created by later parts');
+    assert.equal(result.after, result.required);
+    assert.equal(result.ok, false, 'partial migration must be reported as a failure');
+    assert.ok(result.failed.some(failure => /simulated index migration failure/.test(failure.error)));
+  } finally { await db.close(); }
+});
+
+test('table counts exclude unrelated tables', async () => {
+  const db = await PGlite.create();
+  try {
+    for (const part of SCHEMA_PARTS) await db.exec(part.sql);
+    await db.exec('CREATE TABLE unrelated_extra_table (id integer)');
+    const result = await applySchemaRepair(adapter(db));
+    assert.equal(result.before, REQUIRED_TABLES.length);
+    assert.equal(result.after, REQUIRED_TABLES.length);
+  } finally { await db.close(); }
+});

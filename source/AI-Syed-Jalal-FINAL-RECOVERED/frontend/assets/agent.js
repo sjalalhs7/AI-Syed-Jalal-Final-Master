@@ -159,7 +159,7 @@
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy'; copy.onclick = () => copyAsNew(message);
       const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.className = 'btn small'; regenerate.textContent = 'Regenerate';
       regenerate.onclick = () => regenerateReply(regenerate);
-      actions.append(read, copy, regenerate); node.appendChild(actions);
+      actions.append(read, copy, regenerate); if (window.AJReport) actions.appendChild(window.AJReport.button(message.content, 'agent')); node.appendChild(actions);
     }
     return node;
   }
@@ -176,7 +176,7 @@
       const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(message.content);
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy'; copy.onclick = () => copyAsNew(message);
       const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.className = 'btn small'; regenerate.textContent = 'Regenerate both'; regenerate.onclick = () => regenerateReply(regenerate);
-      cardActions.append(read, copy, regenerate); card.appendChild(cardActions);
+      cardActions.append(read, copy, regenerate); if (window.AJReport) cardActions.appendChild(window.AJReport.button(message.content, 'agent')); card.appendChild(cardActions);
       grid.appendChild(card);
     }
     const vote = document.createElement('div'); vote.className = 'compare-vote';
