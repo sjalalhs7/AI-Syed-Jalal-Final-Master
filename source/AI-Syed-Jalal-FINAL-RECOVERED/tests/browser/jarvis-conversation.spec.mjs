@@ -231,6 +231,16 @@ test('fixed app navigation, branded mobile navigation, and sign-in return work',
   await expect(page).toHaveURL(/notes\.html$/);
 });
 
+test('untrusted sign-in return URLs never become navigation targets', async ({ page }) => {
+  for (const target of ['javascript:alert(1)', '//example.invalid/steal', 'https://example.invalid']) {
+    await page.goto('/index.html?next=' + encodeURIComponent(target));
+    await expect(page.locator('#login')).not.toHaveClass(/show/);
+    await page.getByRole('button', { name: 'Account sign in' }).click();
+    await page.locator('#previewAccessBtn').click();
+    await expect(page).toHaveURL(/dashboard\.html$/);
+  }
+});
+
 test('the device voice test keeps a real browser error visible', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {

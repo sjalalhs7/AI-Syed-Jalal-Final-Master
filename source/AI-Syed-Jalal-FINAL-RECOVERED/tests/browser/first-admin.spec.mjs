@@ -32,8 +32,8 @@ import { test, expect } from '@playwright/test';
       });
     });
 
-  await page.goto('/index.html');
-  await page.getByRole('button', { name: 'Account sign in' }).click();
+  await page.goto('/index.html?next=jarvis.html');
+  await expect(page.locator('#login')).toHaveClass(/show/);
 
   // The panel must be offered on a fresh deployment, and explain WHY it exists.
   const panel = page.locator('#firstRun');
@@ -48,9 +48,8 @@ import { test, expect } from '@playwright/test';
   await expect.poll(() => payload).not.toBeNull();
   expect(payload).toEqual({ username: 'owner', password: 'StrongPass12345' });
 
-  // The handler opens the dashboard once an Administrator exists; wait for that
-  // navigation to settle before returning to the landing page.
-  await page.waitForURL('**/dashboard.html');
+  // A deep-linked first administrator returns to the fixed JARVIS page.
+  await page.waitForURL('**/jarvis.html');
 
   // Once an account exists the option must vanish, not sit there inviting a second admin.
   await page.goto('/index.html');

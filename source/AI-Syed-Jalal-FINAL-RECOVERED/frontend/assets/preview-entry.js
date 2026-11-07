@@ -19,8 +19,8 @@
           const response = await fetch('/api/demo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: '{}' });
           if (!response.ok) throw new Error((await response.json()).error || 'Preview could not start');
           if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); if (!session.authenticated) throw new Error('Preview session was not established'); location.reload(); } else {
-            const next = new URLSearchParams(location.search).get('next');
-            location.href = next && /^[a-z0-9-]+\.html(?:#[a-z0-9-]+)?$/i.test(next) ? next : 'dashboard.html';
+            if (typeof window.AJNavigateAfterSignIn === 'function') window.AJNavigateAfterSignIn();
+            else location.href = 'dashboard.html';
           }
         } catch (error) { note.textContent = error.message; note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
       };

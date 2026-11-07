@@ -74,7 +74,7 @@ works on a particular device or account.
 
 - `npm run check`: **51/51** static checks.
 - `npm test`: **83 frontend** and **161 server/integration** tests.
-- `npm run test:e2e`: **58 browser journeys**.
+- `npm run test:e2e`: **59 browser journeys**, including hostile sign-in return targets.
 - The source archive was clean-extracted, installed and checked with the same
   frontend/server, static and browser gates. The static archive was served on a
   generic local host: its 25 HTML pages and 30 precache entries returned HTTP 200,
