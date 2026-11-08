@@ -62,10 +62,13 @@ test('the HTTP route is Admin-only and needs explicit confirmation', () => {
   const fn = readFileSync(new URL('frontend/functions/api/[[path]].js', root), 'utf8');
   const i = fn.indexOf("u.pathname==='/api/admin/schema/repair'");
   assert.ok(i > -1);
-  const route = fn.slice(i, i + 1600);
+  const end = fn.indexOf("u.pathname==='/api/admin/diagnostics'", i);
+  assert.ok(end > i, 'could not find the end of the repair route');
+  const route = fn.slice(i, end);
   assert.match(route, /Authentication required/);
   assert.match(route, /Admin role required/);
   assert.match(route, /apply-schema-repair/);
+  assert.match(route, /schemaRepairEnabled/);
   assert.match(route, /consumeRateLimit/);
   assert.match(route, /applySchemaRepair/);
 });

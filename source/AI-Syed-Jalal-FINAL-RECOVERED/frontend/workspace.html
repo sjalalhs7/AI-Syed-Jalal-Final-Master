@@ -294,6 +294,7 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 <div class="card-head"><h3>Database Schema</h3><span class="tag" id="schemaRepairTag">CHECKING</span></div>
 <p class="muted" id="schemaRepairText">Checking the migration state…</p>
 <p class="muted" id="schemaBackupWarning">Before repair, verify a restorable full database backup, rehearse the repair on an isolated copy, and obtain the owner's authorization. Records Backup includes active records only, not accounts or the rest of the database. A failed repair can leave partial changes.</p>
+<p class="muted" id="schemaRepairAccess" role="status" aria-live="polite">Checking whether the repair path is unlocked…</p>
 <button class="btn primary" id="schemaRepairBtn" hidden>Repair schema</button>
 <p class="muted" id="schemaRepairResult" role="status" aria-live="polite" style="margin-top:8px"></p>
 </div>
@@ -385,13 +386,14 @@ $('#contentReportsRefreshBtn')?.addEventListener('click',loadContentReports);
 let schemaCheckGeneration=0, schemaRepairPending=false, schemaRepairReviewRequired=false;
 async function checkSchemaState(){
  const card=$('#schemaRepairCard');if(!card)return;
- const tag=$('#schemaRepairTag'),text=$('#schemaRepairText'),btn=$('#schemaRepairBtn');
+ const tag=$('#schemaRepairTag'),text=$('#schemaRepairText'),btn=$('#schemaRepairBtn'),access=$('#schemaRepairAccess');
  const generation=++schemaCheckGeneration;
- if(schemaRepairReviewRequired){tag.textContent='REVIEW REQUIRED';btn.hidden=true;return}
+ if(schemaRepairReviewRequired){tag.textContent='REVIEW REQUIRED';btn.hidden=true;access.textContent='Review the previous repair before considering another attempt.';return}
  if(schemaRepairPending)return;
- if(!remoteMode()){tag.textContent='LOCAL';text.textContent='Local preview builds its own schema on start.';btn.hidden=true;return}
+ if(!remoteMode()){tag.textContent='LOCAL';text.textContent='Local preview builds its own schema on start.';btn.hidden=true;access.textContent='No remote repair is offered.';return}
  try{
-  const response=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/ready',{signal:AbortSignal.timeout(10000)});
+  // Readiness adds the lock state only for an authenticated Admin.
+  const response=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/ready',{credentials:'include',headers:state.token?{Authorization:'Bearer '+state.token}:{},signal:AbortSignal.timeout(10000)});
   const ready=await response.json().catch(()=>null);
   // A late check must not overwrite a repair result or a newer check.
   if(generation!==schemaCheckGeneration||schemaRepairPending||schemaRepairReviewRequired)return;
@@ -402,11 +404,17 @@ async function checkSchemaState(){
      (!response.ok&&!(response.status===503&&ready.ready===false))){
    throw new Error('Readiness details unavailable');
   }
-  if(ready.ready){tag.textContent='TABLES PRESENT';text.textContent=`All ${ready.required} required table names are present. Columns, migration history and live features still need verification.`;btn.hidden=true;return ready}
-  const missing=ready.missing.join(', ');tag.textContent='INCOMPLETE';text.textContent=`${ready.schemaTables} of ${ready.required} tables present. Missing: ${missing}. ${ready.summary||''}`;btn.hidden=state.role!=='Admin';return ready;
+  if(ready.ready){tag.textContent='TABLES PRESENT';text.textContent=`All ${ready.required} required table names are present. Columns, migration history and live features still need verification.`;btn.hidden=true;access.textContent='No repair is offered when all required table names are present.';return ready}
+  const missing=ready.missing.join(', ');tag.textContent='INCOMPLETE';text.textContent=`${ready.schemaTables} of ${ready.required} tables present. Missing: ${missing}. ${ready.summary||''}`;
+  btn.hidden=true;
+  if(state.role!=='Admin')access.textContent='Administrator access is required to review repair options.';
+  else if(ready.schemaRepairEnabled===true){btn.hidden=false;access.textContent='The repair path is unlocked. This does not verify the backup, rehearsal or authorization.'}
+  else if(ready.schemaRepairEnabled===false)access.textContent='Repair is locked by server configuration. An authorized operator must verify the prerequisites before unlocking it.';
+  else access.textContent='Repair lock status could not be verified. No repair is offered; ask an authorized operator to check the server.';
+  return ready;
  }catch(e){
   if(generation!==schemaCheckGeneration||schemaRepairPending||schemaRepairReviewRequired)return;
-  tag.textContent='UNKNOWN';text.textContent='Could not read the schema state: '+(e.message||e);btn.hidden=true;
+  tag.textContent='UNKNOWN';text.textContent='Could not read the schema state: '+(e.message||e);btn.hidden=true;access.textContent='Repair lock status could not be verified. No repair is offered.';
  }
 }
 async function loadProviders(){const box=$('#providerList');if(!box)return;if(!remoteMode()){box.textContent='Local preview has no provider secrets; keys are read when you run the server.';return}
@@ -423,6 +431,7 @@ async function saveProvider(remove){const out=$('#providerResult');out.textConte
 function requireSchemaReview(message){
  schemaRepairReviewRequired=true;++schemaCheckGeneration;
  $('#schemaRepairTag').textContent='REVIEW REQUIRED';$('#schemaRepairBtn').hidden=true;
+ $('#schemaRepairAccess').textContent='Review the previous repair before considering another attempt.';
  $('#schemaRepairResult').textContent=message+' The database may have partial changes. Stop and review the database and migrations before retrying.';
 }
 async function repairSchema(){
@@ -441,7 +450,15 @@ async function repairSchema(){
   // A timeout stops waiting, not the server-side operation. Treat it as unknown.
   const res=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/admin/schema/repair',{method:'POST',credentials:'include',signal:AbortSignal.timeout(60000),headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrfToken},body:JSON.stringify({confirm:'apply-schema-repair'})});
   const data=await res.json().catch(()=>({}));
-  if(!res.ok){requireSchemaReview('Repair returned an error: '+(data?.error||res.status)+'.');return}
+  if(!res.ok){
+   // Only this explicit server response proves the lock stopped the request
+   // before any migration. Other errors may have left partial changes.
+   if(res.status===423&&data?.code==='SCHEMA_REPAIR_LOCKED'&&data?.started===false){
+    btn.hidden=true;$('#schemaRepairAccess').textContent='Repair is locked by server configuration.';
+    out.textContent='Repair was not started. No migrations were run. Verify the backup, rehearsal and authorization with an operator.';return;
+   }
+   requireSchemaReview('Repair returned an error: '+(data?.error||res.status)+'.');return
+  }
   const requiredOk=Number.isInteger(data?.required)&&data.required>0;
   const noFailures=Array.isArray(data?.failed)&&data.failed.length===0;
   const noMissing=Array.isArray(data?.missing)&&data.missing.length===0;

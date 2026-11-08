@@ -4,6 +4,12 @@
 // Postgres engine without importing the Cloudflare runtime.
 import { SCHEMA_PARTS, REQUIRED_TABLES, destructiveStatements } from './schema-bundle.mjs';
 
+// A deployment operator must explicitly unlock this HTTP repair path. This is
+// an additional safeguard, not proof that a backup or rehearsal exists.
+export function schemaRepairEnabled(env) {
+  return env?.SCHEMA_REPAIR_ENABLED === 'true';
+}
+
 /**
  * Split a SQL file into individual statements.
  *

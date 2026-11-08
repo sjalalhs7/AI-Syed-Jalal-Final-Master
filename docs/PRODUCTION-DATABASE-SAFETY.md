@@ -111,14 +111,39 @@ shared production database or run them against it without the same safeguards.
 
 ## When the owner approves repair
 
-An authenticated Admin may use **Workspace → Operations → Database Schema →
-Repair schema** after the above checks. The site asks for confirmation and sends
-the session CSRF token. The server checks the Admin role, CSRF token and
-explicit confirmation. The repair runs SQL statements individually through the
-HTTP database adapter: if one fails, earlier changes can remain committed and
-later parts may still be attempted. The bundle also alters constraints and may
-insert a bootstrap row. Its limited destructive-statement check is not a backup,
-a transaction, or a guarantee that production data is safe.
+The application build containing the repair lock defaults to **disabled**: the
+HTTP repair path refuses a confirmed request before consuming a repair rate
+limit or executing migrations unless the server's `SCHEMA_REPAIR_ENABLED` value
+is exactly `true`. The same default applies to local preview. Only an
+authenticated Admin sees this lock status in `/api/ready`; missing or unreadable
+status causes Workspace to hide the repair button. A confirmed locked request
+returns `SCHEMA_REPAIR_LOCKED` and reports that it did not start migrations.
+Previewing missing names and a no-op on an already-complete schema remain
+read-only. This change does not itself set any production environment variable.
+
+After the owner has verified the full backup, rehearsed the **actual** intended
+repair path on an isolated clone, authorized the work and selected a maintenance
+window, an operator with access to the correct application's deployment settings
+may temporarily set `SCHEMA_REPAIR_ENABLED` to `true` for that environment and
+confirm that the updated deployment is active. Setting the flag **does not
+verify** backup, rehearsal, target identity or authorization. Never enable it
+just to dismiss a warning. Do not send credentials or configuration secrets in
+chat. An Admin can then use **Workspace → Operations → Database Schema → Repair
+schema**; the site asks for confirmation and sends the session CSRF token. The
+server still requires the Admin role, CSRF token and explicit confirmation.
+Remove the flag or set it to `false` after the work, verify the new deployment's
+lock status, and keep the maintenance record with the backup and rehearsal
+results. Disabling the flag does not cancel a repair already in progress.
+
+This lock covers **only** the `/api/admin/schema/repair` HTTP path in this
+application. It cannot prevent an operator from running `db:migrate`, SQL,
+legacy deployment tools or another database client, and it cannot prove that
+any prerequisites were completed. The repair runs SQL statements individually
+through the HTTP database adapter: if one fails, earlier changes can remain
+committed and later parts may still be attempted. The bundle also alters
+constraints and may insert a bootstrap row. Its limited destructive-statement
+check is not a backup, a transaction, or a guarantee that production data is
+safe.
 
 If a repair reports any failed migrations, an error or an uncertain outcome,
 stop and review it with the database owner; do not blindly retry or overwrite

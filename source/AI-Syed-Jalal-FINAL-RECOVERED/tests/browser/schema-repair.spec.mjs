@@ -19,7 +19,7 @@ test('admin repairs an incomplete schema from the Operations Center', async ({ p
         status: 503,
         contentType: 'application/json',
         body: JSON.stringify({
-          ok: false, ready: false, database: 'Neon PostgreSQL', schemaTables: 13, required: 24,
+          ok: false, ready: false, schemaRepairEnabled: true, database: 'Neon PostgreSQL', schemaTables: 13, required: 24,
           missing: ['agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses',
             'arena_artifacts', 'arena_ratings', 'agent_runs', 'expert_reviews', 'app_settings', 'app_bootstrap', 'content_reports'],
           summary: '13 of 24 tables present. Arena battles, Agent Lab self-check and the Expert Critic need these tables.',
@@ -106,7 +106,7 @@ test('repair requires user confirmation and reports partial migration failures',
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
   await page.route('**/api/ready', route => route.fulfill({ status: 503, contentType: 'application/json',
-    body: JSON.stringify({ ready: false, schemaTables: 23, required: 24, missing: ['agent_runs'], summary: 'One table is missing.' }) }));
+    body: JSON.stringify({ ready: false, schemaRepairEnabled: true, schemaTables: 23, required: 24, missing: ['agent_runs'], summary: 'One table is missing.' }) }));
   let calls = 0;
   await page.route('**/api/admin/schema/repair', route => {
     calls++;
@@ -179,7 +179,7 @@ test('a stale readiness response cannot clear a partial repair warning', async (
         body: JSON.stringify({ ready: true, schemaTables: 24, required: 24, missing: [] }) });
     }
     return route.fulfill({ status: 503, contentType: 'application/json',
-      body: JSON.stringify({ ready: false, schemaTables: 23, required: 24, missing: ['agent_runs'] }) });
+      body: JSON.stringify({ ready: false, schemaRepairEnabled: true, schemaTables: 23, required: 24, missing: ['agent_runs'] }) });
   });
   await page.route('**/api/admin/schema/repair', route => route.fulfill({ status: 207, contentType: 'application/json',
     body: JSON.stringify({ ok: false, before: 23, after: 24, required: 24, missing: [], failed: [{ part: 'migration.sql', error: 'constraint failed' }] }) }));
@@ -210,7 +210,7 @@ test('a repair request that returns an error is treated as potentially partial',
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
   await page.route('**/api/ready', route => route.fulfill({ status: 503, contentType: 'application/json',
-    body: JSON.stringify({ ready: false, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
+    body: JSON.stringify({ ready: false, schemaRepairEnabled: true, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
   await page.route('**/api/admin/schema/repair', route => route.fulfill({ status: 500, contentType: 'application/json',
     body: JSON.stringify({ error: 'database connection lost' }) }));
   await page.goto('/workspace.html#operations');
@@ -231,7 +231,7 @@ test('a lost repair connection is an uncertain result, not permission to retry',
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
   await page.route('**/api/ready', route => route.fulfill({ status: 503, contentType: 'application/json',
-    body: JSON.stringify({ ready: false, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
+    body: JSON.stringify({ ready: false, schemaRepairEnabled: true, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
   let calls = 0;
   await page.route('**/api/admin/schema/repair', route => { calls++; return route.abort('failed'); });
   await page.goto('/workspace.html#operations');
@@ -251,7 +251,7 @@ test('a timed-out session check does not send a repair request', async ({ page }
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
   await page.route('**/api/ready', route => route.fulfill({ status: 503, contentType: 'application/json',
-    body: JSON.stringify({ ready: false, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
+    body: JSON.stringify({ ready: false, schemaRepairEnabled: true, schemaTables: 23, required: 24, missing: ['agent_runs'] }) }));
   let repairs = 0;
   await page.route('**/api/admin/schema/repair', route => { repairs++; return route.abort('failed'); });
   await page.goto('/workspace.html#operations');
@@ -283,7 +283,7 @@ test('an expired Admin session does not send a repair request', async ({ page })
   await page.goto('/jalalai.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
-  await page.route('**/api/ready', route => route.fulfill({ status: 503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
+  await page.route('**/api/ready', route => route.fulfill({ status: 503, json:{ ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.goto('/workspace.html#operations');
   const button = page.locator('#schemaRepairBtn');
   await expect(button).toBeVisible();
@@ -306,7 +306,7 @@ test('an already-repaired schema reports a no-op accurately', async ({ page }) =
   let ready = false;
   await page.route('**/api/ready', route => route.fulfill(ready
     ? { status:200, json:{ ready:true, schemaTables:24, required:24, missing:[] } }
-    : { status:503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
+    : { status:503, json:{ ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.route('**/api/admin/schema/repair', route => {
     ready = true;
     return route.fulfill({ status:200, json:{ ok:true, changed:false, tables:24, required:24, message:'All required table names are present; no migrations were run.' } });
@@ -326,7 +326,7 @@ test('a malformed successful repair response requires review', async ({ page }) 
   await page.goto('/jalalai.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
-  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
+  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.route('**/api/admin/schema/repair', route => route.fulfill({ status:200, json:{ ok:true, after:24, required:24 } }));
   await page.goto('/workspace.html#operations');
   const button = page.locator('#schemaRepairBtn');
@@ -342,7 +342,7 @@ test('a timed-out repair POST is an uncertain result and is not retried', async 
   await page.goto('/jalalai.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
-  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
+  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.goto('/workspace.html#operations');
   const button = page.locator('#schemaRepairBtn');
   await expect(button).toBeVisible();
@@ -376,7 +376,7 @@ test('a repair that ran without changing table names is not called a no-op', asy
   let ready = false;
   await page.route('**/api/ready', route => route.fulfill(ready
     ? { status:200, json:{ ready:true, schemaTables:24, required:24, missing:[] } }
-    : { status:503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
+    : { status:503, json:{ ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.route('**/api/admin/schema/repair', route => {
     ready = true;
     return route.fulfill({ status:200, json:{ ok:true, changed:false, before:24, after:24, required:24, applied:['schema.sql'], failed:[], missing:[] } });
@@ -389,4 +389,74 @@ test('a repair that ran without changing table names is not called a no-op', asy
   await expect(page.locator('#schemaRepairResult')).toContainText('Repair completed');
   await expect(page.locator('#schemaRepairResult')).not.toContainText('No migrations were run');
   await expect(page.locator('#schemaRepairTag')).toHaveText('TABLES PRESENT');
+});
+
+test('a locked or unverifiable repair path is not offered in Operations', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.goto('/jalalai.html');
+  await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  let setting = false, calls = 0;
+  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{
+    ready:false, schemaTables:23, required:24, missing:['agent_runs'],
+    ...(setting === undefined ? {} : { schemaRepairEnabled:setting })
+  } }));
+  await page.route('**/api/admin/schema/repair', route => { calls++; return route.abort('failed'); });
+  for (const value of [false, undefined, 'true']) {
+    setting = value;
+    await page.goto('/workspace.html#operations');
+    await expect(page.locator('#schemaRepairTag')).toHaveText('INCOMPLETE');
+    await expect(page.locator('#schemaRepairBtn')).toBeHidden();
+    await expect(page.locator('#schemaRepairAccess')).toContainText(value === false ? 'locked by server configuration' : 'could not be verified');
+  }
+  expect(calls).toBe(0);
+});
+
+test('the server lock can stop a repair after readiness was checked', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.goto('/jalalai.html');
+  await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{
+    ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs']
+  } }));
+  let calls = 0;
+  await page.route('**/api/admin/schema/repair', route => {
+    calls++;
+    return route.fulfill({ status:423, json:{ code:'SCHEMA_REPAIR_LOCKED', started:false, error:'No migrations were run.' } });
+  });
+  await page.goto('/workspace.html#operations');
+  const button = page.locator('#schemaRepairBtn');
+  await expect(button).toBeVisible();
+  await expect(page.locator('#schemaRepairAccess')).toContainText('does not verify');
+  await button.focus();
+  await page.waitForLoadState('networkidle');
+  page.once('dialog', dialog => dialog.accept());
+  await button.click();
+  await expect(page.locator('#schemaRepairResult')).toContainText('No migrations were run');
+  await expect(page.locator('#schemaRepairAccess')).toContainText('locked by server configuration');
+  await expect(page.locator('#schemaRepairTag')).toHaveText('INCOMPLETE');
+  await expect(button).toBeHidden();
+  expect(calls).toBe(1);
+});
+
+test('an unverified lock response is treated as a potentially partial repair', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.goto('/jalalai.html');
+  await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.route('**/api/ready', route => route.fulfill({ status:503, json:{
+    ready:false, schemaRepairEnabled:true, schemaTables:23, required:24, missing:['agent_runs']
+  } }));
+  await page.route('**/api/admin/schema/repair', route => route.fulfill({ status:423, json:{ code:'SCHEMA_REPAIR_LOCKED' } }));
+  await page.goto('/workspace.html#operations');
+  const button = page.locator('#schemaRepairBtn');
+  await expect(button).toBeVisible();
+  await button.focus();
+  await page.waitForLoadState('networkidle');
+  page.once('dialog', dialog => dialog.accept());
+  await button.click();
+  await expect(page.locator('#schemaRepairTag')).toHaveText('REVIEW REQUIRED');
+  await expect(page.locator('#schemaRepairResult')).toContainText('partial changes');
+  await expect(button).toBeHidden();
 });
