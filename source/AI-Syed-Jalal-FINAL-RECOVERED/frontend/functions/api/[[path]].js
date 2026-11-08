@@ -9,7 +9,7 @@ import { arenaRoute, arenaCatalogue } from '../arena-routes.mjs';
 import libraryCatalog from '../../config/library-catalog.json';
 import { SCHEMA_PARTS, REQUIRED_TABLES, destructiveStatements } from '../schema-bundle.mjs';
 import { applySchemaRepair, missingTables, schemaRepairEnabled } from '../schema-repair.mjs';
-import { effectiveEnv, providerStates, maskKey, PROVIDER_IDS } from '../provider-settings.mjs';
+import { effectiveEnv, providerStates, updateStoredProviderKey, maskKey, PROVIDER_IDS } from '../provider-settings.mjs';
 
 const C = 'aj_session', TTL = 28800000, WRITERS = ['Admin','Manager','Data Operator'];
 const reply = (data,status=200,headers={}) => Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(self), geolocation=()','Cross-Origin-Opener-Policy':'same-origin',...headers}});
@@ -19,9 +19,6 @@ const digest = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256
 const pass = async (p,s) => hex(await scrypt(new TextEncoder().encode(String(p)),new TextEncoder().encode(String(s)),16384,8,1,64));
 const equal = (a,b) => {const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b));if(x.length!==y.length)return false;let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0};
 const cookies = r => Object.fromEntries((r.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');if(i<0)return [x,''];const k=x.slice(0,i),v=x.slice(i+1);try{return [k,decodeURIComponent(v)]}catch{return [k,v]}}));
-const storedKeysSafe = async db => {
-  try{const r=await db.query("SELECT value FROM app_settings WHERE key='provider_keys'");const v=r?.[0]?.value;return v&&typeof v==='object'?v:{}}catch{return {}}
-};
 const rawToken = r => {const a=r.headers.get('authorization')||'';return a.startsWith('Bearer ')?a.slice(7):(cookies(r)[C]||'')};
 const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(s),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(t))))};
 const readBody = async (r,max=1024*1024) => {const declared=Number(r.headers.get('content-length')||0);if(declared>max)throw Object.assign(Error('Request body too large'),{status:413});if(!r.body)return {};const reader=r.body.getReader(),chunks=[];let size=0;try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>max){await reader.cancel();throw Object.assign(Error('Request body too large'),{status:413})}chunks.push(value)}}finally{reader.releaseLock()}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}const t=new TextDecoder().decode(bytes);if(!t)return {};try{const value=JSON.parse(t);if(!value||typeof value!=='object'||Array.isArray(value))throw Error();return value}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}};
@@ -85,7 +82,7 @@ export async function onRequest(ctx){
   if(u.pathname==='/api/admin/providers'&&request.method==='GET'){
    const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
    if(me.role!=='Admin')return reply({error:'Admin role required'},403);
-   const states=await providerStates(env,db);
+   const states=await providerStates(baseEnv,db);
    return reply({providers:states,note:'A configured key is not proof the provider accepts it. Send a prompt to find out. Keys are never returned in full.'});
   }
 
@@ -98,18 +95,16 @@ export async function onRequest(ctx){
    const x=await readBody(request);
    const provider=String(x.provider||'').toLowerCase();
    if(!PROVIDER_IDS.includes(provider))return reply({error:'Unknown provider. Choose one of: '+PROVIDER_IDS.join(', ')},400);
-   const stored=await storedKeysSafe(db);
-   if(x.remove===true){
-     delete stored[provider];
-   }else{
-     const key=String(x.key||'').trim();
-     if(key.length<8||key.length>400)return reply({error:'That does not look like an API key (expected 8-400 characters).'},400);
-     if(/\s/.test(key))return reply({error:'API keys do not contain spaces. Check for a stray paste.'},400);
-     stored[provider]=key;
-   }
-   await db.query("INSERT INTO app_settings(key,value,updated_at,updated_by) VALUES('provider_keys',$1::jsonb,now(),$2) ON CONFLICT(key) DO UPDATE SET value=$1::jsonb,updated_at=now(),updated_by=$2",[JSON.stringify(stored),me.username]);
-   await audit(db,me,'PROVIDER_KEY_'+(x.remove===true?'REMOVED':'SET'),provider,request);
-   return reply({ok:true,providers:await providerStates(env,db),note:'Saved. Send a prompt to verify the provider actually answers.'});
+   const removing=x.remove===true;
+   const key=removing?null:String(x.key||'').trim();
+   if(!removing&&(!key||key.length<8||key.length>400))return reply({error:'That does not look like an API key (expected 8-400 characters).'},400);
+   if(!removing&&/\s/.test(key))return reply({error:'API keys do not contain spaces. Check for a stray paste.'},400);
+   let saved;
+   try{saved=await updateStoredProviderKey(db,provider,key,me.username)}
+   catch{return reply({code:'PROVIDER_SETTINGS_WRITE_UNCONFIRMED',error:'The provider-key change could not be confirmed. Refresh the provider status and ask an administrator to investigate before retrying.'},503)}
+   if(!saved)return reply({code:'PROVIDER_SETTINGS_INVALID',error:'The saved provider settings have an unexpected format. No change was made; ask an administrator to investigate.'},409);
+   await audit(db,me,'PROVIDER_KEY_'+(removing?'REMOVED':'SET'),provider,request);
+   return reply({ok:true,providers:await providerStates(baseEnv,db),note:'Saved. Send a prompt to verify the provider actually answers.'});
   }
 
   if(u.pathname==='/api/admin/ai/overview'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const rows=await db.query("SELECT count(*)::int AS runs,count(*) FILTER (WHERE status='completed')::int AS completed,count(*) FILTER (WHERE status<>'completed')::int AS non_completed,0::int AS tokens FROM ai_runs WHERE created_at>now()-interval '24 hours'");const x=rows[0]||{};return reply({summary:{runs:Number(x.runs||0),completed:Number(x.completed||0),non_completed:Number(x.non_completed||0),tokens:Number(x.tokens||0)}})}

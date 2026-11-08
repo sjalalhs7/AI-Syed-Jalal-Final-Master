@@ -22,12 +22,32 @@ test('stored keys fill gaps but never override a deployment secret', async () =>
   assert.equal(env.OPENAI_API_KEY, 'db-openai-9999', 'a stored key fills a gap');
 });
 
-test('a missing settings table is treated as "no stored keys", not a crash', async () => {
-  const db = { query: async () => { throw new Error('relation "app_settings" does not exist'); } };
-  const env = await effectiveEnv({}, db);
-  assert.deepEqual(env, {});
-  const states = await providerStates({}, db);
-  assert.ok(states.every(s => s.configured === false));
+test('unreadable settings leave deployment keys usable and make stored-key status unknown', async () => {
+  const db = { query: async () => { throw new Error('simulated settings read failure'); } };
+  const env = await effectiveEnv({ OPENAI_API_KEY: 'local-env-key-12345678' }, db);
+  assert.equal(env.OPENAI_API_KEY, 'local-env-key-12345678');
+  const states = await providerStates({ OPENAI_API_KEY: 'local-env-key-12345678' }, db);
+  const openai = states.find(s => s.provider === 'openai');
+  assert.equal(openai.configured, true);
+  assert.equal(openai.source, 'environment');
+  for (const state of states.filter(s => s.provider !== 'openai')) {
+    assert.equal(state.configured, false);
+    assert.equal(state.source, 'unknown');
+    assert.match(state.status, /could not be read; configuration is unknown/i);
+  }
+});
+
+test('missing rows are empty, but malformed provider settings are unknown', async () => {
+  const empty = await providerStates({}, { query: async () => [] });
+  assert.ok(empty.every(s => s.source === 'none' && s.configured === false));
+  for (const invalid of [null, [], 'unexpected', { gemini: { key: 'bad-type' } }]) {
+    const states = await providerStates({}, { query: async () => [{ value: invalid }] });
+    assert.ok(states.every(s => s.source === 'unknown'));
+  }
+  for (const invalidRows of [undefined, null, {}]) {
+    const states = await providerStates({}, { query: async () => invalidRows });
+    assert.ok(states.every(s => s.source === 'unknown'));
+  }
 });
 
 test('provider state reports configured, never "working"', async () => {
@@ -67,11 +87,14 @@ test('provider key management is Admin-only and rate limited', () => {
   const source = api();
   const i = source.indexOf("u.pathname==='/api/admin/providers'&&request.method==='POST'");
   assert.ok(i > -1);
-  const route = source.slice(i, i + 1600);
+  const end = source.indexOf("u.pathname==='/api/admin/ai/overview'", i);
+  assert.ok(end > i, 'could not find the end of the provider route');
+  const route = source.slice(i, end);
   assert.match(route, /Authentication required/);
   assert.match(route, /Admin role required/);
   assert.match(route, /consumeRateLimit/);
   assert.match(route, /PROVIDER_IDS.includes/, 'must reject unknown providers');
+  assert.match(route, /updateStoredProviderKey/, 'must update one provider atomically');
   assert.match(route, /audit/, 'key changes must be audited');
 });
 

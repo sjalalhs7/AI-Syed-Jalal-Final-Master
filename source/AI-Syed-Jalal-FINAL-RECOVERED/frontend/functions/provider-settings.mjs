@@ -21,16 +21,28 @@ export function maskKey(value) {
   return '••••••••' + text.slice(-4);
 }
 
-/** Keys stored in app_settings, as { provider: key }. Never returned to clients. */
-export async function storedKeys(db) {
+// Keep read failures distinct from a successfully read empty settings row.
+// The runtime can still use deployment keys when stored settings are unavailable,
+// but an Admin must not be told that no stored key exists after a failed read.
+async function readStoredKeys(db) {
   try {
     const rows = await db.query("SELECT value FROM app_settings WHERE key='provider_keys'");
-    const value = rows?.[0]?.value;
-    return value && typeof value === 'object' ? value : {};
+    if (!Array.isArray(rows)) return { keys: {}, readable: false };
+    if (!rows.length) return { keys: {}, readable: true };
+    const value = rows[0]?.value;
+    if (!value || typeof value !== 'object' || Array.isArray(value) ||
+        PROVIDERS.some(provider => Object.hasOwn(value, provider) && typeof value[provider] !== 'string')) {
+      return { keys: {}, readable: false };
+    }
+    return { keys: value, readable: true };
   } catch {
-    // A database that predates this table simply has no stored keys.
-    return {};
+    return { keys: {}, readable: false };
   }
+}
+
+/** Keys stored in app_settings, as { provider: key }. Never returned to clients. */
+export async function storedKeys(db) {
+  return (await readStoredKeys(db)).keys;
 }
 
 /**
@@ -56,7 +68,7 @@ export async function effectiveEnv(env, db) {
 
 /** Which providers have a key from either source, and where it came from. */
 export async function providerStates(env, db) {
-  const stored = await storedKeys(db);
+  const { keys: stored, readable } = await readStoredKeys(db);
   const map = {
     gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY',
     deepseek: 'DEEPSEEK_API_KEY', elevenlabs: 'ELEVENLABS_API_KEY'
@@ -65,7 +77,7 @@ export async function providerStates(env, db) {
     const name = map[provider];
     const fromEnv = Boolean(env[name]);
     const fromDb = Boolean(stored[provider]);
-    const source = fromEnv ? 'environment' : fromDb ? 'admin-console' : 'none';
+    const source = fromEnv ? 'environment' : fromDb ? 'admin-console' : readable ? 'none' : 'unknown';
     const key = env[name] || stored[provider] || '';
     return {
       provider,
@@ -73,9 +85,30 @@ export async function providerStates(env, db) {
       source,
       hint: key ? maskKey(key) : '',
       // Presence of a key is not proof the provider accepts it.
-      status: fromEnv || fromDb ? 'Key configured; live call not yet verified' : 'No key configured'
+      status: fromEnv || fromDb ? 'Key configured; live call not yet verified' : readable ? 'No key configured' : 'Stored settings could not be read; configuration is unknown'
     };
   });
+}
+
+// Update one provider atomically. A read/modify/write cycle could replace
+// unrelated keys after a transient read failure or a concurrent admin change.
+// Refuse a malformed existing value rather than overwriting it. PostgreSQL's
+// conflict update acquires the row lock and applies this expression to the
+// latest value.
+export async function updateStoredProviderKey(db, provider, key, updatedBy) {
+  if (!PROVIDERS.includes(provider)) throw new Error('Unknown provider');
+  const remove = key === null;
+  const rows = await db.query(
+    `INSERT INTO app_settings(key,value,updated_at,updated_by)
+     VALUES('provider_keys',CASE WHEN $2::boolean THEN '{}'::jsonb ELSE jsonb_build_object($1::text,$3::text) END,now(),$4)
+     ON CONFLICT(key) DO UPDATE SET
+       value=CASE WHEN $2::boolean THEN app_settings.value - $1::text ELSE app_settings.value || EXCLUDED.value END,
+       updated_at=now(),updated_by=EXCLUDED.updated_by
+     WHERE jsonb_typeof(app_settings.value)='object'
+     RETURNING key`,
+    [provider, remove, key, updatedBy]
+  );
+  return rows.length === 1;
 }
 
 export const PROVIDER_IDS = PROVIDERS;
