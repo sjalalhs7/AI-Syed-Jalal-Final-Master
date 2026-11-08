@@ -23,7 +23,7 @@ jobs:
         run: |
           gh run download 42451131982 --name browser-test-evidence --dir "$RUNNER_TEMP/browser-evidence"
           python3 - <<'PY'
-          import os
+          import os, json
           from pathlib import Path
           files = sorted((Path(os.environ['RUNNER_TEMP']) / 'browser-evidence').rglob('error-context.md'))
           if not files:
