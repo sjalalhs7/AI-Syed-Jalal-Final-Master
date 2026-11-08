@@ -154,6 +154,16 @@ test('unavailable readiness does not invite an Admin to repair an unknown proble
 });
 
 test('a stale readiness response cannot clear a partial repair warning', async ({ page }) => {
+  test.setTimeout(120000);
+  // This test deliberately holds a readiness response while the confirmation
+  // and repair finish. Give only this simulated race a longer deadline so a
+  // slow software-rendered browser cannot abort the held request prematurely.
+  // Production still uses its 10-second deadline.
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.addInitScript(() => {
+    const timeout = AbortSignal.timeout.bind(AbortSignal);
+    AbortSignal.timeout = ms => timeout(ms === 10000 ? 60000 : ms);
+  });
   await page.goto('/jalalai.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
