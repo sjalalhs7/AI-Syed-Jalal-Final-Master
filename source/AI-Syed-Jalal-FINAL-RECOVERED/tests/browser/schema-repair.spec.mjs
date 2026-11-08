@@ -74,6 +74,13 @@ test('admin repairs an incomplete schema from the Operations Center', async ({ p
   // The button must not be offered to non-admins.
   const repairBtn = page.locator('#schemaRepairBtn');
   await expect(repairBtn).toBeVisible();
+  // Focusing the button starts an asynchronous readiness refresh. Complete it
+  // before opening the native confirmation so the mocked route is not being
+  // fulfilled while Playwright is handling that dialog. The late-response race
+  // itself is exercised separately below.
+  await repairBtn.focus();
+  await page.waitForLoadState('networkidle');
+  await expect(repairBtn).toBeVisible();
   let confirmationMessage = '';
   page.once('dialog', dialog => { confirmationMessage = dialog.message(); return dialog.accept(); });
   await repairBtn.click();
