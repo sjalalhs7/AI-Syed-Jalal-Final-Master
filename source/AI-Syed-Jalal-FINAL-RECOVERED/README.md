@@ -44,11 +44,21 @@ Set at least one of `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or
 `DEEPSEEK_API_KEY` as a **server-side environment secret**, then start or
 redeploy the server as appropriate. The local server inherits its launching
 environment; it does not automatically load a `.env` file. Alternatively an
-Administrator can save a key in **Workspace → Operations → AI Provider Keys**;
-this stores it server-side in the application database. Environment secrets
-have precedence. Never commit credentials or place them in frontend files.
-Choose the matching provider in JARVIS and test a real request; key presence
-alone does not prove the provider is available.
+Administrator can save a key in **Workspace → Operations → AI Provider Keys**
+when the application's `app_settings` table is available; this stores it
+server-side in the application database. Environment secrets have precedence,
+and removing an Admin-managed key does not remove an environment secret. If
+the settings store cannot be read, Operations reports an unknown state rather
+than asserting that no stored key exists. If a key change cannot be confirmed,
+refresh its status and investigate before retrying: a lost response does not
+prove the write was rolled back. Provider changes update one key atomically and
+preserve unrelated settings; this is not a substitute for backups.
+
+Other capability views can still report a missing key when the settings store
+cannot be read, so those views do not prove that no stored key exists. Never
+commit credentials or place them in frontend files. Choose the matching provider
+in JARVIS and test a real request; key presence alone does not prove the
+provider is available.
 
 ## Main surfaces
 

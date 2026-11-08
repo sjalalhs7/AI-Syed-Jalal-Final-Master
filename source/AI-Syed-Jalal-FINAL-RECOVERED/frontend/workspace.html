@@ -306,15 +306,16 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 </div>
 <div class="card" id="providerKeysCard" style="margin-top:16px">
 <div class="card-head"><h3>AI Provider Keys</h3><span class="tag">ADMIN</span></div>
-<p class="muted">Add a provider key here and it is used immediately — no redeploy. Keys are stored server-side, never shown in full, and are not proof the provider accepts them: send a prompt to find out.</p>
+<p class="muted">Admin-managed keys require provider settings storage. If its status is unknown, investigate before making changes. Saved keys are used without a redeploy, but environment secrets take precedence and cannot be removed here. Key presence does not prove a provider works; send a prompt to find out.</p>
 <div id="providerList" class="muted">Loading provider state…</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
   <select id="providerPick" aria-label="Provider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="deepseek">DeepSeek</option><option value="elevenlabs">ElevenLabs (premium voice)</option></select>
   <input id="providerKey" type="password" placeholder="Paste API key" autocomplete="off" style="flex:1;min-width:200px">
   <button class="btn primary" id="providerSaveBtn">Save key</button>
   <button class="btn" id="providerRemoveBtn">Remove</button>
+  <button class="btn" id="providerRefreshBtn" type="button">Refresh status</button>
 </div>
-<p class="muted" id="providerResult" style="margin-top:8px"></p>
+<p class="muted" id="providerResult" role="status" aria-live="polite" style="margin-top:8px"></p>
 </div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Runtime Telemetry</h3><span class="tag">LIVE</span></div><div id="opsTelemetry" class="muted">Loading telemetry…</div></div><div class="card"><div class="card-head"><h3>Permission Matrix</h3><span class="tag">ADMIN</span></div><div id="opsPermissions" class="muted">Loading permissions…</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Next-Gen Diagnostics</h3><span class="tag">LIVE</span></div><div id="opsDiagnostics" class="muted">Check the database connection and required table names. Pool metrics and live cloud-provider behavior are unavailable here.</div><div class="toolbar" style="margin-top:10px"><button class="btn" id="opsDiagnosticsBtn">Run Diagnostics</button><button class="btn" id="opsIntegrityBtn">Check Data Integrity</button></div></div><div class="card"><div class="card-head"><h3>Integrity Snapshot</h3><span class="tag">CONTROL</span></div><div id="opsIntegrity" class="muted">Backup integrity metadata will appear here after export.</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Live System Snapshot</h3><span class="tag">LIVE</span></div><div id="opsSnapshot" class="muted">Loading system snapshot…</div></div><div class="card"><div class="card-head"><h3>Data Distribution</h3><span class="tag">ANALYTICS</span></div><div id="opsDistribution" class="muted">Region and sector distribution will appear here.</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Recovery</h3><span class="tag">ADMIN</span></div><p class="muted">Export or merge active records only. This records export is not a full database backup: it does not include accounts, deleted records, documents or other tables.</p><div class="toolbar"><button class="btn primary" id="opsBackupBtn">Export Records Backup</button><button class="btn" id="opsRestoreBtn">Merge Records Backup</button><input id="opsRestoreFile" type="file" accept="application/json" class="hidden"></div><div id="opsMessage" class="muted">Ready.</div></div><div class="card"><div class="card-head"><h3>Security Events</h3><span class="tag">LIVE</span></div><div id="opsSecurityList" class="muted">Open Operations Center to load events.</div></div></div></section>
 <section class="view" id="view-users"><div class="hero"><div><div class="eyebrow">Identity & Access</div><h1>Manage users.</h1><p>Create, activate, deactivate and change roles for application operators.</p></div><button class="btn primary" id="addUserBtn">+ Add User</button></div><div class="card"><div class="toolbar"><button class="btn" id="refreshUsersBtn">↻ Refresh</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody id="usersBody"></tbody></table></div></div></section>
 <section class="view" id="view-settings"><div class="hero"><div><div class="eyebrow">System</div><h1>Settings</h1><p>Control local preferences and session behavior.</p></div></div><div class="grid g2"><div class="card"><h3>Interface</h3><button class="btn" id="settingsTheme" data-aj-theme-open>Choose visual theme</button><p class="muted" style="margin-top:12px">Theme preference is saved locally.</p></div><div class="card"><h3>Session</h3><p class="muted">Current operator</p><strong id="settingsUser">Operator</strong><div style="margin-top:14px"><button class="btn danger" id="settingsLogout">Sign out</button></div></div></div><div class="card" style="margin-top:16px"><h3>Security Operations</h3><p class="muted">Session controls are available when connected to the current API.</p><div class="toolbar"><button class="btn" id="revokeSessionsBtn">Revoke other sessions</button><button class="btn" id="changePasswordBtn">Change password</button></div><p id="securityMessage" class="muted" style="margin:10px 0 0">No security action run.</p></div><div class="card" style="margin-top:16px"><h3>Production note</h3><p class="muted">Shared authentication and central records are served by Cloudflare Pages Functions and Neon PostgreSQL. Interface themes and learning progress are saved locally in this browser.</p></div></section>
@@ -417,17 +418,44 @@ async function checkSchemaState(){
   tag.textContent='UNKNOWN';text.textContent='Could not read the schema state: '+(e.message||e);btn.hidden=true;access.textContent='Repair lock status could not be verified. No repair is offered.';
  }
 }
-async function loadProviders(){const box=$('#providerList');if(!box)return;if(!remoteMode()){box.textContent='Local preview has no provider secrets; keys are read when you run the server.';return}
- try{const r=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/admin/providers',{credentials:'include'});if(!r.ok){box.textContent=r.status===403?'Administrator role required to manage provider keys.':'Could not read provider state ('+r.status+').';return}
-  const d=await r.json();box.innerHTML=d.providers.map(p=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 0"><strong style="min-width:110px">${p.provider}</strong><span class="tag">${p.configured?'KEY SET':'NO KEY'}</span><span class="muted">${p.source==='none'?'':p.source+' '+p.hint}</span><span class="muted" style="font-size:12px">${p.status}</span></div>`).join('');
- }catch(e){box.textContent='Could not read provider state: '+(e.message||e)}}
-async function saveProvider(remove){const out=$('#providerResult');out.textContent='Saving…';
- try{const me=await api('/api/me');const body=remove?{provider:$('#providerPick').value,remove:true}:{provider:$('#providerPick').value,key:$('#providerKey').value};
-  const r=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/admin/providers',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(me.csrfToken?{'X-CSRF-Token':me.csrfToken}:{})},body:JSON.stringify(body)});
+let providerReadGeneration=0;
+async function loadProviders(){const box=$('#providerList');if(!box)return;const generation=++providerReadGeneration;if(!remoteMode()){box.textContent='Local preview has no provider secrets; keys are read when you run the server.';return}
+ try{const r=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/admin/providers',{credentials:'include',headers:state.token?{Authorization:'Bearer '+state.token}:{},signal:AbortSignal.timeout(10000)});if(generation!==providerReadGeneration)return;if(!r.ok){box.textContent=r.status===403?'Administrator role required to manage provider keys.':'Could not read provider state ('+r.status+').';return}
+  const d=await r.json();if(generation!==providerReadGeneration)return;
+  if(!Array.isArray(d.providers))throw new Error('Invalid provider response');
+  box.innerHTML=d.providers.map(p=>{
+   const set=p?.configured===true&&['environment','admin-console'].includes(p.source),empty=p?.configured===false&&p.source==='none';
+   const tag=set?'KEY SET':empty?'NO KEY':'UNKNOWN',source=set?p.source+' '+(p.hint||''):'';
+   const status=(set||empty||p?.source==='unknown')&&typeof p.status==='string'?p.status:'Status unavailable';
+   return `<div style="display:flex;gap:8px;align-items:center;padding:4px 0"><strong style="min-width:110px">${escape(p?.provider||'Provider')}</strong><span class="tag">${tag}</span><span class="muted">${escape(source)}</span><span class="muted" style="font-size:12px">${escape(status)}</span></div>`
+  }).join('');
+ }catch(e){if(generation===providerReadGeneration)box.textContent='Could not read provider state: '+(e.message||e)}}
+let providerSavePending=false;
+async function saveProvider(remove){
+ if(providerSavePending)return;
+ const out=$('#providerResult'),pick=$('#providerPick'),key=$('#providerKey');
+ // Capture the selected provider before any asynchronous session check and
+ // prevent a second click from sending another change while this one is pending.
+ const body=remove?{provider:pick.value,remove:true}:{provider:pick.value,key:key.value};
+ const controls=[$('#providerSaveBtn'),$('#providerRemoveBtn'),$('#providerRefreshBtn'),pick,key];
+ providerSavePending=true;++providerReadGeneration;controls.forEach(control=>control.disabled=true);out.textContent='Saving…';let started=false;
+ try{
+  const me=await api('/api/me',{signal:AbortSignal.timeout(10000)});
+  if(me.authenticated!==true||me.user?.role!=='Admin'||typeof me.csrfToken!=='string'||!me.csrfToken){out.textContent='An active Admin session is required; no provider-key request was sent.';return}
+  started=true;
+  const r=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/admin/providers',{method:'POST',credentials:'include',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json','X-CSRF-Token':me.csrfToken,...(state.token?{Authorization:'Bearer '+state.token}:{})},body:JSON.stringify(body)});
   const d=await r.json().catch(()=>({}));
-  if(!r.ok){out.textContent=d.error||('Failed ('+r.status+')');return}
-  $('#providerKey').value='';out.textContent='Saved. Send a prompt in Agent Studio or JalalAi to verify the provider actually answers.';await loadProviders();
- }catch(e){out.textContent='Failed: '+(e.message||e)}}
+  if(!r.ok){
+   if(r.status===409&&d.code==='PROVIDER_SETTINGS_INVALID')out.textContent=d.error||'The stored settings have an unexpected format; no change was made.';
+   else if(r.status===503&&d.code==='PROVIDER_SETTINGS_WRITE_UNCONFIRMED'&&typeof d.error==='string')out.textContent=d.error;
+   else out.textContent=(d.error?d.error+' ':'')+'The change could not be confirmed. Refresh provider status and investigate before retrying.';
+   return;
+  }
+  if(d.ok!==true){out.textContent='The change could not be confirmed. Refresh provider status and investigate before retrying.';return}
+  key.value='';out.textContent=remove?'Stored key removal recorded. Environment secrets are not changed.':'Saved. Send a prompt in Agent Studio or JalalAi to verify the provider actually answers.';await loadProviders();
+ }catch(e){out.textContent=started?'Could not confirm whether the change was saved. Refresh provider status and investigate before retrying.':'Could not check your session; no provider-key request was sent.'}
+ finally{providerSavePending=false;controls.forEach(control=>control.disabled=false)}
+}
 function requireSchemaReview(message){
  schemaRepairReviewRequired=true;++schemaCheckGeneration;
  $('#schemaRepairTag').textContent='REVIEW REQUIRED';$('#schemaRepairBtn').hidden=true;
@@ -667,6 +695,7 @@ $('#opsRefreshBtn')?.addEventListener('click',()=>{renderOperations()});
 $('#schemaRepairBtn')?.addEventListener('click',repairSchema);
 $('#providerSaveBtn')?.addEventListener('click',()=>saveProvider(false));
 $('#providerRemoveBtn')?.addEventListener('click',()=>saveProvider(true));
+$('#providerRefreshBtn')?.addEventListener('click',loadProviders);
 $('#providerPick')?.addEventListener('change',loadProviders);
 $('#schemaRepairBtn')?.addEventListener('focus',checkSchemaState,{once:true});;$('#refreshUsersBtn')?.addEventListener('click',renderUsers);
 $('#addUserBtn')?.addEventListener('click',()=>$('#userModal').classList.remove('hidden'));$('#closeUserModal')?.addEventListener('click',()=>$('#userModal').classList.add('hidden'));

@@ -191,6 +191,7 @@ test('provider-key changes also require CSRF and keep the existing admin flow', 
     assert.equal(saved.status, 200);
     assert.equal(saved.data.ok, true);
     assert.ok(!JSON.stringify(saved.data).includes(payload.key), 'the key must not be returned in full');
+    assert.equal(saved.data.providers.find(p => p.provider === 'gemini').source, 'admin-console');
     const removed = await admin('/admin/providers', 'POST', { provider: 'gemini', remove: true }, token);
     assert.equal(removed.status, 200);
     assert.equal(removed.data.ok, true);
@@ -216,4 +217,74 @@ test('the records backup is only an active-records export, not a database backup
     assert.equal('sessions' in backup.data, false);
     assert.equal('assistant_notes' in backup.data, false);
   } finally { await db.close(); }
+});
+
+test('provider key writes preserve unrelated settings through read failures and concurrent changes', async () => {
+  const { db, env, admin, token } = await fixture();
+  const real = env.DB_ADAPTER;
+  const values = {
+    openai: 'local-openai-key-12345678', anthropic: 'local-anthropic-key-12345678',
+    gemini: 'local-gemini-key-12345678', deepseek: 'local-deepseek-key-12345678',
+    elevenlabs: 'local-elevenlabs-key-12345678'
+  };
+  const save = (provider, key = values[provider]) => admin('/admin/providers', 'POST', { provider, key }, token);
+  const read = async () => (await db.query("SELECT value FROM app_settings WHERE key='provider_keys'")).rows[0].value;
+  try {
+    assert.equal((await save('openai')).status, 200);
+    let written = false, failedReads = 0;
+    env.DB_ADAPTER = { query: async (sql, params = []) => {
+      if (!written && sql.includes("SELECT value FROM app_settings WHERE key='provider_keys'")) {
+        failedReads++;
+        throw new Error('simulated transient read failure');
+      }
+      const rows = await real.query(sql, params);
+      if (sql.includes('INSERT INTO app_settings(key,value,updated_at,updated_by)')) written = true;
+      return rows;
+    } };
+    const unreadable = await admin('/admin/providers');
+    assert.equal(unreadable.status, 200);
+    assert.ok(unreadable.data.providers.every(p => p.source === 'unknown'));
+    assert.ok(unreadable.data.providers.every(p => /configuration is unknown/.test(p.status)));
+    const added = await save('anthropic');
+    assert.equal(added.status, 200);
+    assert.ok(failedReads > 0);
+    assert.deepEqual(await read(), { openai: values.openai, anthropic: values.anthropic });
+    assert.equal(added.data.providers.find(p => p.provider === 'anthropic').source, 'admin-console');
+    assert.ok(!JSON.stringify(added.data).includes(values.anthropic));
+
+    env.DB_ADAPTER = real;
+    const concurrent = await Promise.all([save('gemini'), save('deepseek')]);
+    assert.deepEqual(concurrent.map(r => r.status), [200, 200]);
+    assert.deepEqual(await read(), { openai: values.openai, anthropic: values.anthropic, gemini: values.gemini, deepseek: values.deepseek });
+    assert.equal((await admin('/admin/providers', 'POST', { provider: 'deepseek', remove: true }, token)).status, 200);
+    assert.deepEqual(await read(), { openai: values.openai, anthropic: values.anthropic, gemini: values.gemini });
+
+    env.OPENAI_API_KEY = 'local-deployment-key-12345678';
+    const states = (await admin('/admin/providers')).data.providers;
+    assert.equal(states.find(p => p.provider === 'openai').source, 'environment');
+    assert.equal(states.find(p => p.provider === 'gemini').source, 'admin-console');
+
+    let injected = false;
+    env.DB_ADAPTER = { query: async (sql, params = []) => {
+      const rows = await real.query(sql, params);
+      if (!injected && sql.includes('INSERT INTO app_settings(key,value,updated_at,updated_by)')) {
+        injected = true;
+        throw new Error('simulated lost response after commit');
+      }
+      return rows;
+    } };
+    const uncertain = await save('elevenlabs');
+    assert.equal(uncertain.status, 503);
+    assert.equal(uncertain.data.code, 'PROVIDER_SETTINGS_WRITE_UNCONFIRMED');
+    assert.match(uncertain.data.error, /could not be confirmed/i);
+    assert.deepEqual(await read(), { openai: values.openai, anthropic: values.anthropic, gemini: values.gemini, elevenlabs: values.elevenlabs },
+      'an error response must not be assumed to mean the write was rolled back');
+
+    env.DB_ADAPTER = real;
+    await db.query("UPDATE app_settings SET value='[\"unexpected\"]'::jsonb WHERE key='provider_keys'");
+    const invalid = await save('gemini');
+    assert.equal(invalid.status, 409);
+    assert.equal(invalid.data.code, 'PROVIDER_SETTINGS_INVALID');
+    assert.deepEqual(await read(), ['unexpected'], 'malformed existing settings must never be replaced');
+  } finally { env.DB_ADAPTER = real; await db.close(); }
 });
