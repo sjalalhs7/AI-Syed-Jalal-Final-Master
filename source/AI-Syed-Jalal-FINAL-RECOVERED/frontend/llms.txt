@@ -1,19 +1,22 @@
 # Alsyed Jalal AI
 
-> Alsyed Jalal AI is a web-based AI workspace project focused on chat, research, coding, data analysis, documents, and agent workflows.
+> Alsyed Jalal AI is a web-based workspace for local utilities, optional provider-backed text assistance, learning and records. Availability differs by feature and deployment.
 
-Primary website: https://ai-syed-jalal-live.pages.dev/
+The AI Hub contains curated prompt and skill references; these are not separate autonomous AI agents. The Media Studio can edit photos and trim short videos locally in supported browsers, without uploading the selected files or requiring sign-in. It does not generate images or videos with AI.
 
-## Public entry points
-- Homepage: https://ai-syed-jalal-live.pages.dev/
-- Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml
-- Robots policy: https://ai-syed-jalal-live.pages.dev/robots.txt
+A visible interface or configured provider is not proof that a live request, login or database workflow succeeds. Some features need a functioning application server, database and provider; their state must be checked independently. The selected voice and browser speech features depend on device capabilities.
 
-## Project areas
-- AI workspace and multi-model workflow interface
-- Research, coding, data analysis, and document workflows
-- Agent orchestration and provider/API integration work
-- Security, operations, and audit interfaces
+## Public pages
 
-## Important availability note
-The presence of an interface or integration source file does not guarantee that a live provider is connected. Some capabilities require a separately deployed backend, a configured PostgreSQL database, provider API credentials, and server-side environment variables. Do not assume live authentication, database persistence, or provider execution unless the relevant endpoint reports healthy and the workflow has been tested.
+- [Homepage](https://ai-syed-jalal-live.pages.dev/): An introduction to the workspace and its available tools.
+- [AI Hub](https://ai-syed-jalal-live.pages.dev/ai-hub): Local tools, provider availability and curated prompt references.
+- [Media Studio](https://ai-syed-jalal-live.pages.dev/media-studio): Browser-based photo editing and short-video trimming with explicit format limits.
+- [Meet JARVIS](https://ai-syed-jalal-live.pages.dev/about-jarvis): An overview of the voice and text assistant and its limitations.
+- [Intelligence evolution](https://ai-syed-jalal-live.pages.dev/intelligence-evolution): An educational comparison of AI, generative AI, AGI, ASI and organic intelligence.
+- [Learning roadmaps](https://ai-syed-jalal-live.pages.dev/roadmaps): Learning paths and progress stored on the user's device.
+- [Visual styles](https://ai-syed-jalal-live.pages.dev/visual-styles): An overview of workspace design themes.
+
+## Site discovery
+
+- [Sitemap](https://ai-syed-jalal-live.pages.dev/sitemap.xml): Public canonical pages for search engines.
+- [Robots policy](https://ai-syed-jalal-live.pages.dev/robots.txt): Crawler access and sitemap location.
