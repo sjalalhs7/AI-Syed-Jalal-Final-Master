@@ -52,6 +52,28 @@ jobs:
                               if '/api/me' in url or '/api/admin/schema/repair' in url:
                                   items.append({'path':url.split('/api/', 1)[-1], 'status':entry.get('response', {}).get('status'), 'time':entry.get('time')})
                           if items: notice('Disposable test session and repair requests', json.dumps(items[-20:]))
+                          for line in archive.read(name).splitlines():
+                              entry = json.loads(line).get('snapshot', {})
+                              if '/api/me' not in entry.get('request', {}).get('url', ''): continue
+                              sha = entry.get('response', {}).get('content', {}).get('_sha1')
+                              if not sha: continue
+                              try: data = json.loads(archive.read('resources/' + sha))
+                              except Exception: continue
+                              notice('Disposable session response shape', json.dumps({'authenticated':data.get('authenticated'), 'role':(data.get('user') or {}).get('role'), 'csrfPresent':bool(data.get('csrfToken')), 'error':data.get('error')}))
+                      for name in archive.namelist():
+                          if not name.endswith('.trace'): continue
+                          events = [json.loads(line) for line in archive.read(name).splitlines()]
+                          tracking = False
+                          actions = []
+                          for event in events:
+                              if event.get('type') == 'before' and event.get('method') == 'click' and '#schemaRepairBtn' in str(event.get('params', {}).get('selector', '')):
+                                  tracking = True
+                              if not tracking: continue
+                              if event.get('type') == 'before':
+                                  actions.append({k:event.get(k) for k in ['type','callId','class','method','title','params','startTime'] if k in event})
+                              elif event.get('type') in ['log', 'after', 'event']:
+                                  actions.append({k:event.get(k) for k in ['type','callId','method','message','error','time','endTime'] if k in event})
+                          if actions: notice('Repair click trace', json.dumps(actions[-45:]))
           PY
   application:
     runs-on: ubuntu-latest
