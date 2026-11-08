@@ -29,9 +29,29 @@ jobs:
           if not files:
               print('::notice title=Earlier browser evidence::No error-context files were found.')
           for path in files:
-              text = path.read_text(encoding='utf-8', errors='replace').split('# Page snapshot', 1)[0]
-              text = text[:6000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print(f'::notice title=Earlier browser failure::{text}')
+              raw = path.read_text(encoding='utf-8', errors='replace')
+              def notice(title, text):
+                  text = text[:6000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print(f'::notice title={title}::{text}')
+              notice('Earlier browser failure', raw.split('# Test source', 1)[0])
+              snapshot = raw.partition('# Page snapshot')[2]
+              lines = snapshot.splitlines()
+              matches = [i for i, line in enumerate(lines) if any(word in line.lower() for word in ['repair', 'schema', 'session', 'cancelled', 'aborted', 'timed out'])]
+              indices = sorted({j for i in matches for j in range(max(0, i-1), min(len(lines), i+2))})
+              notice('Repair status in disposable test snapshot', '\n'.join(lines[i] for i in indices))
+              from zipfile import ZipFile
+              import json
+              for trace in path.parent.glob('*.zip'):
+                  with ZipFile(trace) as archive:
+                      for name in archive.namelist():
+                          if not name.endswith('.network'): continue
+                          items = []
+                          for line in archive.read(name).splitlines():
+                              entry = json.loads(line).get('snapshot', {})
+                              url = entry.get('request', {}).get('url', '')
+                              if '/api/me' in url or '/api/admin/schema/repair' in url:
+                                  items.append({'path':url.split('/api/', 1)[-1], 'status':entry.get('response', {}).get('status'), 'time':entry.get('time')})
+                          if items: notice('Disposable test session and repair requests', json.dumps(items[-20:]))
           PY
   application:
     runs-on: ubuntu-latest
