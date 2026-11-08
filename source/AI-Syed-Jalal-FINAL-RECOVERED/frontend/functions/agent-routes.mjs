@@ -10,6 +10,7 @@ function pageInventory() {
   // Pages are listed explicitly so a missing file is a check failure, not a 404 surprise.
   return [
     { file: 'index.html', label: 'Homepage + login' },
+    { file: 'ai-hub.html', label: 'AI Hub discovery' },
     { file: 'agent.html', label: 'Agent Studio' },
     { file: 'jalalai.html', label: 'JalalAi assistant' },
     { file: 'workspace.html', label: 'Workspace' },
