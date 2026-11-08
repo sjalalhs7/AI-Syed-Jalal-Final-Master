@@ -287,6 +287,15 @@ test.describe('conversion cancellation', () => {
   });
 });
 
+test('a non-video file cannot execute as HTML in the video preview', async ({ page }) => {
+  const errors = pageErrors(page);
+  await page.goto('/media-studio.html#video');
+  await page.locator('#videoFile').setInputFiles({ name: 'not-video.mp4', mimeType: 'text/html', buffer: Buffer.from('<script>window.invalidVideoExecuted = true</script>') });
+  await expect(page.locator('#videoStatus')).toContainText('could not open that video');
+  await expect(page.locator('#videoExport')).toBeDisabled();
+  expect(await page.evaluate(() => window.invalidVideoExecuted)).toBeUndefined(); expect(errors).toEqual([]);
+});
+
 test('media tools reject unsupported video export and stay within mobile width', async ({ page }) => {
   const errors = pageErrors(page);
   await page.addInitScript(() => { Object.defineProperty(window, 'VideoEncoder', { value: undefined, configurable: true }); });

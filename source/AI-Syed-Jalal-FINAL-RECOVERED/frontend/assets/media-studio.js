@@ -81,7 +81,8 @@ $('photoDownload').addEventListener('click', () => {
   } catch { button.disabled = false; $('photoStatus').textContent = 'This browser could not export that image.'; }
 });
 
-const video = $('videoPreview');
+const video = document.querySelector('video#videoPreview');
+if (!(video instanceof HTMLVideoElement)) throw new Error('Video preview is unavailable.');
 // The selected JARVIS greeting should not overlap a video the user plays.
 video.addEventListener('play', () => window.AJWelcome?.interruptForAssistant());
 const videoSupported = supportsVideoCodecs(window);
@@ -133,7 +134,12 @@ $('videoFile').addEventListener('change', event => {
     } catch (error) { fail(error.message || 'Could not open that video.'); }
   };
   video.onerror = () => fail('This browser could not open that video. Try another format.');
-  video.src = candidate; video.load();
+  // Only a same-origin object URL is attached to an actual video element;
+  // selected file contents must never be interpreted as an HTML document.
+  const parsed = new URL(candidate);
+  if (parsed.protocol !== 'blob:' || parsed.origin !== location.origin) { fail('The browser could not open this local video safely.'); return; }
+  // Blob URLs are ASCII. Preserve IPv6 literal brackets when URI-encoding.
+  video.src = encodeURI(parsed.href).replace(/%5B/gi, '[').replace(/%5D/gi, ']'); video.load();
 });
 $('setVideoStart').addEventListener('click', () => { $('videoStart').value = String(Math.floor(video.currentTime * 10) / 10); });
 $('setVideoEnd').addEventListener('click', () => { $('videoEnd').value = String(Math.min(videoDuration, Math.floor(video.currentTime * 10) / 10)); });

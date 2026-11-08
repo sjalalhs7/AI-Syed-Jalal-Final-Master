@@ -62,13 +62,14 @@ test('a database configuration error after preflight also gives a truthful messa
   await expect(page.locator('#err')).not.toContainText('Invalid credentials');
 });
 
-test('registration and password sign-in still work on the isolated local database', async ({ page, context }) => {
+test('registration and password sign-in still work on the isolated local database', async ({ page }) => {
   const username = `localtest${Date.now()}`, password = 'Local-test-password-123';
   await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
   await page.getByRole('button', { name: 'Create an account' }).click();
   await page.locator('#u').fill(username); await page.locator('#p').fill(password); await page.locator('#confirm-p').fill(password); await page.locator('#go').click();
-  await expect(page).toHaveURL(/dashboard\.html/);
-  await context.clearCookies(); await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await expect(page).toHaveURL(/dashboard\.html/); await expect(page.locator('#uname')).toHaveText(username);
+  await Promise.all([page.waitForURL(/\/$/), page.locator('#out').click()]);
+  await page.getByRole('button', { name: 'Login', exact: true }).click();
   await page.locator('#u').fill(username); await page.locator('#p').fill(password); await page.locator('#go').click();
   await expect(page).toHaveURL(/dashboard\.html/);
 });
