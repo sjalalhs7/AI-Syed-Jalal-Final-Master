@@ -31,19 +31,24 @@
       const previous = value;
       select.replaceChildren();
       for (const model of models) {
-        const option = new Option(model.label + (model.local ? '' : model.configured ? ' · configured' : ' · not configured'), model.id);
+        const unknown = !model.local && model.configured !== true && model.configured !== false;
+        const option = new Option(model.label + (model.local ? '' : model.configured === true ? ' · configured' : model.configured === false ? ' · not configured' : ' · status unknown'), model.id);
+        option.disabled = unknown;
         select.add(option);
       }
-      select.value = models.some(m => m.id === previous) ? previous : 'local';
+      const usable = models.some(m => m.id === previous && (m.local || m.configured === true || m.configured === false));
+      select.value = usable ? previous : select.id === 'modelB' ? 'local-critic' : 'local';
     }
     modelA = $('modelA').value; modelB = $('modelB').value;
-    const configuredCloud = models.filter(m => !m.local && m.configured).length;
-    $('providerStatus').textContent = configuredCloud ? `${configuredCloud} cloud engine(s) configured · live call still required` : 'Local engines ready · cloud keys not configured';
+    const configuredCloud = models.filter(m => !m.local && m.configured === true).length;
+    const unknownCloud = models.filter(m => !m.local && m.configured !== true && m.configured !== false).length;
+    $('providerStatus').textContent = configuredCloud ? `${configuredCloud} cloud engine(s) configured · live call still required${unknownCloud ? ` · ${unknownCloud} unknown` : ''}`
+      : unknownCloud ? 'Local engines ready · some cloud statuses are unknown' : 'Local engines ready · cloud keys not configured';
     const list = $('providerList'); list.replaceChildren();
     for (const model of models) {
       const li = document.createElement('li');
       const name = document.createElement('span'); name.textContent = model.label;
-      const state = document.createElement('span'); state.className = 'state ' + (model.configured ? 'ok' : 'warn'); state.textContent = model.local ? 'local' : model.configured ? 'key set' : 'no key';
+      const state = document.createElement('span'); state.className = 'state ' + (model.configured === true ? 'ok' : 'warn'); state.textContent = model.local ? 'local' : model.configured === true ? 'key set' : model.configured === false ? 'no key' : 'unknown';
       li.append(name, state); list.appendChild(li);
     }
   }
@@ -291,7 +296,9 @@
       updateControls(); return;
     }
     user = session.user; $('authGate').hidden = true; $('conversationArea').hidden = false;
-    const state = await api('/platform/state'); models = state.models || []; renderModelOptions();
+    const state = await api('/platform/state');
+    if (!Array.isArray(state.models) || !['local', 'local-critic', 'gemini', 'openai', 'anthropic', 'deepseek', 'omniroute'].every(id => state.models.some(model => model?.id === id))) throw new Error('Engine configuration is unavailable.');
+    models = state.models; renderModelOptions();
     $('privacyNote').textContent = state.privacy || $('privacyNote').textContent;
     await loadConversations(); newConversation(); applyStagedDraft(); setStatus('Ready · signed in as ' + user.username); updateControls();
   }
@@ -370,7 +377,13 @@
   $('toolsClose').onclick = () => { $('toolsPanel').hidden = true; $('studio').classList.remove('tools-open'); };
   $('sidebarOpen').onclick = () => $('sidebar').classList.add('open');
   $('sidebarClose').onclick = closeSidebar;
-  $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST', body: '{}' }); await signIn(); } catch (error) { setStatus(error.message); $('gateMessage').textContent = error.message; } finally { $('demoBtn').disabled = false; } };
+  function showSetupError(error) {
+    user = null; csrf = '';
+    $('authGate').hidden = false; $('conversationArea').hidden = true;
+    $('gateMessage').textContent = 'Agent Studio could not finish setup. Check the connection and reload. ' + error.message;
+    setStatus('Setup unavailable'); updateControls();
+  }
+  $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST', body: '{}' }); await signIn(); } catch (error) { showSetupError(error); } finally { $('demoBtn').disabled = false; } };
   $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=agent.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; messages = []; conversations = []; currentId = null; stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
   document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); newConversation(); } if (event.key === 'Escape') { closeSidebar(); $('toolsPanel').hidden = true; $('studio').classList.remove('tools-open'); } });
   window.addEventListener('pagehide', () => { stopVoice(); requestController?.abort(); });
@@ -380,5 +393,5 @@
     $('authGate').hidden = false; $('conversationArea').hidden = true; $('demoBtn').hidden = true; $('demoBtn').disabled = true; $('demoBtn').style.display = 'none';
     $('gateMessage').textContent = 'Static website preview: Agent Studio needs the secure application server for sign-in, saved conversations and AI. Open the secure app, or run npm run dev locally. See Setup options in the banner.';
     setStatus('Static preview · backend not connected'); updateControls();
-  } else signIn().catch(error => { $('authGate').hidden = false; $('conversationArea').hidden = true; $('gateMessage').textContent = 'The server could not be reached. Start the application server and reload. ' + error.message; });
+  } else signIn().catch(showSetupError);
 })();

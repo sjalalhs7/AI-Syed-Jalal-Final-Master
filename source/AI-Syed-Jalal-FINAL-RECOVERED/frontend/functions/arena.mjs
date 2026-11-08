@@ -14,6 +14,8 @@
  *  - Ratings are evidence of preference, not a quality certification.
  */
 
+import { providerConfiguration } from './provider-settings.mjs';
+
 export const ARENA_MODES = ['text', 'code'];
 export const SIDES = ['a', 'b', 'c', 'd'];
 export const MIN_CONTENDERS = 2;
@@ -42,21 +44,21 @@ export function contenderFor(id) {
 export function isConfigured(env, id) {
   if (!contenderFor(id)) return false;
   if (contenderFor(id).kind === 'local') return true;
-  if (id === 'gemini') return Boolean(env?.GEMINI_API_KEY);
-  if (id === 'openai') return Boolean(env?.OPENAI_API_KEY);
-  if (id === 'anthropic') return Boolean(env?.ANTHROPIC_API_KEY);
-  if (id === 'deepseek') return Boolean(env?.DEEPSEEK_API_KEY);
-  return false;
+  return providerConfiguration(env, id);
 }
 
 export function catalogue(env = {}) {
-  return CONTENDERS.map(item => ({
-    ...item,
-    configured: item.kind === 'local' ? true : isConfigured(env, item.id),
-    status: item.kind === 'local'
-      ? 'Ready now · deterministic local engine'
-      : isConfigured(env, item.id) ? 'Key configured; a live call is still required' : 'API key not configured'
-  }));
+  return CONTENDERS.map(item => {
+    const configured = isConfigured(env, item.id);
+    return {
+      ...item,
+      configured,
+      status: item.kind === 'local' ? 'Ready now · deterministic local engine'
+        : configured === true ? 'Key configured; a live call is still required'
+        : configured === false ? 'API key not configured'
+        : 'Stored settings could not be read; configuration is unknown'
+    };
+  });
 }
 
 /** Judges are deterministic. Only a local rubric judge ships today. */

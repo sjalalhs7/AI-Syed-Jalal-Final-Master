@@ -1,4 +1,5 @@
 import { localAssistant, proposedAssistantAction, isSimpleGreeting, PROFILE_IDS } from './assistant-core.mjs';
+import { providerConfiguration, aggregateProviderConfiguration } from './provider-settings.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
 import { buildPage, describePage, parseSpec, PALETTES, SECTIONS } from './page-builder.mjs';
@@ -35,8 +36,8 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    const cloudProviders = { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY), deepseek: Boolean(env.DEEPSEEK_API_KEY) };
-    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudProviders, cloudConfigured: Object.values(cloudProviders).some(Boolean), privacy: 'Local and cloud chat are transient; agent and research runs store their prompts and traces on your account. Tasks and notes require your confirmation.' });
+    const cloudProviders = Object.fromEntries(['gemini', 'openai', 'anthropic', 'deepseek'].map(id => [id, providerConfiguration(env, id)]));
+    return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudProviders, cloudConfigured: aggregateProviderConfiguration(Object.values(cloudProviders)), privacy: 'Local and cloud chat are transient; agent and research runs store their prompts and traces on your account. Tasks and notes require your confirmation.' });
   }
   // V139 — all-in-one panel: every specialist that can serve the prompt, with
   // the reason each was chosen. No provider key required, no hidden model call.
@@ -162,8 +163,10 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     const result = localAssistant(message, profile);
     if (body.mode !== 'cloud' || result.action || (result.tool && !result.needsProvider) || isSimpleGreeting(message)) return reply(result);
     const provider = String(body.provider || 'gemini');
-    const configs = { gemini: env.GEMINI_API_KEY, openai: env.OPENAI_API_KEY, anthropic: env.ANTHROPIC_API_KEY, deepseek: env.DEEPSEEK_API_KEY };
-    if (!configs[provider]) return reply({ ...result, cloudError: 'This cloud provider is not configured. The local tool response is shown instead; no cloud request was made.' });
+    const configured = providerConfiguration(env, provider);
+    if (configured !== true) return reply({ ...result, cloudError: configured === null
+      ? 'Stored provider settings could not be read, so this provider’s configuration is unknown. The local tool response is shown instead; no cloud request was made.'
+      : 'This cloud provider is not configured. The local tool response is shown instead; no cloud request was made.' });
     const headers = new Headers(request.headers); headers.delete('content-length'); headers.set('content-type', 'application/json');
     const target = new URL(request.url); target.pathname = '/api/ai/run';
     let prepared;

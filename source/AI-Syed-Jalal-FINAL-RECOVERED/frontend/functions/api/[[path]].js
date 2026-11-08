@@ -9,7 +9,7 @@ import { arenaRoute, arenaCatalogue } from '../arena-routes.mjs';
 import libraryCatalog from '../../config/library-catalog.json';
 import { SCHEMA_PARTS, REQUIRED_TABLES, destructiveStatements } from '../schema-bundle.mjs';
 import { applySchemaRepair, missingTables, schemaRepairEnabled } from '../schema-repair.mjs';
-import { effectiveEnv, providerStates, updateStoredProviderKey, maskKey, PROVIDER_IDS } from '../provider-settings.mjs';
+import { effectiveEnv, providerStates, updateStoredProviderKey, maskKey, PROVIDER_IDS, providerConfiguration, aggregateProviderConfiguration, unavailableProviderEnv } from '../provider-settings.mjs';
 
 const C = 'aj_session', TTL = 28800000, WRITERS = ['Admin','Manager','Data Operator'];
 const reply = (data,status=200,headers={}) => Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(self), geolocation=()','Cross-Origin-Opener-Policy':'same-origin',...headers}});
@@ -41,6 +41,29 @@ async function rateLimited(db, req, action, max, windowSql, userId=null){
 }
 async function userFor(db,req){const t=rawToken(req);if(!t)return null;const a=await db.query('SELECT u.id,u.username,u.role,s.id AS session_id FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active=true LIMIT 1',[await digest(t)]);return a[0]||null}
 async function validCsrf(req,env){const t=rawToken(req),v=req.headers.get('x-csrf-token')||'';return !!(t&&v&&equal(await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||''),v))}
+// Configuration is tri-state: a failed settings read is not proof of absence.
+// Neither key presence nor a configured endpoint verifies provider connectivity.
+function aiProviderCapabilities(env) {
+ const providers=[
+  {id:'openai',label:'OpenAI / ChatGPT',model:env.OPENAI_MODEL||'gpt-4o-mini'},
+  {id:'anthropic',label:'Anthropic / Claude',model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest'},
+  {id:'deepseek',label:'DeepSeek',model:env.DEEPSEEK_MODEL||'deepseek-chat'},
+  {id:'gemini',label:'Google Gemini',model:env.GEMINI_MODEL||'gemini-2.5-flash'},
+  {id:'omniroute',label:'OmniRoute (OpenAI-compatible)',model:env.OMNIROUTE_MODEL||'provider default'}
+ ];
+ return providers.map(provider=>{
+  const configured=providerConfiguration(env,provider.id);
+  const status=configured===true?(provider.id==='omniroute'?'Key and endpoint configured; live call not yet verified':'Key configured; live call not yet verified')
+   :configured===false?(provider.id==='omniroute'?'Optional key/base URL not configured':'API key not configured')
+   :'Stored settings could not be read; configuration is unknown';
+  return {...provider,configured,status,adapter:'enabled'};
+ });
+}
+function providerMode(providers){
+ const configured=aggregateProviderConfiguration(providers.map(provider=>provider.configured));
+ return configured===true?'live-ready':configured===false?'provider-keys-required':'provider-status-unknown';
+}
+
 export async function onRequest(ctx){
  const request=ctx.request;
  const u=new URL(request.url),p=u.pathname.split('/').filter(Boolean);
@@ -53,13 +76,13 @@ export async function onRequest(ctx){
      const probe=baseEnv.DB_ADAPTER||neon(baseEnv.DATABASE_URL);
      env=await effectiveEnv(baseEnv,probe);
    }
- }catch{ env=baseEnv }
+ }catch{ env=unavailableProviderEnv(baseEnv) }
  if(!u.pathname.startsWith('/api/'))return reply({ok:false,error:'Not found'},404);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{Allow:'GET,POST,PUT,PATCH,DELETE,OPTIONS','Cache-Control':'no-store'}});
  if(!env.DB_ADAPTER&&!env.DATABASE_URL)return reply({ok:false,error:'Neon DATABASE_URL is not configured',code:'DATABASE_NOT_CONFIGURED'},503);
  const db=env.DB_ADAPTER||neon(env.DATABASE_URL);
  try{
-  if(u.pathname==='/api/health'&&request.method==='GET'){await db.query('SELECT 1');return reply({ok:true,service:'Al-Syed Jalal AI Cloudflare API',version:'V150',runtime:env.LOCAL_PREVIEW?'Local preview':'Cloudflare Pages Functions',database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',localPreview:Boolean(env.LOCAL_PREVIEW),assistant:{localTools:true,voiceInput:'browser-dependent',voiceOutput:'browser-speech',cloudConfigured:Boolean(env.GEMINI_API_KEY||env.OPENAI_API_KEY||env.ANTHROPIC_API_KEY||env.DEEPSEEK_API_KEY||((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)))},databaseConnected:true})}
+  if(u.pathname==='/api/health'&&request.method==='GET'){await db.query('SELECT 1');return reply({ok:true,service:'Al-Syed Jalal AI Cloudflare API',version:'V150',runtime:env.LOCAL_PREVIEW?'Local preview':'Cloudflare Pages Functions',database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',localPreview:Boolean(env.LOCAL_PREVIEW),assistant:{localTools:true,voiceInput:'browser-dependent',voiceOutput:'browser-speech',cloudConfigured:aggregateProviderConfiguration(['gemini','openai','anthropic','deepseek','omniroute'].map(id=>providerConfiguration(env,id)))},databaseConnected:true})}
   if(u.pathname==='/api/chat'&&request.method==='POST'){const target=new URL(request.url);target.pathname='/api/ai/run';const response=await onRequest({request:new Request(target,request),env});if(!response.ok)return response;const result=await response.json();return reply({...result,reply:result.output||''},response.status)}
   if(u.pathname==='/api/demo'&&request.method==='POST'){if(!env.LOCAL_PREVIEW||!env.DB_ADAPTER)return reply({error:'Not found'},404);if(await userFor(db,request))return reply({ok:true,preview:true});if(!await consumeRateLimit(db,'preview-session',request.headers.get('CF-Connecting-IP')||'local',Math.max(1,Number(env.PREVIEW_SESSION_PER_MINUTE)||10),60))return reply({error:'Please wait before starting another preview account.'},429);const id=crypto.randomUUID(),token=hex(random(48)),salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,'preview-'+id.slice(0,8),salt,await pass(hex(random(24)),salt)]);await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),id,await digest(token),new Date(Date.now()+TTL).toISOString()]);return reply({ok:true,preview:true},200,{'Set-Cookie':sessionCookie(token,env)})}
   if(u.pathname==='/api/version'&&request.method==='GET')return reply({app:'Al-Syed Jalal AI',version:'V150',release:'cloudflare-native'});
@@ -77,7 +100,7 @@ export async function onRequest(ctx){
    const repair=viewer?.role==='Admin'?{schemaRepairEnabled:schemaRepairEnabled(env)}:{};
    return reply({ok,ready:ok,database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',schemaTables:n,required:REQUIRED_TABLES.length,missing,summary:`${n} of ${REQUIRED_TABLES.length} tables present. ${affected}`,howToFix:'Verify a restorable full database backup and rehearse on an isolated target. The repair path is locked by default and also requires operator authorization.',scope:'required table names only; columns, indexes, migration history, data and provider behavior are not checked',signInAffected:!(['app_users','sessions'].every(t=>have.includes(t))),...repair},ok?200:503)
   }
-  if(u.pathname==='/api/ai/capabilities'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);const providers=[{id:'openai',label:'OpenAI / ChatGPT',configured:Boolean(env.OPENAI_API_KEY),status:env.OPENAI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.OPENAI_MODEL||'gpt-4o-mini',adapter:'enabled'},{id:'anthropic',label:'Anthropic / Claude',configured:Boolean(env.ANTHROPIC_API_KEY),status:env.ANTHROPIC_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest',adapter:'enabled'},{id:'deepseek',label:'DeepSeek',configured:Boolean(env.DEEPSEEK_API_KEY),status:env.DEEPSEEK_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.DEEPSEEK_MODEL||'deepseek-chat',adapter:'enabled'},{id:'gemini',label:'Google Gemini',configured:Boolean(env.GEMINI_API_KEY),status:env.GEMINI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.GEMINI_MODEL||'gemini-2.5-flash',adapter:'enabled'},{id:'omniroute',label:'OmniRoute (OpenAI-compatible)',configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)),status:(env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)?'Key and endpoint configured; live call not yet verified':'Optional key/base URL not configured',model:env.OMNIROUTE_MODEL||'provider default',adapter:'enabled'}];const agents=[{id:'general',name:'General Assistant',group:'General',mode:'provider-backed text profile'},{id:'coding',name:'Coding Assistant',group:'Development',mode:'provider-backed text profile'},{id:'ux-ui-pro-max',name:'UX/UI Design Assistant',group:'Design',mode:'provider-backed text profile'},{id:'analysis',name:'Analysis Assistant',group:'Analysis',mode:'provider-backed text profile'},{id:'superpower',name:'Task Planning Assistant',group:'Planning',mode:'bounded text planning; no external tools'}];return reply({mode:providers.some(p=>p.configured)?'live-ready':'provider-keys-required',agents,executableAgentProfiles:agents.length,catalogRoles:120,agencyLayer:{profiles:303,execution:'profiles/catalog available in recovered backend; Cloudflare text endpoint does not execute every profile as a separate tool'},skillRegistry:{version:'V71.0.0',totalSkills:3500,domainCount:35,source:'recovered project config/ai-skill-index-v71.json'},skills:[],skillPacks:[],providers,status:'This API exposes five provider-backed text prompt profiles. They do not browse the web, query private records, use voice or medical tools, or execute external actions. The separate catalogue contains 120 role definitions and 3,500 reference skills across 35 domains; catalogue entries are not independent model instances. A configured provider key does not prove a successful live request.',runtime:{providers:Object.fromEntries(providers.map(p=>[p.id,{configured:p.configured,adapter:p.adapter}]))}})}
+  if(u.pathname==='/api/ai/capabilities'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);const providers=aiProviderCapabilities(env);const agents=[{id:'general',name:'General Assistant',group:'General',mode:'provider-backed text profile'},{id:'coding',name:'Coding Assistant',group:'Development',mode:'provider-backed text profile'},{id:'ux-ui-pro-max',name:'UX/UI Design Assistant',group:'Design',mode:'provider-backed text profile'},{id:'analysis',name:'Analysis Assistant',group:'Analysis',mode:'provider-backed text profile'},{id:'superpower',name:'Task Planning Assistant',group:'Planning',mode:'bounded text planning; no external tools'}];return reply({mode:providerMode(providers),agents,executableAgentProfiles:agents.length,catalogRoles:120,agencyLayer:{profiles:303,execution:'profiles/catalog available in recovered backend; Cloudflare text endpoint does not execute every profile as a separate tool'},skillRegistry:{version:'V71.0.0',totalSkills:3500,domainCount:35,source:'recovered project config/ai-skill-index-v71.json'},skills:[],skillPacks:[],providers,status:'This API exposes five provider-backed text prompt profiles. They do not browse the web, query private records, use voice or medical tools, or execute external actions. The separate catalogue contains 120 role definitions and 3,500 reference skills across 35 domains; catalogue entries are not independent model instances. A configured provider key does not prove a successful live request.',runtime:{providers:Object.fromEntries(providers.map(p=>[p.id,{configured:p.configured,adapter:p.adapter}]))}})}
   // --- V149 admin-managed provider keys ----------------------------------------
   if(u.pathname==='/api/admin/providers'&&request.method==='GET'){
    const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);
@@ -108,7 +131,7 @@ export async function onRequest(ctx){
   }
 
   if(u.pathname==='/api/admin/ai/overview'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const rows=await db.query("SELECT count(*)::int AS runs,count(*) FILTER (WHERE status='completed')::int AS completed,count(*) FILTER (WHERE status<>'completed')::int AS non_completed,0::int AS tokens FROM ai_runs WHERE created_at>now()-interval '24 hours'");const x=rows[0]||{};return reply({summary:{runs:Number(x.runs||0),completed:Number(x.completed||0),non_completed:Number(x.non_completed||0),tokens:Number(x.tokens||0)}})}
-  if(u.pathname==='/api/admin/ai/provider-health'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const providers=[{id:'openai',label:'OpenAI / ChatGPT',configured:Boolean(env.OPENAI_API_KEY),status:env.OPENAI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.OPENAI_MODEL||'gpt-4o-mini',adapter:'enabled'},{id:'anthropic',label:'Anthropic / Claude',configured:Boolean(env.ANTHROPIC_API_KEY),status:env.ANTHROPIC_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.ANTHROPIC_MODEL||'claude-3-5-haiku-latest',adapter:'enabled'},{id:'deepseek',label:'DeepSeek',configured:Boolean(env.DEEPSEEK_API_KEY),status:env.DEEPSEEK_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.DEEPSEEK_MODEL||'deepseek-chat',adapter:'enabled'},{id:'gemini',label:'Google Gemini',configured:Boolean(env.GEMINI_API_KEY),status:env.GEMINI_API_KEY?'Key configured; live call not yet verified':'API key not configured',model:env.GEMINI_MODEL||'gemini-2.5-flash',adapter:'enabled'},{id:'omniroute',label:'OmniRoute (OpenAI-compatible)',configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)),status:(env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL)?'Key and endpoint configured; live call not yet verified':'Optional key/base URL not configured',model:env.OMNIROUTE_MODEL||'provider default',adapter:'enabled'}];return reply({providers,mode:providers.some(p=>p.configured)?'live-ready':'demo',note:'Key presence is not proof of successful provider authentication; run a test prompt to verify.'})}
+  if(u.pathname==='/api/admin/ai/provider-health'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const providers=aiProviderCapabilities(env);return reply({providers,mode:providerMode(providers)==='provider-keys-required'?'demo':providerMode(providers),note:'Key presence is not proof of successful provider authentication; run a test prompt to verify.'})}
   if(u.pathname==='/api/library'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);return reply({version:libraryCatalog.version,skillRegistry:{name:libraryCatalog.name,version:libraryCatalog.version,totalSkills:libraryCatalog.count,domainCount:libraryCatalog.domain_count},skills:libraryCatalog.skills,domains:libraryCatalog.domains,superpowers_skills:libraryCatalog.superpowers_skills,templates:libraryCatalog.templates,sources:libraryCatalog.sources})}
   // Admin-only schema repair. Missing table names indicate an incomplete schema,
   // not why it happened. Verify a full backup, rehearse on an isolated target,
@@ -250,6 +273,7 @@ export async function onRequest(ctx){
   const agentResponse=await agentRoute({request,env,db,me,url:u,readBody,reply,audit,consumeRateLimit,onRequest});if(agentResponse)return agentResponse;
   const arenaResponse=await arenaRoute({request,env,db,me,url:u,readBody,reply,audit,consumeRateLimit,onRequest});if(arenaResponse)return arenaResponse;
   if(u.pathname==='/api/voice/speak'&&request.method==='POST'){
+   if(providerConfiguration(env,'elevenlabs')===null)return reply({error:'Stored voice-provider settings could not be read. Configuration is unknown; no voice-provider request was made.',code:'PROVIDER_STATUS_UNKNOWN'},503);
    if(!env.ELEVENLABS_API_KEY)return reply({error:'ElevenLabs is not configured on the cloud project yet.',code:'VOICE_PROVIDER_NOT_CONFIGURED'},503);
    const voiceId=String(env.ELEVENLABS_VOICE_ID||'').trim();
    if(!voiceId)return reply({error:'ELEVENLABS_VOICE_ID is not configured on the cloud project.',code:'VOICE_ID_NOT_CONFIGURED'},503);
@@ -284,12 +308,18 @@ export async function onRequest(ctx){
    };
    let provider=String(x.provider||'gemini').toLowerCase().slice(0,40);
    if(provider==='openai-compatible')provider='openai';
-   if(provider==='auto')provider=['gemini','openai','anthropic','deepseek','omniroute'].find(k=>Boolean(configs[k].key))||'gemini';
+   if(provider==='auto')provider=['gemini','openai','anthropic','deepseek','omniroute'].find(k=>providerConfiguration(env,k)===true)||'gemini';
    const cfg=configs[provider];
    if(!cfg)return reply({ok:false,error:'Unsupported provider. Choose OpenAI, Claude, DeepSeek, Gemini, or a configured OmniRoute endpoint.',code:'UNSUPPORTED_PROVIDER'},400);
    const traceId=crypto.randomUUID(),model=String(x.model||cfg.model).trim();
    if(!model||model.length>120||!/^[A-Za-z0-9._:/-]+$/.test(model))return reply({error:'Invalid model identifier (maximum 120 safe characters)'},400);
    const saveRun=async(status,output,trace)=>privacyMode?[]:db.query('INSERT INTO ai_runs(id,user_id,agent_id,provider,model,prompt,output,status,tool_calls,trace) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb) RETURNING created_at',[traceId,me.id,agentId,provider,model,prompt,output,status,JSON.stringify([]),JSON.stringify(trace)]);
+   if(providerConfiguration(env,provider)===null){
+    const output='Stored provider settings could not be read. Configuration is unknown; no cloud request was made.';
+    const row=await saveRun('failed',output,{mode:'provider_status_unknown',provider,thinking:Boolean(x.thinking)});
+    await audit(db,me,'AI_RUN_PROVIDER_STATUS_UNKNOWN',provider,request);
+    return reply({ok:false,traceId,provider,model,status:'failed',code:'PROVIDER_STATUS_UNKNOWN',simulated:false,error:output+' Retry when settings are available or use local tools.',createdAt:row[0]?.created_at},503);
+   }
    if(!cfg.key){
     const output='No external AI call was made because this provider has no server-side API key configured.';
     const row=await saveRun('not_configured',output,{mode:'not_configured',provider,thinking:Boolean(x.thinking)});

@@ -12,6 +12,37 @@
 //    last four characters.
 
 const PROVIDERS = ['gemini', 'openai', 'anthropic', 'deepseek', 'elevenlabs'];
+const ENV_KEYS = {
+  gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY', elevenlabs: 'ELEVENLABS_API_KEY'
+};
+
+// Private per-request metadata, never serialized into an API response. A known
+// deployment key remains usable even if the optional settings store is down.
+const SETTINGS_READABLE = Symbol('provider settings readable');
+
+export function providerConfiguration(env, provider) {
+  // OmniRoute is configured through deployment environment only, not app_settings.
+  if (provider === 'omniroute') return Boolean((env?.OMNIROUTE_API_KEY || env?.OMNIROUTE_KEY) && (env?.OMNIROUTE_BASE_URL || env?.OMNIROUTE_URL));
+  const name = ENV_KEYS[provider];
+  if (!name) return false;
+  if (env?.[name]) return true;
+  return env?.[SETTINGS_READABLE] === false ? null : false;
+}
+
+// A positive result is known even if other providers are unknown. A negative
+// result is known only when every relevant provider was checked successfully.
+export function aggregateProviderConfiguration(states) {
+  if (states.some(state => state === true)) return true;
+  if (states.some(state => state == null)) return null;
+  return false;
+}
+
+export function unavailableProviderEnv(env) {
+  const merged = { ...env };
+  Object.defineProperty(merged, SETTINGS_READABLE, { value: false });
+  return merged;
+}
 
 /** Never echo a secret. Show enough to recognise it, not enough to use it. */
 export function maskKey(value) {
@@ -40,48 +71,33 @@ async function readStoredKeys(db) {
   }
 }
 
-/** Keys stored in app_settings, as { provider: key }. Never returned to clients. */
-export async function storedKeys(db) {
-  return (await readStoredKeys(db)).keys;
-}
-
 /**
  * Environment first, then stored keys fill the gaps. An Admin-set key must never
  * silently override a deployment secret the owner already configured.
  */
 export async function effectiveEnv(env, db) {
-  const stored = await storedKeys(db);
+  const { keys: stored, readable } = await readStoredKeys(db);
   const merged = { ...env };
-  const map = {
-    gemini: 'GEMINI_API_KEY',
-    openai: 'OPENAI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    deepseek: 'DEEPSEEK_API_KEY',
-    elevenlabs: 'ELEVENLABS_API_KEY'
-  };
   for (const provider of PROVIDERS) {
-    const name = map[provider];
+    const name = ENV_KEYS[provider];
     if (!merged[name] && stored[provider]) merged[name] = stored[provider];
   }
+  Object.defineProperty(merged, SETTINGS_READABLE, { value: readable });
   return merged;
 }
 
 /** Which providers have a key from either source, and where it came from. */
 export async function providerStates(env, db) {
   const { keys: stored, readable } = await readStoredKeys(db);
-  const map = {
-    gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY',
-    deepseek: 'DEEPSEEK_API_KEY', elevenlabs: 'ELEVENLABS_API_KEY'
-  };
   return PROVIDERS.map(provider => {
-    const name = map[provider];
+    const name = ENV_KEYS[provider];
     const fromEnv = Boolean(env[name]);
     const fromDb = Boolean(stored[provider]);
     const source = fromEnv ? 'environment' : fromDb ? 'admin-console' : readable ? 'none' : 'unknown';
     const key = env[name] || stored[provider] || '';
     return {
       provider,
-      configured: fromEnv || fromDb,
+      configured: fromEnv || fromDb ? true : readable ? false : null,
       source,
       hint: key ? maskKey(key) : '',
       // Presence of a key is not proof the provider accepts it.

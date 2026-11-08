@@ -1,4 +1,5 @@
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
+import { providerConfiguration } from './provider-settings.mjs';
 
 const MODES = ['chat', 'agent', 'compare'];
 const LOCAL_MODELS = ['local', 'local-planner', 'local-critic', 'local-coding', 'local-analysis'];
@@ -8,7 +9,7 @@ const TEXT_FILE = /\.(txt|md|markdown|csv|json|js|mjs|ts|tsx|jsx|py|html|css|xml
 const modelLabel = id => ({ local: 'SJ Local Tools', 'local-planner': 'SJ Planner', 'local-critic': 'SJ Critic', 'local-coding': 'SJ Coding Advisor', 'local-analysis': 'SJ Analysis Advisor', gemini: 'Google Gemini', openai: 'OpenAI', anthropic: 'Anthropic Claude', deepseek: 'DeepSeek', omniroute: 'OmniRoute' }[id] || id);
 const isLocal = id => LOCAL_MODELS.includes(id);
 const profileFor = id => id === 'local-planner' ? 'planner' : id === 'local-critic' ? 'critic' : id === 'local-coding' ? 'coding' : id === 'local-analysis' ? 'analysis' : 'general';
-function configured(env, id) { return id === 'gemini' ? Boolean(env.GEMINI_API_KEY) : id === 'openai' ? Boolean(env.OPENAI_API_KEY) : id === 'anthropic' ? Boolean(env.ANTHROPIC_API_KEY) : id === 'deepseek' ? Boolean(env.DEEPSEEK_API_KEY) : id === 'omniroute' ? Boolean((env.OMNIROUTE_API_KEY || env.OMNIROUTE_KEY) && (env.OMNIROUTE_BASE_URL || env.OMNIROUTE_URL)) : false; }
+const configured = (env, id) => providerConfiguration(env, id);
 function cleanAttachments(input) {
   if (!Array.isArray(input)) return [];
   if (input.length > 4) throw Object.assign(new Error('Attach at most four text/code files.'), { status: 413 });
@@ -82,7 +83,13 @@ async function runModel({ request, env, onRequest, db, me, model, content, attac
     if (mode === 'agent' && !result.action && !result.tool) output = `Agent workflow completed with local guidance.\n\n${output}\n\nNo external action was executed. Connect a cloud provider for open-ended generation, or confirm a proposed task/note.`;
     return { content: output, provider: model, mode: 'local', steps, action: result.action || null, needsProvider: Boolean(result.needsProvider), replyTo: null };
   }
-  if (!configured(env, model)) return { content: `${modelLabel(model)} is not configured. No cloud request was made. Add the provider key in server environment variables, or choose SJ Local Tools.`, provider: model, mode: 'not-configured', steps: [], action: null, needsProvider: true };
+  const state = configured(env, model);
+  if (state !== true) return {
+    content: state === null
+      ? `${modelLabel(model)} configuration is unknown because stored settings could not be read. No cloud request was made. Retry when settings are available, or choose SJ Local Tools.`
+      : `${modelLabel(model)} is not configured. No cloud request was made. Add the provider key in server environment variables, or choose SJ Local Tools.`,
+    provider: model, mode: state === null ? 'provider-status-unknown' : 'not-configured', steps: [], action: null, needsProvider: true
+  };
   const prompt = promptWithFiles(content, attachments, context);
   const result = await cloudRun({ request, env, onRequest, provider: model, prompt, profile });
   if (mode === 'agent') {

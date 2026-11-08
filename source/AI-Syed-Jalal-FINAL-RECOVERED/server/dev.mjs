@@ -1,9 +1,10 @@
 import http from 'node:http';
 import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises';
-import { resolve, extname, sep } from 'node:path';
+import { resolve, relative, extname, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { buildApi, root } from './build.mjs';
+import { effectiveEnv, providerConfiguration, aggregateProviderConfiguration } from '../frontend/functions/provider-settings.mjs';
 
 // This server is a local/preview adapter. Production still uses Cloudflare + Neon.
 // Never enable the demo bootstrap on a production deployment.
@@ -66,5 +67,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 const port = Number(process.env.PORT || 3000);
-server.listen(port, '0.0.0.0', () => console.log(`AI-Syed Jalal preview: http://0.0.0.0:${port}\nLocal PostgreSQL-compatible storage: .data/postgres\nCloud AI: ${env.GEMINI_API_KEY || env.OPENAI_API_KEY ? 'configured (not yet live-verified)' : 'not configured; local assistant tools remain available'}`));
+const startupEnv = await effectiveEnv(env, adapter);
+const cloudConfigured = aggregateProviderConfiguration(['gemini', 'openai', 'anthropic', 'deepseek', 'omniroute'].map(id => providerConfiguration(startupEnv, id)));
+const cloudStatus = cloudConfigured === true ? 'key configured (not yet live-verified)' : cloudConfigured === false ? 'not configured; local assistant tools remain available' : 'configuration unknown; local assistant tools remain available';
+server.listen(port, '0.0.0.0', () => console.log(`AI-Syed Jalal preview: http://0.0.0.0:${port}\nLocal PostgreSQL-compatible storage: ${relative(root, dataDir)}\nCloud AI at startup: ${cloudStatus}`));
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(async () => { await db.close(); process.exit(0); }));
