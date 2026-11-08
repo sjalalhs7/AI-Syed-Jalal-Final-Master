@@ -47,8 +47,10 @@ test('all categories filter, every linked destination exists, and unavailable ge
   assert.equal(filterExperiences('all').length, EXPERIENCES.length);
   for (const category of CATEGORIES.slice(1)) assert.ok(filterExperiences(category.id).length > 0, category.label);
   assert.equal(filterExperiences('music')[0].status, 'Music generation not connected');
-  assert.match(filterExperiences('image')[0].status, /not connected/i);
-  assert.match(filterExperiences('video')[0].status, /not connected/i);
+  assert.match(filterExperiences('image')[0].status, /local photo editor/i);
+  assert.match(filterExperiences('image')[0].description, /generation not connected/i);
+  assert.match(filterExperiences('video')[0].status, /local video trimming/i);
+  assert.match(filterExperiences('video')[0].description, /generation are not connected/i);
   assert.equal(filterExperiences('all', 'JSON')[0].id, 'coding');
   assert.equal(filterExperiences('code', 'music').length, 0);
   for (const item of EXPERIENCES) {
