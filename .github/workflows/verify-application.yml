@@ -9,6 +9,30 @@ on:
 permissions:
   contents: read
 jobs:
+  inspect-earlier-browser-failure:
+    # Temporary diagnostic: summarize the prior disposable-test artifact without exposing page snapshots.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/474513c1-ai-syed-jalal-final-master'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Inspect earlier browser evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh run download 42451131982 --name browser-test-evidence --dir "$RUNNER_TEMP/browser-evidence"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          files = sorted((Path(os.environ['RUNNER_TEMP']) / 'browser-evidence').rglob('error-context.md'))
+          if not files:
+              print('::notice title=Earlier browser evidence::No error-context files were found.')
+          for path in files:
+              text = path.read_text(encoding='utf-8', errors='replace').split('# Page snapshot', 1)[0]
+              text = text[:6000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::notice title=Earlier browser failure::{text}')
+          PY
   application:
     runs-on: ubuntu-latest
     # Cold Chromium/PGlite runs can exceed 15 minutes on slower hosted runners.
