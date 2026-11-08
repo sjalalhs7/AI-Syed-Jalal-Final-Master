@@ -50,16 +50,16 @@ jobs:
                               entry = json.loads(line).get('snapshot', {})
                               url = entry.get('request', {}).get('url', '')
                               if '/api/me' in url or '/api/admin/schema/repair' in url:
-                                  items.append({'path':url.split('/api/', 1)[-1], 'status':entry.get('response', {}).get('status'), 'time':entry.get('time')})
+                                  items.append({'path':url.split('/api/', 1)[-1], 'status':entry.get('response', {}).get('status'), 'duration':entry.get('time'), 'at':entry.get('_monotonicTime')})
                           if items: notice('Disposable test session and repair requests', json.dumps(items[-20:]))
                           for line in archive.read(name).splitlines():
                               entry = json.loads(line).get('snapshot', {})
                               if '/api/me' not in entry.get('request', {}).get('url', ''): continue
-                              sha = entry.get('response', {}).get('content', {}).get('_sha1')
-                              if not sha: continue
-                              try: data = json.loads(archive.read('resources/' + sha))
+                              resource = entry.get('response', {}).get('content', {}).get('_file')
+                              if not resource: continue
+                              try: data = json.loads(archive.read(resource))
                               except Exception: continue
-                              notice('Disposable session response shape', json.dumps({'authenticated':data.get('authenticated'), 'role':(data.get('user') or {}).get('role'), 'csrfPresent':bool(data.get('csrfToken')), 'error':data.get('error')}))
+                              notice('Disposable session response shape', json.dumps({'at':entry.get('_monotonicTime'), 'authenticated':data.get('authenticated'), 'role':(data.get('user') or {}).get('role'), 'csrfPresent':bool(data.get('csrfToken')), 'error':data.get('error')}))
                       for name in archive.namelist():
                           if not name.endswith('.trace'): continue
                           events = [json.loads(line) for line in archive.read(name).splitlines()]
@@ -74,6 +74,19 @@ jobs:
                               elif event.get('type') in ['log', 'after', 'event']:
                                   actions.append({k:event.get(k) for k in ['type','callId','method','message','error','time','endTime'] if k in event})
                           if actions: notice('Repair click trace', json.dumps(actions[-45:]))
+                          def target_nodes(node):
+                              if not isinstance(node, list): return []
+                              found = [node] if len(node) > 1 and isinstance(node[1], dict) and node[1].get('id') in ['schemaRepairResult', 'schemaRepairTag', 'schemaRepairBtn'] else []
+                              for child in node: found.extend(target_nodes(child))
+                              return found
+                          snapshots = []
+                          for event in events:
+                              if event.get('type') != 'frame-snapshot': continue
+                              snap = event.get('snapshot', {})
+                              nodes = target_nodes(snap.get('html'))
+                              if nodes and snap.get('timestamp', 0) > 382900:
+                                  snapshots.append({'at':snap.get('timestamp'), 'phase':snap.get('phase'), 'nodes':nodes})
+                          if snapshots: notice('Disposable repair result snapshots', json.dumps(snapshots[-8:]))
           PY
   application:
     runs-on: ubuntu-latest
