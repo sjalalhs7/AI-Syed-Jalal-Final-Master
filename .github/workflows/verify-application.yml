@@ -28,12 +28,19 @@ jobs:
           files = sorted((Path(os.environ['RUNNER_TEMP']) / 'browser-evidence').rglob('error-context.md'))
           if not files:
               print('::notice title=Earlier browser evidence::No error-context files were found.')
+          import shutil, subprocess
           for path in files:
               raw = path.read_text(encoding='utf-8', errors='replace')
               def notice(title, text):
                   text = text[:6000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                   print(f'::notice title={title}::{text}')
               notice('Earlier browser failure', raw.split('# Test source', 1)[0])
+              screenshots = sorted(path.parent.glob('*.png'))
+              notice('Screenshot diagnostic', json.dumps({'files': [p.name for p in screenshots], 'ocrAvailable':bool(shutil.which('tesseract'))}))
+              if screenshots and shutil.which('tesseract'):
+                  ocr = subprocess.run(['tesseract', str(screenshots[-1]), 'stdout'], capture_output=True, text=True).stdout
+                  relevant = [line for line in ocr.splitlines() if any(word in line.lower() for word in ['repair', 'session', 'partial', 'aborted', 'cancelled', 'schema'])]
+                  notice('Disposable test screenshot status', '\n'.join(relevant))
               snapshot = raw.partition('# Page snapshot')[2]
               lines = snapshot.splitlines()
               matches = [i for i, line in enumerate(lines) if any(word in line.lower() for word in ['repair', 'schema', 'session', 'cancelled', 'aborted', 'timed out'])]
@@ -55,11 +62,16 @@ jobs:
                           for line in archive.read(name).splitlines():
                               entry = json.loads(line).get('snapshot', {})
                               if '/api/me' not in entry.get('request', {}).get('url', ''): continue
-                              resource = entry.get('response', {}).get('content', {}).get('_file')
-                              if not resource: continue
-                              try: data = json.loads(archive.read(resource))
-                              except Exception: continue
-                              notice('Disposable session response shape', json.dumps({'at':entry.get('_monotonicTime'), 'authenticated':data.get('authenticated'), 'role':(data.get('user') or {}).get('role'), 'csrfPresent':bool(data.get('csrfToken')), 'error':data.get('error')}))
+                              response = entry.get('response', {})
+                              content = response.get('content', {})
+                              resource = content.get('_file')
+                              meta = {'at':entry.get('_monotonicTime'), 'status':response.get('status'), 'statusText':response.get('statusText'), 'content':content, 'timings':entry.get('timings'), 'failure':entry.get('_failureText'), 'headers':[h for h in response.get('headers', []) if h.get('name', '').lower() in ['content-type', 'content-length', 'transfer-encoding']]}
+                              if resource:
+                                  try:
+                                      data = json.loads(archive.read(resource))
+                                      meta.update({'authenticated':data.get('authenticated'), 'role':(data.get('user') or {}).get('role'), 'csrfPresent':bool(data.get('csrfToken')), 'error':data.get('error')})
+                                  except Exception: meta['bodyParseFailed'] = True
+                              notice('Disposable session response shape', json.dumps(meta))
                       for name in archive.namelist():
                           if not name.endswith('.trace'): continue
                           events = [json.loads(line) for line in archive.read(name).splitlines()]
