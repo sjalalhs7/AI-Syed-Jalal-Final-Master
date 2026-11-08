@@ -95,6 +95,8 @@ html[data-aj-theme] body.aj-home { font-family:Inter,system-ui,-apple-system,'Se
 .aj-home .acts { display:flex; flex-wrap:wrap; gap:9px; margin:24px 0 0; }
 .aj-home .acts .btn { min-height:43px; padding:10px 14px; font-size:12px; }
 .aj-home .scene { position:relative; perspective:1100px; min-width:0; padding:36px 8px; }
+/* Clip only the rotating decoration, not the badges or interactive preview. */
+.aj-home .orbit-glow-frame { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
 .aj-home .orbit-glow { position:absolute; inset:6% 0; border-radius:48%; background:radial-gradient(ellipse,var(--aj-wash-one),transparent 67%); filter:blur(28px); opacity:.9; }
 .aj-home .command-preview { position:relative; z-index:1; min-height:300px; overflow:hidden; border:1px solid #ffffffdc !important; border-radius:22px; background:var(--aj-paper) !important; color:var(--aj-ink) !important; box-shadow:0 34px 70px #35617026,0 4px 14px #3561701c,inset 0 1px 0 #fff; transform:rotateY(-5deg) rotateX(2deg) rotate(-1deg); animation:none; }
 .aj-home .cp-side { background:color-mix(in srgb,var(--aj-soft) 76%,white) !important; border-color:var(--aj-line); color:var(--aj-muted); }

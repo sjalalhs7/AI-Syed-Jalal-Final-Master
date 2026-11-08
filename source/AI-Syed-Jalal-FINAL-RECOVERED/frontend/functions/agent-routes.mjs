@@ -1,5 +1,6 @@
 import { builtInChecks, runChecks, searchSkills, verdictFor } from './self-check-core.mjs';
 import { AGENT_TOOLS } from './agent-runtime.mjs';
+import { providerConfiguration } from './provider-settings.mjs';
 import skillIndex from '../config/agent-skill-index.json';
 
 // V133/V134 agent routes: skill library + durable self-check evidence.
@@ -66,17 +67,21 @@ async function syncSkills(db) {
 
 function cloudProviderState(env) {
   const providers = [
-    { id: 'gemini', label: 'Google Gemini', key: 'GEMINI_API_KEY' },
-    { id: 'openai', label: 'OpenAI', key: 'OPENAI_API_KEY' },
-    { id: 'anthropic', label: 'Anthropic Claude', key: 'ANTHROPIC_API_KEY' },
-    { id: 'deepseek', label: 'DeepSeek', key: 'DEEPSEEK_API_KEY' }
+    { id: 'gemini', label: 'Google Gemini' },
+    { id: 'openai', label: 'OpenAI' },
+    { id: 'anthropic', label: 'Anthropic Claude' },
+    { id: 'deepseek', label: 'DeepSeek' }
   ];
-  return providers.map(provider => ({
-    id: provider.id,
-    label: provider.label,
-    configured: Boolean(env[provider.key]),
-    status: env[provider.key] ? 'Key configured; a live call is still required before claiming it works' : 'API key not configured'
-  }));
+  return providers.map(provider => {
+    const configured = providerConfiguration(env, provider.id);
+    return {
+      id: provider.id,
+      label: provider.label,
+      configured,
+      status: configured === true ? 'Key configured; a live call is still required before claiming it works'
+        : configured === false ? 'API key not configured' : 'Stored settings could not be read; configuration is unknown'
+    };
+  });
 }
 
 export async function agentRoute({ request, env, db, me, url, readBody, reply, audit, consumeRateLimit, onRequest }) {
@@ -128,6 +133,24 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
   if (path === '/api/agent/self-check' && method === 'POST') {
     if (!await consumeRateLimit(db, 'agent-selfcheck', me.id, 6, 60)) return reply({ error: 'Self-check is limited to six runs per minute.' }, 429, { 'Retry-After': '60' });
     const body = await readBody(request);
+    const engine = body.engine === 'cloud' ? 'cloud' : 'local';
+    const provider = engine === 'cloud' ? String(body.provider || 'gemini').slice(0, 40) : 'local';
+    const providerState = cloudProviderState(env).find(item => item.id === provider);
+    if (engine === 'cloud' && !providerState) {
+      return reply({ ok: false, code: 'UNSUPPORTED_PROVIDER', error: 'Choose a supported cloud provider. No request was made to the provider.' }, 400);
+    }
+    if (engine === 'cloud' && providerState.configured !== true) {
+      const unknown = providerState.configured === null;
+      return reply({
+        ok: false,
+        code: unknown ? 'PROVIDER_STATUS_UNKNOWN' : 'PROVIDER_NOT_CONFIGURED',
+        error: unknown
+          ? `${providerState.label} configuration is unknown because stored settings could not be read. No request was made to the provider. Use the local engine or retry when settings are available.`
+          : `${providerState.label} is not configured, so the cloud self-check cannot run. No request was made to the provider. Use the local engine or configure the key server-side.`,
+        localResult: null,
+        providers: cloudProviderState(env)
+      }, unknown ? 503 : 400);
+    }
     const only = Array.isArray(body.only) ? body.only.map(String).slice(0, 30) : undefined;
     const timeoutMs = Math.min(10000, Math.max(500, Number(body.timeoutMs) || 4000));
     const checks = builtInChecks();
@@ -146,20 +169,7 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
       now: new Date()
     }, { only, timeoutMs });
 
-    // Engine comparison: same checks, different runner label. This is a real
-    // second pass, not a stored copy of the first one.
-    const engine = body.engine === 'cloud' ? 'cloud' : 'local';
-    const provider = engine === 'cloud' ? String(body.provider || 'gemini').slice(0, 40) : 'local';
-    const providerState = cloudProviderState(env).find(item => item.id === provider);
-    if (engine === 'cloud' && providerState && !providerState.configured) {
-      return reply({
-        ok: false,
-        code: 'PROVIDER_NOT_CONFIGURED',
-        error: `${providerState.label} is not configured, so the cloud self-check cannot run. No request was made to the provider. Use the local engine or configure the key server-side.`,
-        localResult: null,
-        providers: cloudProviderState(env)
-      }, 400);
-    }
+    // Engine comparison: same checks, different runner label.
 
     let comparison = null;
     if (engine === 'cloud') {

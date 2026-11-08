@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  let user = null, csrf = '', busy = false, recognition = null, listening = false, speech = null, lastReply = '', state = { tasks: [], notes: [] }, requestController = null;
+  let user = null, csrf = '', busy = false, recognition = null, listening = false, speech = null, lastReply = '', state = { tasks: [], notes: [] }, requestController = null, providerTouched = false;
   const setStatus = text => { $('status').textContent = text; };
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
@@ -10,8 +10,12 @@
     if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
     return data;
   }
+  function cloudStatusUnknown() {
+    const value = state.cloudProviders?.[$('provider').value];
+    return $('mode').value === 'cloud' && value !== true && value !== false;
+  }
   function updateControls() {
-    $('sendBtn').disabled = !user || busy || !$('prompt').value.trim();
+    $('sendBtn').disabled = !user || busy || cloudStatusUnknown() || !$('prompt').value.trim();
     $('micBtn').disabled = !user || busy;
     $('readBtn').disabled = !lastReply;
     $('stopBtn').disabled = !busy && !listening && !window.speechSynthesis?.speaking;
@@ -74,8 +78,26 @@
       }
     }
     $('taskCount').textContent = state.tasks.filter(t => t.status === 'open').length;
-    $('mode').querySelector('option[value="cloud"]').textContent = state.cloudConfigured ? 'Cloud AI (server key configured)' : 'Cloud AI (not configured)';
-    $('cloudStatus').textContent = state.cloudConfigured ? 'A server provider key is configured. Cloud responses still require a successful live request.' : 'No cloud AI key is configured. Local tools work now; open-ended AI answers are not available.';
+    const providers = state.cloudProviders || {};
+    for (const option of $('provider').options) {
+      option.dataset.label ||= option.textContent;
+      const value = providers[option.value];
+      option.textContent = option.dataset.label + (value === true ? ' · key configured' : value === false ? ' · not configured' : ' · status unknown');
+      option.disabled = value !== true && value !== false;
+    }
+    const selected = providers[$('provider').value];
+    if ((!providerTouched && selected !== true) || (selected !== true && selected !== false)) {
+      const first = Object.keys(providers).find(id => providers[id] === true) || Object.keys(providers).find(id => providers[id] === false);
+      $('provider').value = first || '';
+    }
+    $('mode').querySelector('option[value="cloud"]').textContent = state.cloudConfigured === true ? 'Cloud AI (server key configured)' : state.cloudConfigured === false ? 'Cloud AI (not configured)' : 'Cloud AI (status unknown)';
+    updateProviderStatus(); updateControls();
+  }
+  function updateProviderStatus() {
+    const value = state.cloudProviders?.[$('provider').value];
+    $('cloudStatus').textContent = value === true ? 'The selected provider has a server key. A successful live request is still required.'
+      : value === false ? 'No key is configured for the selected provider. Local tools work without a key.'
+      : 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
   }
   function agentTrace(result) {
     // Renders the real tool trace: what ran, how long, and what it returned.
@@ -120,6 +142,7 @@
     text = String(text || $('prompt').value).trim();
     if (!user) { setStatus('Please sign in first.'); return; }
     if (busy || !text) return;
+    if (cloudStatusUnknown()) { setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.'); return; }
     stopVoice(); busy = true; $('prompt').value = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Working… Stop cancels waiting for the reply.');
     requestController = new AbortController();
     try {
@@ -177,7 +200,9 @@
       : mode === 'agent' ? 'Agent runtime · bounded tool calls with a visible trace'
       : mode === 'research' ? 'Research · live Wikipedia search with cited links'
       : 'Local tools · no AI key required';
+    updateControls();
   };
+  $('provider').onchange = () => { providerTouched = true; updateProviderStatus(); updateControls(); };
   $('micBtn').onclick = () => {
     if (listening) { stopVoice(); setStatus('Microphone stopped.'); return; }
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;

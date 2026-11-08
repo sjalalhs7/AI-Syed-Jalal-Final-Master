@@ -54,11 +54,12 @@ refresh its status and investigate before retrying: a lost response does not
 prove the write was rolled back. Provider changes update one key atomically and
 preserve unrelated settings; this is not a substitute for backups.
 
-Other capability views can still report a missing key when the settings store
-cannot be read, so those views do not prove that no stored key exists. Never
-commit credentials or place them in frontend files. Choose the matching provider
-in JARVIS and test a real request; key presence alone does not prove the
-provider is available.
+Provider status is three-state: configured, not configured, or unknown when
+stored settings cannot be read. Deployment keys remain usable and take precedence;
+unknown cloud selections are disabled and requests fail without contacting a
+provider. OmniRoute uses deployment settings only. Never commit credentials or
+place them in frontend files. Choose a configured provider in JARVIS and test a
+real request; key presence alone does not prove the provider is available.
 
 ## Main surfaces
 
@@ -82,7 +83,9 @@ npm run test:e2e
 npm audit --omit=dev
 ```
 
-Browser voice tests use simulated recognition and synthesis. Live providers,
-physical microphones/speakers, production deployment and device-specific PWA
-features need separate verification. See [APPLICATION-STATUS.md](APPLICATION-STATUS.md)
+The browser suite deletes and recreates `.data/e2e`; never keep valuable data
+there. Its local test server strips inherited provider credentials, seed-account
+settings and the schema-repair unlock. Browser voice tests use simulated
+recognition and synthesis. Live providers, physical microphones/speakers,
+production deployment and device-specific PWA features need separate verification. See [APPLICATION-STATUS.md](APPLICATION-STATUS.md)
 and the repository's `START-HERE.md` and V153 release notes.

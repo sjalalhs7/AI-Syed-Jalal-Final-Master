@@ -77,7 +77,7 @@ test('an unconfirmed server write tells the admin to investigate before retrying
 test('an unreadable settings store is shown as unknown, not as missing keys', async ({ page }) => {
   await previewAdmin(page);
   await page.route('**/api/admin/providers', route => route.fulfill({ json: { providers: [
-    { provider:'gemini', configured:false, source:'unknown', hint:'', status:'Stored settings could not be read; configuration is unknown' },
+    { provider:'gemini', configured:null, source:'unknown', hint:'', status:'Stored settings could not be read; configuration is unknown' },
     { provider:'openai', configured:true, source:'environment', hint:'••••1234', status:'Key configured; live call not yet verified' }
   ] } }));
   await page.goto('/workspace.html#operations');

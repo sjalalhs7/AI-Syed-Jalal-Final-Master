@@ -153,9 +153,31 @@
     }
   }
 
+  function syncEngineControls() {
+    const cloud = $('engine').value === 'cloud';
+    $('provider').disabled = !cloud || ![...$('provider').options].some(option => !option.disabled);
+    $('runBtn').disabled = running || (cloud && !$('provider').value);
+  }
+
+  async function loadProviderStates() {
+    const data = await api('/ai/capabilities').catch(() => ({}));
+    const providers = Array.isArray(data.providers) ? data.providers : [];
+    for (const option of $('provider').options) {
+      option.dataset.label ||= option.textContent;
+      const value = providers.find(item => item?.id === option.value)?.configured;
+      option.textContent = option.dataset.label + (value === true ? ' · key configured' : value === false ? ' · not configured' : ' · status unknown');
+      option.disabled = value !== true && value !== false;
+    }
+    if ($('provider').selectedOptions[0]?.disabled) {
+      const first = [...$('provider').options].find(option => !option.disabled);
+      $('provider').value = first?.value || '';
+    }
+    syncEngineControls();
+  }
+
   function setRunning(next) {
     running = next;
-    $('runBtn').disabled = next;
+    syncEngineControls();
     $('runBtn').textContent = next ? 'Running…' : 'Run self-check';
     $('progress').hidden = !next;
     if (!next) $('progressBar').style.width = '100%';
@@ -164,6 +186,7 @@
   async function runSelfCheck() {
     if (running) return;
     if (!user) { setStatus('Sign in first — use “Try the local preview” below or the homepage.', 'warn'); return; }
+    if ($('engine').value === 'cloud' && !$('provider').value) { setStatus('Provider configuration is unknown. Use the local engine or retry when settings are available.', 'warn'); return; }
     setRunning(true);
     $('progressBar').style.width = '12%';
     setStatus('Running checks against this deployment…');
@@ -184,9 +207,9 @@
       } finally { clearInterval(ticker); }
     } catch (error) {
       setRunning(false);
-      if (error.data?.code === 'PROVIDER_NOT_CONFIGURED') {
+      if (error.data?.code === 'PROVIDER_NOT_CONFIGURED' || error.data?.code === 'PROVIDER_STATUS_UNKNOWN') {
         setStatus(error.message, 'warn');
-        $('engine').value = 'local'; $('provider').disabled = true;
+        $('engine').value = 'local'; syncEngineControls();
       } else setStatus(error.message, 'fail');
     }
   }
@@ -216,14 +239,18 @@
         return;
       }
       $('runHint').textContent = 'Runs 19 weighted checks against this deployment and stores the evidence on your account. Nothing is sent to a provider in local mode.';
-      await Promise.all([loadHistory(), loadSkills()]);
+      await Promise.all([loadHistory(), loadSkills(), loadProviderStates()]);
       setStatus(`Ready · signed in as ${user.username} (${user.role}).`);
     } catch (error) {
       setStatus('The server could not be reached. Start the application server and reload. ' + error.message, 'fail');
     }
   }
 
-  $('engine').onchange = () => { $('provider').disabled = $('engine').value !== 'cloud'; };
+  $('engine').onchange = () => {
+    syncEngineControls();
+    if ($('engine').value === 'cloud' && !$('provider').value) setStatus('Provider configuration is unknown. Use the local engine or retry when settings are available.', 'warn');
+  };
+  $('provider').onchange = syncEngineControls;
   $('runBtn').onclick = runSelfCheck;
   $('refreshHistory').onclick = loadHistory;
   $('csvBtn').onclick = () => {
@@ -253,7 +280,7 @@
       groups: lastResult.groups,
       comparison: lastResult.comparison || null,
       results: lastResult.results,
-      disclaimer: 'Evidence about this deployment at run time. Not a production, security, load or compliance certificate. Cloud providers are reported as configured or not configured, never as live-verified.'
+      disclaimer: 'Evidence about this deployment at run time. Not a production, security, load or compliance certificate. Cloud providers may be configured, not configured or unknown; key presence is never live verification.'
     };
     const blob = new Blob([JSON.stringify(evidence, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob), anchor = document.createElement('a');

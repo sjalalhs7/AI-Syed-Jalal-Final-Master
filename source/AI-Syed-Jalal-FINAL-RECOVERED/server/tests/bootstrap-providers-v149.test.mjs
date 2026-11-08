@@ -31,7 +31,7 @@ test('unreadable settings leave deployment keys usable and make stored-key statu
   assert.equal(openai.configured, true);
   assert.equal(openai.source, 'environment');
   for (const state of states.filter(s => s.provider !== 'openai')) {
-    assert.equal(state.configured, false);
+    assert.equal(state.configured, null);
     assert.equal(state.source, 'unknown');
     assert.match(state.status, /could not be read; configuration is unknown/i);
   }

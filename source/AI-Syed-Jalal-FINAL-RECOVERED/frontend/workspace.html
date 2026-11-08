@@ -562,22 +562,23 @@ async function renderAICommand(){
  ['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=true});
  try{
   const [cap,runs]=await Promise.all([api('/api/ai/capabilities'),api('/api/ai/runs?limit=8')]);
-  $('#aiRuntimeStatus').textContent=cap.mode==='provider-keys-required'?'NO PROVIDER KEY CONFIGURED':'PROVIDER KEY DETECTED · LIVE TEST REQUIRED';
+  if(!Array.isArray(cap.providers)||!['gemini','openai','anthropic','deepseek','omniroute'].every(id=>cap.providers.some(item=>item?.id===id)))throw new Error('Provider configuration is unavailable.');
   $('#aiAgentCount').textContent=cap.agents?.length??'—';
   $('#aiProviderCount').textContent=(cap.providers||[]).length;
   $('#aiCapabilityCount').textContent='NONE';
   $('#aiAgentSelect').innerHTML=(cap.agents||[]).map(a=>'<option value="'+escape(a.id)+'">'+escape(a.name||a.id)+'</option>').join('');
-  const providers=cap.providers||[],configured=providers.filter(x=>x.configured);
-  $('#aiConfiguredProviders').textContent=configured.length+'/'+providers.length;
+  const providers=cap.providers||[],configured=providers.filter(x=>x.configured===true),unknown=providers.filter(x=>x.configured!==true&&x.configured!==false);
+  $('#aiRuntimeStatus').textContent=configured.length?'PROVIDER KEY DETECTED · LIVE TEST REQUIRED'+(unknown.length?' · SOME UNKNOWN':''):unknown.length?'PROVIDER STATUS UNKNOWN':'NO PROVIDER KEY CONFIGURED';
+  $('#aiConfiguredProviders').textContent=configured.length+'/'+providers.length+(unknown.length?' · '+unknown.length+' unknown':'');
   const providerSelect=$('#aiProviderSelect'),previousProvider=providerSelect.value;
-  providerSelect.innerHTML=providers.map(x=>'<option value="'+escape(x.id)+'"'+(x.configured?'':' disabled')+'>'+escape(x.label||x.id)+(x.configured?' · key configured':' · no key')+'</option>').join('');
+  providerSelect.innerHTML=providers.map(x=>'<option value="'+escape(x.id)+'"'+(x.configured===true?'':' disabled')+'>'+escape(x.label||x.id)+(x.configured===true?' · key configured':x.configured===false?' · no key':' · status unknown')+'</option>').join('');
   const selected=configured.find(x=>x.id===previousProvider)||configured[0];
   if(selected)providerSelect.value=selected.id;
   providerSelect.disabled=!selected;
   $('#runSupervisorBtn').disabled=!selected;$('#runAutoGPTBtn').disabled=!selected;$('#aiRunBtn').disabled=$('#aiEngine').value==='cloud'&&!selected;
-  if(!selected)$('#aiRunMessage').textContent=$('#aiEngine').value==='cloud'?'No provider key configured. Select Local tools or ask an administrator to configure a provider.':'Local tools ready. Use calculate, plan, critic, add task, save note or help.';
+  if(!selected)$('#aiRunMessage').textContent=$('#aiEngine').value==='cloud'?(unknown.length?'Provider configuration is unknown. Retry when settings are available or select Local tools.':'No provider key configured. Select Local tools or ask an administrator to configure a provider.'):'Local tools ready. Use calculate, plan, critic, add task, save note or help.';
   $('#aiCircuitState').textContent='Not tested';
-  $('#aiInventory').innerHTML='<div><b>'+escape(String(cap.agents?.length??0))+'</b> supported text profiles</div><div><b>'+configured.length+'</b> provider keys configured</div><div class="muted" style="margin-top:8px">Profiles are prompt configurations, not independent model instances. A configured key does not prove the provider is responding.</div>';
+  $('#aiInventory').innerHTML='<div><b>'+escape(String(cap.agents?.length??0))+'</b> supported text profiles</div><div><b>'+configured.length+'</b> provider keys known to be configured'+(unknown.length?' · '+unknown.length+' status unknown':'')+'</div><div class="muted" style="margin-top:8px">Profiles are prompt configurations, not independent model instances. A configured key does not prove the provider is responding.</div>';
   $('#aiProviderHealth').innerHTML=providers.map(x=>'<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>'+escape(x.label||x.id)+'</b> · <span class="'+(x.configured?'connection-ok':'muted')+'">'+escape(x.status)+'</span><br><span class="muted">'+escape(x.model||'default model')+'</span></div>').join('')||'No providers returned.';
   $('#aiRecentRuns').innerHTML=(runs.runs||[]).map(r=>'<div style="padding:8px 0;border-bottom:1px solid #1a2b40"><b>'+escape(r.agentId)+'</b> · '+escape(r.provider)+' · '+escape(r.status)+'<br><span class="muted">'+new Date(r.createdAt).toLocaleString()+' · '+escape(r.id)+'</span></div>').join('')||'No AI runs yet.';
   if(state.role==='Admin'){

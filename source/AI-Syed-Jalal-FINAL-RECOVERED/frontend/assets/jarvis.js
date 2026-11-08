@@ -23,9 +23,13 @@
 
   const setStatus = text => { $('status').textContent = text; };
 
+  function cloudStatusUnknown() {
+    const value = state.cloudProviders?.[$('provider').value];
+    return $('mode').value === 'cloud' && value !== true && value !== false;
+  }
   function updateControls() {
     const micPending = starting || listening;
-    $('sendBtn').disabled = !user || busy || micPending || !$('prompt').value.trim();
+    $('sendBtn').disabled = !user || busy || micPending || cloudStatusUnknown() || !$('prompt').value.trim();
     $('talkBtn').disabled = !user || busy;
     $('speakBtn').disabled = !lastReply || busy || micPending;
     $('stopBtn').disabled = !busy && !micPending && !speaking && !conversationActive && !resumeTimer;
@@ -303,6 +307,11 @@
       setStatus('Opening the requested application page…');
       location.href = destination; return;
     }
+    if (cloudStatusUnknown()) {
+      endConversation(); stopListening(); stopSpeaking();
+      setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.');
+      updateControls(); return;
+    }
     stopListening(); stopSpeaking();
     busy = true; runningPrompt = text; $('prompt').value = '';
     addMessage(text, 'user', 'You · voice or typed');
@@ -381,22 +390,28 @@
 
   function updateProviderStatus() {
     const selected = $('provider').value;
-    const configured = Boolean(state.cloudProviders?.[selected]);
-    $('cloudStatus').textContent = configured
+    const configured = state.cloudProviders?.[selected];
+    $('cloudStatus').textContent = configured === true
       ? `${PROVIDER_NAMES[selected]} has a server key configured. A real response still requires a successful provider request.`
-      : `No server key is configured for ${PROVIDER_NAMES[selected]}. Choose a configured provider or ask an administrator to set one up.`;
+      : configured === false ? `No server key is configured for ${PROVIDER_NAMES[selected]}. Choose a configured provider or ask an administrator to set one up.`
+      : 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
   }
 
   async function refreshState() {
     state = await api('/assistant/state?metadata=1');
     const providers = state.cloudProviders || {};
-    for (const option of $('provider').options) option.textContent = `${PROVIDER_NAMES[option.value]}${providers[option.value] ? ' · key configured' : ' · not configured'}`;
-    if (!providerTouched && !providers[$('provider').value]) {
-      const first = Object.keys(PROVIDER_NAMES).find(id => providers[id]);
-      if (first) $('provider').value = first;
+    for (const option of $('provider').options) {
+      const value = providers[option.value];
+      option.textContent = `${PROVIDER_NAMES[option.value]}${value === true ? ' · key configured' : value === false ? ' · not configured' : ' · status unknown'}`;
+      option.disabled = value !== true && value !== false;
+    }
+    const selected = providers[$('provider').value];
+    if ((!providerTouched && selected !== true) || (selected !== true && selected !== false)) {
+      const first = Object.keys(PROVIDER_NAMES).find(id => providers[id] === true) || Object.keys(PROVIDER_NAMES).find(id => providers[id] === false);
+      $('provider').value = first || '';
     }
     const cloud = $('mode').querySelector('option[value="cloud"]');
-    if (cloud) cloud.textContent = state.cloudConfigured ? 'Cloud AI (server key configured)' : 'Cloud AI (not configured)';
+    if (cloud) cloud.textContent = state.cloudConfigured === true ? 'Cloud AI (server key configured)' : state.cloudConfigured === false ? 'Cloud AI (not configured)' : 'Cloud AI (status unknown)';
     updateProviderStatus(); updateModeLabel();
   }
 
@@ -464,7 +479,7 @@
     if (!$('rememberContext').checked) { clearContext(); setStatus('Cloud conversation context cleared from this page.'); }
     else setStatus('Context will be remembered from the next successful cloud exchange on this page.');
   };
-  $('provider').onchange = () => { providerTouched = true; clearContext(); updateProviderStatus(); setStatus('Provider changed; previous cloud context was cleared from this page.'); };
+  $('provider').onchange = () => { providerTouched = true; clearContext(); updateProviderStatus(); updateControls(); setStatus('Provider changed; previous cloud context was cleared from this page.'); };
   $('mode').onchange = updateModeLabel;
   $('demoBtn').onclick = async () => {
     $('demoBtn').disabled = true;

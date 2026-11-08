@@ -64,6 +64,6 @@ test('social previews use the new 1200 by 630 SJ card', () => {
 test('new brand, theme and greeting assets are precached with a fresh version', () => {
   const sw = read('sw.js');
   for (const file of ['./assets/approved-sj-rainbow-crown.svg','./assets/brand/favicon.svg','./assets/app-icons/icon-512.png','./assets/visual-system.css','./assets/visual-theme.js','./assets/jarvis-welcome.js']) assert.ok(sw.includes(file), `${file} is not precached`);
-  assert.ok(sw.includes("const CACHE='aj-v161-ai-hub'"));
+  assert.ok(sw.includes("const CACHE='aj-v162-provider-status'"));
   assert.ok(sw.includes("k.startsWith('aj-v')&&k!==CACHE"), 'activation must not delete other applications’ origin caches');
 });

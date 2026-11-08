@@ -34,7 +34,7 @@
       const input = el('input', { type: 'checkbox', value: engine.id, checked: engine.id === 'local' || engine.id === 'local-critic' });
       input.addEventListener('change', enforceLimits);
       const name = el('div', { class: 'name' }, engine.label,
-        el('span', { class: 'tag ' + (engine.kind === 'local' ? 'local' : engine.available ? 'ok' : 'warn'), text: engine.kind === 'local' ? 'Local · no key' : engine.configured ? 'Key ready' : 'Not configured' }));
+        el('span', { class: 'tag ' + (engine.kind === 'local' ? 'local' : engine.configured === true ? 'ok' : 'warn'), text: engine.kind === 'local' ? 'Local · no key' : engine.configured === true ? 'Key configured' : engine.configured === false ? 'Not configured' : 'Status unknown' }));
       const blurb = el('div', { class: 'blurb', text: engine.family + ' · ' + (engine.strengths || engine.description || 'General purpose') });
       grid.append(el('label', { class: 'engine' }, input, el('div', {}, name, blurb)));
     }
@@ -46,8 +46,13 @@
   function enforceLimits() {
     const max = catalogue.length ? 4 : 4;
     const chosen = selected();
-    document.querySelectorAll('#engineGrid input').forEach(node => { node.disabled = !node.checked && chosen.length >= max; });
-    $('engineHelp').textContent = `${chosen.length} of 2–${max} selected`;
+    document.querySelectorAll('#engineGrid input').forEach(node => {
+      const engine = catalogue.find(item => item.id === node.value);
+      const unknown = engine?.kind === 'cloud' && engine.configured !== true && engine.configured !== false;
+      node.disabled = unknown || (!node.checked && chosen.length >= max);
+    });
+    const unknownCount = catalogue.filter(engine => engine.kind === 'cloud' && engine.configured !== true && engine.configured !== false).length;
+    $('engineHelp').textContent = `${chosen.length} of 2–${max} selected${unknownCount ? ` · ${unknownCount} cloud status unknown` : ''}`;
     $('runBtn').disabled = running || !user || chosen.length < 2 || !$('prompt').value.trim();
   }
 
@@ -244,13 +249,13 @@
       data.entries.forEach((entry, index) => {
         body.append(el('tr', { class: index === 0 && entry.rated ? 'top' : '' },
           el('td', { class: 'num', text: String(index + 1) }),
-          el('td', { class: 'engine-cell' }, el('span', { text: entry.label }), entry.kind === 'cloud' && !entry.configured ? el('span', { class: 'tag warn', text: 'not configured' }) : null),
+          el('td', { class: 'engine-cell' }, el('span', { text: entry.label }), entry.kind === 'cloud' && entry.configured !== true ? el('span', { class: 'tag warn', text: entry.configured === false ? 'not configured' : 'status unknown' }) : null),
           el('td', { class: 'num', text: entry.rated ? String(entry.rating) : '1200' }),
           el('td', { class: 'num', text: String(entry.wins) }),
           el('td', { class: 'num', text: String(entry.losses) }),
           el('td', { class: 'num', text: String(entry.ties) }),
           el('td', { class: 'num', text: String(entry.battles) }),
-          el('td', {}, el('span', { class: 'tag ' + (entry.kind === 'local' ? 'local' : entry.available ? 'ok' : 'warn'), text: entry.kind === 'local' ? 'Local' : entry.available ? 'Key ready' : 'No key' }))));
+          el('td', {}, el('span', { class: 'tag ' + (entry.kind === 'local' ? 'local' : entry.configured === true ? 'ok' : 'warn'), text: entry.kind === 'local' ? 'Local' : entry.configured === true ? 'Key configured' : entry.configured === false ? 'No key' : 'Unknown' }))));
       });
     } catch (error) {
       $('leaderBody').replaceChildren(el('tr', {}, el('td', { colspan: 8, class: 'hint', text: error.message })));
@@ -380,7 +385,7 @@
       const data = await api('/arena/catalogue');
       catalogue = data.engines;
       renderEngines();
-      $('engineHelp').textContent = `${data.engines.filter(e => e.kind === 'local' || e.configured).length} of ${data.engines.length} engines usable right now · choose 2–${data.maxContenders}`;
+      $('engineHelp').textContent = `${data.engines.filter(e => e.kind === 'local' || e.configured === true).length} of ${data.engines.length} engines have local tools or a configured key · choose 2–${data.maxContenders}`;
     } catch (error) {
       setStatus('Could not load the engine catalogue: ' + error.message, 'fail');
     }

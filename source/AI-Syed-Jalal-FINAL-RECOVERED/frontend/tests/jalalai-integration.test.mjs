@@ -25,7 +25,7 @@ test('private cloud chat avoids prompt persistence and retains quotas', () => {
   assert.match(api, /privacyMode\?\[\]:db\.query/); assert.match(api, /20 per minute/); assert.match(api, /200 per day/);
 });
 test('provider keys remain server-side and processing is disclosed', () => {
-  assert.match(routes, /env\.GEMINI_API_KEY/); assert.match(page, /server key/);
+  assert.match(routes, /providerConfiguration\(env, provider\)/); assert.match(api, /env\.GEMINI_API_KEY/); assert.match(page, /server key/);
   assert.match(page, /subject to that provider’s terms/); assert.match(page, /cloud AI model unless you select Cloud AI/);
 });
 test('other accounts and external actions are not silently connected', () => {

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { REQUIRED_TABLES } from "../functions/schema-bundle.mjs";
+import { providerConfiguration } from "../functions/provider-settings.mjs";
 
 const source = await readFile(new URL("../functions/api/[[path]].js", import.meta.url), "utf8");
 
@@ -35,14 +36,14 @@ test("chat forwards to the provider-backed AI route, not a canned demo response"
 test("OmniRoute capability detection accepts the same aliases as execution", () => {
   assert.ok(source.includes("env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY"));
   assert.ok(source.includes("env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL"));
-  assert.ok(source.includes("configured:Boolean((env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY)&&(env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL))"));
+  assert.equal(providerConfiguration({ OMNIROUTE_KEY: 'local-test-key', OMNIROUTE_URL: 'https://test.invalid' }, 'omniroute'), true);
+  assert.equal(providerConfiguration({ OMNIROUTE_KEY: 'local-test-key' }, 'omniroute'), false);
 });
 
-test("admin provider health accepts OmniRoute alternate key and endpoint names", () => {
+test("admin provider health shares truthful capability detection", () => {
   const health = source.slice(source.indexOf("/api/admin/ai/provider-health"), source.indexOf("/api/library"));
-  assert.ok(health.includes("env.OMNIROUTE_API_KEY||env.OMNIROUTE_KEY"));
-  assert.ok(health.includes("env.OMNIROUTE_BASE_URL||env.OMNIROUTE_URL"));
-  assert.ok(health.includes("live call not yet verified"));
+  assert.ok(health.includes("aiProviderCapabilities(env)"));
+  assert.ok(source.includes("live call not yet verified"));
 });
 
 test("malformed cookie encoding does not crash session parsing", () => {
@@ -132,7 +133,7 @@ test("nested Supervisor and AutoGPT calls rebuild JSON headers without stale con
 
 test('AI runtime exposes only supported text profiles and reports the real executable count', () => {
   const start = source.indexOf("const agents=[{id:'general'");
-  const end = source.indexOf('return reply({mode:providers', start);
+  const end = source.indexOf('return reply({mode:providerMode', start);
   assert.ok(start >= 0 && end > start);
   const capability = source.slice(start, end);
   const ids = [...capability.matchAll(/id:'([^']+)'/g)].map((m) => m[1]);
