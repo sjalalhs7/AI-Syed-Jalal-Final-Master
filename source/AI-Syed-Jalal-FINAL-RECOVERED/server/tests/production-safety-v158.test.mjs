@@ -50,7 +50,7 @@ async function fixture() {
     const admin = client(demo.cookie);
     const me = await admin('/me');
     assert.equal(me.data.user.role, 'Admin');
-    return { db, client, anonymous, admin, token: me.data.csrfToken };
+    return { db, env, client, anonymous, admin, token: me.data.csrfToken };
   } catch (error) { await db.close(); throw error; }
 }
 
@@ -89,9 +89,14 @@ test('diagnostics counts the same required table names as readiness, not an old 
   } finally { await db.close(); }
 });
 
-test('schema repair requires an authenticated Admin, valid CSRF and explicit confirmation', async () => {
-  const { db, anonymous, admin, token } = await fixture();
+test('schema repair requires an authenticated Admin, valid CSRF, explicit confirmation and an operator unlock', async () => {
+  const { db, env, anonymous, admin, token } = await fixture();
   try {
+    const noOp = await admin('/admin/schema/repair', 'POST', { confirm: 'apply-schema-repair' }, token);
+    assert.equal(noOp.status, 200, 'a complete schema remains a read-only no-op even when repair is locked');
+    assert.equal(noOp.data.changed, false);
+    assert.match(noOp.data.message, /no migrations were run/i);
+    assert.equal(Number((await db.query("SELECT count(*) AS n FROM auth_rate_limits WHERE scope='schema-repair'")).rows[0].n), 0);
     const created = await admin('/records', 'POST', { name: 'Local sentinel', region: 'Local', sector: 'Safety' }, token);
     assert.equal(created.status, 201);
     const beforeRecords = (await db.query('SELECT id, name, region, sector FROM records ORDER BY id')).rows;
@@ -126,6 +131,26 @@ test('schema repair requires an authenticated Admin, valid CSRF and explicit con
     assert.equal(Number((await db.query("SELECT count(*) AS n FROM auth_rate_limits WHERE scope='schema-repair'")).rows[0].n), 0,
       'a preview without confirmation must not write a rate-limit row');
 
+    const publicReady = await anonymous('/ready');
+    assert.equal('schemaRepairEnabled' in publicReady.data, false, 'anonymous readiness must not expose the operator lock state');
+    for (const setting of [undefined, '', 'false', 'TRUE', '1', true]) {
+      if (setting === undefined) delete env.SCHEMA_REPAIR_ENABLED;
+      else env.SCHEMA_REPAIR_ENABLED = setting;
+      assert.equal((await admin('/ready')).data.schemaRepairEnabled, false);
+      const locked = await admin('/admin/schema/repair', 'POST', { confirm: 'apply-schema-repair' }, token);
+      assert.equal(locked.status, 423);
+      assert.equal(locked.data.code, 'SCHEMA_REPAIR_LOCKED');
+      assert.equal(locked.data.started, false);
+      assert.match(locked.data.error, /No migrations were run/);
+      const have = await names(db);
+      assert.deepEqual(missing.filter(name => !have.has(name)), missing, 'a locked request must not run migrations');
+      assert.deepEqual((await db.query('SELECT id, name, region, sector FROM records ORDER BY id')).rows, beforeRecords);
+      assert.deepEqual((await db.query('SELECT id, username, role, active FROM app_users ORDER BY id')).rows, beforeUsers);
+    }
+    assert.equal(Number((await db.query("SELECT count(*) AS n FROM auth_rate_limits WHERE scope='schema-repair'")).rows[0].n), 0,
+      'locked requests must not consume repair rate-limit tokens');
+    env.SCHEMA_REPAIR_ENABLED = 'true'; // Disposable fixture only; not evidence of a production backup.
+    assert.equal((await admin('/ready')).data.schemaRepairEnabled, true);
     const repaired = await admin('/admin/schema/repair', 'POST', { confirm: 'apply-schema-repair' }, token);
     assert.equal(repaired.status, 200);
     assert.equal(repaired.data.ok, true);
@@ -150,6 +175,7 @@ test('provider-key changes also require CSRF and keep the existing admin flow', 
     const login = await anonymous('/auth/login', 'POST', { username: 'local-safety-viewer', password: 'Local-Test-Password123' });
     assert.equal(login.status, 200);
     const viewer = client(login.cookie), viewerToken = (await viewer('/me')).data.csrfToken;
+    assert.equal('schemaRepairEnabled' in (await viewer('/ready')).data, false, 'non-admin readiness must not expose the operator lock state');
     assert.equal((await viewer('/admin/diagnostics')).status, 403);
     assert.equal((await viewer('/admin/providers', 'POST', payload, viewerToken)).status, 403);
     assert.equal((await viewer('/admin/schema/repair', 'POST', { confirm: 'apply-schema-repair' }, viewerToken)).status, 403);
