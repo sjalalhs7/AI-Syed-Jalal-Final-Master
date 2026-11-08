@@ -12,7 +12,7 @@
 <title>SJ Agent Studio — Unified AI Platform</title>
 <meta name="description" content="SJ Agent Studio: direct chat, bounded agent workflows, side-by-side model comparison, files, voice and conversation history in one professional workspace.">
 <link rel="stylesheet" href="assets/agent.css">
-<link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="agent" defer></script><script src="assets/agent.js" defer></script>
+<link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="agent" defer></script><script src="assets/agent.js?v=161" defer></script>
 <link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
 <body class="aj-agent">
 <a class="skip-link" href="#composer">Skip to composer</a>
@@ -29,6 +29,7 @@
       <a href="jalalai.html">JalalAi assistant</a>
       <a href="workspace.html">Workspace</a>
       <a href="dashboard.html">Dashboard</a>
+      <a href="ai-hub.html">AI Hub · explore</a>
       <a href="agent-lab.html">Agent Lab · self-check</a>
       <a href="arena.html">Arena · compare engines</a>
       <a href="guide.html">Start here / Help</a>
@@ -59,7 +60,7 @@
         <p id="gateMessage">Use your workspace account, or start the disposable local preview. Conversations are account-scoped.</p>
         <div class="gate-actions">
           <button class="btn primary" id="demoBtn" type="button" hidden>Try the local preview</button>
-          <a class="btn" href="index.html">Account sign in</a>
+          <a class="btn" id="gateSignIn" href="index.html?next=agent.html">Account sign in</a>
         </div>
         <p class="hint">Preview is a shared sandbox. Use test data only.</p>
       </div>

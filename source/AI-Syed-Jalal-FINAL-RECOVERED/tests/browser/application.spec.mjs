@@ -27,6 +27,9 @@ test('assistant: account, local calculation, confirmed persistence, notes, voice
 });
 
 test('workspace: navigation, local AI, dock, records CRUD, admin, print and themes', async ({ page }) => {
+  // This full workspace journey has many interactions; slow Chromium runners
+  // can finish the assertions just after the default one-minute test budget.
+  test.setTimeout(120000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/jalalai.html'); await page.locator('#demoBtn').click(); await expect(page.locator('#connectionStatus')).toContainText('Connected');
   await page.goto('/workspace.html#ai-command'); await expect(page.locator('#app')).toBeVisible();

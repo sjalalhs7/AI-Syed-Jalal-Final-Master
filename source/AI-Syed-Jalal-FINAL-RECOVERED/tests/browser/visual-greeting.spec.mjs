@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v160-polish'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v161-ai-hub'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -248,7 +248,7 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).toContain('other-app-test-cache');
   expect(names).not.toContain('aj-v156-jarvis-welcome');
   expect(names).not.toContain('aj-v157-selected-voice');
-  expect(names).toContain('aj-v160-polish');
+  expect(names).toContain('aj-v161-ai-hub');
   expect(await page.evaluate(async () => (await (await caches.open('other-app-test-cache')).match('/other-app-data')).text())).toBe('preserve this');
   expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
 });
@@ -280,6 +280,8 @@ test('greeting and theme controls remain readable without horizontal overflow', 
 });
 
 test('homepage content keeps a readable gutter and the dashboard link is unobscured', async ({ page }) => {
+  // Three full navigations and service-worker installs can be slow on small CI runners.
+  test.setTimeout(120000);
   for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -299,9 +301,12 @@ test('homepage content keeps a readable gutter and the dashboard link is unobscu
 });
 
 test('homepage header controls fit and remain legible at responsive breakpoints', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
-  for (const width of [320, 390, 760, 761, 1100, 1200, 1201, 1280]) {
+  for (const width of [320, 390, 760, 761, 1100, 1200, 1201, 1280, 1320, 1321]) {
     await page.setViewportSize({ width, height:900 });
+    // Measure the new responsive layout, not the previous viewport's pending paint.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const metrics = await page.evaluate(() => {
       const button = document.querySelector('#start');
       const range = document.createRange();

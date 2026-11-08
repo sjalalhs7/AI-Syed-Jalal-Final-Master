@@ -306,14 +306,21 @@
   }
   function closeSidebar() { $('sidebar').classList.remove('open'); }
 
-  // Agent Lab stages a skill prompt; Agent Studio opens with it ready to review.
+  // AI Hub keeps drafts in this tab; Agent Lab's existing shared slot remains supported.
+  // Never send a staged prompt automatically. Read it only after authentication.
   function applyStagedDraft() {
+    if (new URLSearchParams(location.search).get('draft') !== '1') return;
     let draft = '';
-    try { if (new URLSearchParams(location.search).get('draft') === '1') { draft = localStorage.getItem('aj-agent-draft') || ''; localStorage.removeItem('aj-agent-draft'); } } catch { /* private mode */ }
+    try { draft = sessionStorage.getItem('aj-hub-draft-v1') || ''; if (draft) sessionStorage.removeItem('aj-hub-draft-v1'); } catch { /* storage blocked */ }
+    if (!draft) {
+      try { draft = localStorage.getItem('aj-agent-draft') || ''; if (draft) localStorage.removeItem('aj-agent-draft'); } catch { /* storage blocked */ }
+    }
     if (!draft) return;
     $('prompt').value = draft.slice(0, 10000);
     updateControls();
   }
+  // The destination is a fixed whitelist entry; keep a staged draft through sign-in.
+  if (new URLSearchParams(location.search).get('draft') === '1' && $('gateSignIn')) $('gateSignIn').href = 'index.html?next=agent-draft';
   $('composer').onsubmit = event => { event.preventDefault(); send(); };
   $('prompt').addEventListener('input', updateControls);
   $('prompt').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });

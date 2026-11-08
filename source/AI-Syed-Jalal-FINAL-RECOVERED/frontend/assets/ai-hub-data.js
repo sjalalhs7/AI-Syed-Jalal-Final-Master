@@ -1,0 +1,159 @@
+// AI Hub is a discovery layer over existing SJ surfaces, not a provider SDK.
+// Keep these descriptions aligned with what the linked surface actually does.
+export const CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'chat', label: 'Chat & writing' },
+  { id: 'agents', label: 'Assistants' },
+  { id: 'code', label: 'Code' },
+  { id: 'research', label: 'Research' },
+  { id: 'image', label: 'Images' },
+  { id: 'video', label: 'Video & comics' },
+  { id: 'voice', label: 'Voice' },
+  { id: 'music', label: 'Music' },
+  { id: 'business', label: 'Business' },
+  { id: 'tools', label: 'Local tools' }
+];
+
+export const EXPERIENCES = [
+  {
+    id: 'conversation', category: 'chat', icon: '✳', eyebrow: 'CONVERSATION', title: 'Chat & writing', status: 'Local tools + optional cloud', tone: 'local',
+    description: 'Plan, write and work through ideas in one conversation. Choose a local tool or an available text provider.',
+    input: 'Text or supported text/code files', output: 'Local guidance or provider-generated text',
+    limit: 'Open-ended generation requires a configured provider and a successful request.',
+    action: { type: 'link', label: 'Open Agent Studio', href: 'agent.html' }, keywords: 'chat language translation text'
+  },
+  {
+    id: 'workflows', category: 'agents', icon: '✦', eyebrow: 'WORKFLOWS', title: 'AI assistants', status: 'Prompt starters', tone: 'prompt',
+    description: 'Start with a helpful role, then adapt the request in Agent Studio. Your chosen engine produces the response.',
+    input: 'A task and your context', output: 'A structured plan, checklist or text response',
+    limit: 'These are prompt starters, not independent autonomous agents.',
+    action: { type: 'link', label: 'Explore assistants', href: '#assistants' }, keywords: 'agent planner specialist'
+  },
+  {
+    id: 'coding', category: 'code', icon: '⌘', eyebrow: 'BUILD', title: 'Code & development', status: 'Built-in tools', tone: 'local',
+    description: 'Inspect code, compare text, validate JSON and use other deterministic utilities in Toolbench.',
+    input: 'Code or text supplied by you', output: 'Local checks and downloadable artifacts where supported',
+    limit: 'The code audit is a heuristic, not a security certificate or code execution.',
+    action: { type: 'link', label: 'Open Toolbench', href: 'toolbench.html' }, keywords: 'developer programming software json audit'
+  },
+  {
+    id: 'research', category: 'research', icon: '⌕', eyebrow: 'THINK', title: 'Research & analysis', status: 'Provider for open-ended answers', tone: 'prompt',
+    description: 'Frame a question, organize supplied evidence and compare options with an analysis prompt.',
+    input: 'Your question and sources', output: 'Local analysis checklist or provider-generated text',
+    limit: 'This starter does not automatically browse or verify citations.',
+    action: { type: 'prompt', label: 'Prepare a research prompt', prompt: 'analyze: Help me examine this question using the information I provide. Separate evidence from assumptions, identify gaps and suggest next steps.\n\nMy question and sources: [add details]' }, keywords: 'analysis reasoning sources'
+  },
+  {
+    id: 'image', category: 'image', icon: '◈', eyebrow: 'VISUAL IDEAS', title: 'Images & design', status: 'Image generation not connected', tone: 'unavailable',
+    description: 'Develop a visual direction or image brief in text. An image-generation service is not connected here.',
+    input: 'A subject, audience and visual direction', output: 'A text brief, not an image',
+    limit: 'Open-ended text needs a configured provider; no image is generated.',
+    action: { type: 'prompt', label: 'Prepare an image brief', prompt: 'write: Create a detailed image brief for the following idea, including subject, composition, lighting and style. This is a text brief, not a generated image.\n\nMy idea: [add details]' }, keywords: 'art illustration design image picture'
+  },
+  {
+    id: 'video', category: 'video', icon: '▷', eyebrow: 'STORY', title: 'Video & comics', status: 'Generation not connected', tone: 'unavailable',
+    description: 'Outline a story or storyboard in text. Video and comic image generation are not connected.',
+    input: 'A story idea and desired audience', output: 'A written outline or storyboard',
+    limit: 'No video, animation or comic artwork is generated.',
+    action: { type: 'prompt', label: 'Prepare a storyboard', prompt: 'write: Help me outline a short storyboard, with scenes, visual descriptions and dialogue. Return text only.\n\nMy story: [add details]' }, keywords: 'film animation comic screenplay'
+  },
+  {
+    id: 'voice', category: 'voice', icon: '◉', eyebrow: 'SPEAK & LISTEN', title: 'Voice conversation', status: 'Browser dependent', tone: 'browser',
+    description: 'Use JARVIS for optional browser voice input and read-aloud, where your device supports them.',
+    input: 'Typed text or microphone with permission', output: 'Text replies and browser speech where supported',
+    limit: 'Speech recognition and language availability vary; browser speech services may process audio online.',
+    action: { type: 'link', label: 'Open JARVIS', href: 'jarvis.html' }, keywords: 'speech microphone audio listening'
+  },
+  {
+    id: 'music', category: 'music', icon: '♫', eyebrow: 'AUDIO IDEAS', title: 'Music creation', status: 'Music generation not connected', tone: 'unavailable',
+    description: 'Plan a song concept in text. This workspace does not generate songs or instrumental audio.',
+    input: 'A theme, mood and intended audience', output: 'A text-only concept or lyrics outline',
+    limit: 'No singing, musical audio or instrumental track is produced.',
+    action: { type: 'prompt', label: 'Prepare a music brief', prompt: 'write: Develop a text-only music concept with mood, structure and lyrical themes. Do not claim that audio was generated.\n\nMy idea: [add details]' }, keywords: 'song melody lyrics sound'
+  },
+  {
+    id: 'commerce', category: 'business', icon: '▧', eyebrow: 'BUSINESS', title: 'E-commerce & marketing', status: 'Text assistance', tone: 'prompt',
+    description: 'Draft a product description or campaign outline from details you supply.',
+    input: 'Product facts and audience', output: 'Local writing frame or provider-generated text',
+    limit: 'Product imagery, publishing, purchases and marketplace integrations are not connected.',
+    action: { type: 'prompt', label: 'Prepare product copy', prompt: 'write: Help me draft a product description using only the facts I provide. Flag missing details and avoid unsupported claims.\n\nProduct details: [add details]' }, keywords: 'shop product sales marketing ecommerce'
+  },
+  {
+    id: 'utilities', category: 'tools', icon: '⌁', eyebrow: 'PRACTICAL TOOLS', title: 'Local productivity', status: 'Built-in tools', tone: 'local',
+    description: 'Calculate, plan, review and organize tasks and notes without a cloud AI key.',
+    input: 'Commands or your own text', output: 'Deterministic results and confirmation-based actions',
+    limit: 'Account and database access are still needed on the application server.',
+    action: { type: 'link', label: 'Open JalalAi', href: 'jalalai.html' }, keywords: 'calculator tasks notes planning'
+  },
+  {
+    id: 'compare', category: 'agents', icon: '⇄', eyebrow: 'COMPARE', title: 'Compare responses', status: 'Account & database required', tone: 'browser',
+    description: 'Put two available engines side by side and review their responses in Agent Studio.',
+    input: 'One prompt and two selected engines', output: 'Two labelled responses',
+    limit: 'Availability depends on your account, database readiness and any selected cloud provider.',
+    action: { type: 'link', label: 'Open Agent Studio', href: 'agent.html' }, keywords: 'compare models arena'
+  }
+];
+
+export const STARTERS = [
+  { id: 'general', symbol: '✦', title: 'Everyday assistant', description: 'Turn a question or an idea into a clearer next step.', prompt: 'Help me think through the following request. Ask for any important missing information, and distinguish facts from assumptions.\n\nMy request: [add details]' },
+  { id: 'coding', symbol: '⌘', title: 'Coding assistant', description: 'Break down implementation or review a code change.', prompt: 'code: Help me review this development task. Identify constraints, a practical implementation and tests.\n\nMy task or code: [add details]' },
+  { id: 'analysis', symbol: '◒', title: 'Analysis assistant', description: 'Compare options and make the unknowns visible.', prompt: 'analyze: Compare the options below using the evidence I provide. Clearly identify assumptions, risks and unanswered questions.\n\nMy decision: [add details]' },
+  { id: 'creative', symbol: '✺', title: 'Creative assistant', description: 'Shape a brief, a story or a piece of writing.', prompt: 'write: Help me develop the following idea for my audience. Suggest a clear structure and a few directions to explore.\n\nMy idea: [add details]' },
+  { id: 'planner', symbol: '▤', title: 'Planning assistant', description: 'Organize a goal into manageable, reviewable steps.', prompt: 'plan: Help me break down the goal below into steps, dependencies and checks. Do not claim to have performed any external action.\n\nMy goal: [add details]' }
+];
+
+export const PROVIDERS = [
+  { id: 'gemini', label: 'Google Gemini' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'anthropic', label: 'Anthropic Claude' },
+  { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'omniroute', label: 'OmniRoute' }
+];
+
+/** Select a diverse, bounded subset from the existing public reference index.
+ * Round-robin by domain and skill family rather than taking the first 190 rows,
+ * which would cover only two domains. Entries are templates, not agents.
+ */
+export function selectSkills(index, limit = 190) {
+  if (!Array.isArray(index?.domains) || !Array.isArray(index?.skills) || !Number.isInteger(limit) || limit < 1) return [];
+  const domains = [...new Set(index.domains.map(item => item?.name).filter(name => typeof name === 'string' && name))];
+  const groups = new Map(domains.map(name => [name, new Map()]));
+  const seen = new Set();
+  for (const row of index.skills) {
+    if (!Array.isArray(row) || row.length < 4 || row.slice(0, 4).some(value => typeof value !== 'string' || !value)) continue;
+    const [id, name, domain, family] = row;
+    if (seen.has(id) || !groups.has(domain)) continue;
+    seen.add(id);
+    const families = groups.get(domain);
+    if (!families.has(family)) families.set(family, []);
+    families.get(family).push({ id, name, domain, family });
+  }
+  const candidates = domains.map((domain, domainIndex) => [...groups.get(domain).values()]
+    .map((variants, familyIndex) => variants[(domainIndex + familyIndex) % variants.length]));
+  const selected = [];
+  for (let round = 0; selected.length < limit; round++) {
+    let added = false;
+    for (const domain of candidates) {
+      if (domain[round]) { selected.push(domain[round]); added = true; }
+      if (selected.length === limit) break;
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
+export function filterSkills(skills, query = '', domain = '') {
+  const terms = String(query).trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return skills.filter(skill => (!domain || skill.domain === domain)
+    && terms.every(term => `${skill.name} ${skill.domain} ${skill.family} ${skill.id}`.toLocaleLowerCase().includes(term)));
+}
+
+export function filterExperiences(category = 'all', query = '') {
+  const terms = String(query).trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return EXPERIENCES.filter(item => (category === 'all' || item.category === category)
+    && terms.every(term => `${item.title} ${item.description} ${item.status} ${item.keywords}`.toLocaleLowerCase().includes(term)));
+}
+
+export function skillPrompt(skill) {
+  return `plan: Help me apply the “${skill.name}” skill (${skill.domain} · ${skill.family}).\n\nMy task: [add details]\n\nIdentify assumptions, constraints and useful checks. Do not claim to have performed an external action.`;
+}

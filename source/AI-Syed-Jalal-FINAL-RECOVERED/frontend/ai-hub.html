@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f8f8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<meta name="description" content="Discover AI-Syed Jalal's local tools, optional text providers and a curated selection of skill prompts, with clear availability labels.">
+<title>AI Hub — Alsyed Jalal AI</title>
+<link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<script src="assets/host-mode.js"></script>
+<link rel="stylesheet" href="assets/visual-system.css?v=160">
+<link rel="stylesheet" href="assets/ai-hub.css?v=161">
+<link rel="stylesheet" href="assets/jarvis-welcome.css?v=156">
+<script src="assets/visual-theme.js"></script>
+<script src="assets/speech-preferences.js"></script>
+<script src="assets/jarvis-welcome.js?v=157" defer></script>
+<script type="module" src="assets/ai-hub.js?v=161"></script>
+</head>
+<body class="aj-hub">
+<a class="hub-skip" href="#explore">Skip to explore</a>
+<header class="hub-header hub-wrap">
+  <a class="hub-brand" href="./" aria-label="Alsyed Jalal AI home"><img src="assets/approved-sj-rainbow-crown.svg" alt=""><span><strong>Alsyed Jalal AI</strong><small>AI HUB</small></span></a>
+  <nav class="hub-nav" aria-label="AI Hub navigation"><a href="#explore">Explore</a><a href="#assistants">Assistants</a><a href="#skills">Skills</a><a href="#providers">Providers</a></nav>
+  <a class="hub-header-action" href="agent.html">Open Studio <span aria-hidden="true">↗</span></a>
+</header>
+<main class="hub-wrap">
+  <section class="hub-hero" aria-labelledby="heroTitle">
+    <div class="hub-hero-copy">
+      <p class="hub-kicker"><span aria-hidden="true">✦</span> YOUR SPACE TO EXPLORE</p>
+      <h1 id="heroTitle">A little more <em>possible.</em></h1>
+      <p class="hub-intro">From a first idea to your next step, discover useful tools, thoughtful assistants and skill prompts in one place.</p>
+      <div class="hub-hero-actions"><a class="hub-button hub-button-primary" href="#explore">Explore the hub <span aria-hidden="true">↗</span></a><a class="hub-button hub-button-secondary" href="#skills">Browse skill prompts</a></div>
+      <div class="hub-hero-note"><span class="hub-note-dot" aria-hidden="true"></span> Built on your existing SJ workspace · Clear about what is connected</div>
+    </div>
+    <div class="hub-art" aria-hidden="true">
+      <img src="assets/ai-hub-orbit.jpg" alt="" fetchpriority="high">
+      <div class="hub-art-label"><span class="hub-art-icon">✦</span><span><strong>Ideas in motion</strong><small>One connected workspace</small></span></div>
+      <span class="hub-art-index">01 / EXPLORE</span>
+    </div>
+  </section>
+
+  <div class="hub-facts" aria-label="About the hub">
+    <div><strong id="skillFact">Up to 190</strong><span>curated skill prompts</span></div>
+    <div><strong id="domainFact">35</strong><span>reference domains</span></div>
+    <div><strong>Local + cloud</strong><span>clearly labelled modes</span></div>
+    <p>Skill prompts are starting points—not separate AI models or autonomous agents. Sign-in and a working application server are needed to run tools.</p>
+  </div>
+
+  <section class="hub-section" id="explore" aria-labelledby="exploreTitle">
+    <div class="hub-section-head"><div><p class="hub-kicker">01 / FIND YOUR FLOW</p><h2 id="exploreTitle">Explore by possibility.</h2><p>See what you can do now, what needs a provider, and what is not connected.</p></div><label class="hub-search"><span class="hub-sr-only">Search categories and tools</span><span aria-hidden="true">⌕</span><input id="experienceSearch" type="search" placeholder="Search the hub…" autocomplete="off"></label></div>
+    <div class="hub-filters" id="categoryFilters" role="group" aria-label="Filter by category"></div>
+    <p class="hub-result-count" id="experienceStatus" role="status">Loading categories…</p>
+    <div class="hub-grid" id="experienceGrid"></div>
+  </section>
+
+  <section class="hub-section" id="assistants" aria-labelledby="assistantsTitle">
+    <div class="hub-section-head"><div><p class="hub-kicker">02 / A PLACE TO START</p><h2 id="assistantsTitle">Find your thinking partner.</h2><p>Choose a prompt, make it yours and review it in Agent Studio. Nothing is sent automatically.</p></div><a class="hub-text-link" href="agent.html">Visit Agent Studio <span aria-hidden="true">↗</span></a></div>
+    <div class="hub-starters" id="starterGrid"></div>
+    <p class="hub-section-note">These are prompt starters using the engine you select, not separate models. Local mode gives deterministic guidance; generated answers require a configured cloud provider.</p>
+  </section>
+
+  <section class="hub-section hub-skill-section" id="skills" aria-labelledby="skillsTitle">
+    <div class="hub-section-head"><div><p class="hub-kicker">03 / SMALL STARTS, BIG IDEAS</p><h2 id="skillsTitle">A library made for doing.</h2><p>Explore up to 190 curated prompts from the existing reference skill index. Each one is a starting point, not an independently executable agent.</p></div><a class="hub-text-link" href="agent-lab.html">Agent Lab · database required <span aria-hidden="true">↗</span></a></div>
+    <div class="hub-skill-controls">
+      <label class="hub-search"><span class="hub-sr-only">Search curated skill prompts</span><span aria-hidden="true">⌕</span><input id="skillSearch" type="search" placeholder="Search skills, e.g. security…" autocomplete="off"></label>
+      <label class="hub-select-label"><span>Domain</span><select id="skillDomain"><option value="">All domains</option></select></label>
+    </div>
+    <p class="hub-result-count" id="skillStatus" role="status" tabindex="-1">Loading skill index…</p>
+    <div class="hub-skills" id="skillGrid"></div>
+    <div class="hub-more"><button class="hub-button hub-button-secondary" id="loadMore" type="button" hidden>Show more skills</button><button class="hub-button hub-button-secondary" id="retrySkills" type="button" hidden>Retry skill library</button></div>
+    <p class="hub-section-note">This curated selection is read from the reference index. The full library and self-check in Agent Lab need a ready application database.</p>
+  </section>
+
+  <section class="hub-section hub-provider-section" id="providers" aria-labelledby="providersTitle">
+    <div class="hub-provider-intro"><p class="hub-kicker">04 / KNOW YOUR SETUP</p><h2 id="providersTitle">Clarity over claims.</h2><p>The hub uses your existing application backend. A configured key is not a verified live response; providers may also have limits or costs.</p><p id="providerStatus" role="status">Checking your session…</p><div class="hub-provider-actions"><a class="hub-text-link" id="providerSignIn" href="index.html?next=ai-hub.html" hidden>Sign in to check setup ↗</a><button class="hub-text-button" id="providerRetry" type="button">Check again ↻</button></div></div>
+    <div class="hub-provider-list" id="providerList" aria-label="Text provider configuration"></div>
+  </section>
+
+  <section class="hub-bottom" aria-labelledby="limitsTitle"><div><p class="hub-kicker">A NOTE ON CAPABILITY</p><h2 id="limitsTitle">Useful, with the limits in view.</h2><p>Image, video, comic and music generation are not connected. Voice depends on your browser. External actions are never performed just by choosing a prompt.</p></div><a class="hub-button hub-button-secondary" href="guide.html">How it works <span aria-hidden="true">↗</span></a></section>
+</main>
+<footer class="hub-footer hub-wrap"><span>© Alsyed Jalal AI · Discover with confidence.</span><div><a href="guide.html">Start here</a><a href="workspace.html">Workspace</a><a href="./">Home</a></div></footer>
+
+<dialog class="hub-dialog" id="promptDialog" aria-labelledby="promptTitle" aria-describedby="promptDescription">
+  <div class="hub-dialog-head"><div><p class="hub-kicker">PREPARE A PROMPT</p><h2 id="promptTitle">Your starting point</h2></div><button class="hub-close" id="closePrompt" type="button" aria-label="Close prompt">×</button></div>
+  <p id="promptDescription">Edit this draft, then open it in Agent Studio. Choose an available engine there; the prompt is not sent automatically.</p>
+  <label for="promptDraft">Your prompt</label><textarea id="promptDraft" maxlength="10000" rows="8"></textarea>
+  <p class="hub-privacy">The draft is stored in this browser tab until Studio opens it after sign-in or you close the tab. Avoid sensitive information on a shared device. Cloud prompts are sent to the provider you select.</p>
+  <div class="hub-dialog-actions"><button class="hub-button hub-button-primary" id="openDraft" type="button">Open in Agent Studio ↗</button><button class="hub-button hub-button-secondary" id="copyDraft" type="button">Copy prompt</button><a class="hub-text-link" id="manualStudio" href="agent.html" hidden>Open Studio to paste ↗</a><a class="hub-text-link" id="secureStudio" href="https://ai-syed-jalal-live.pages.dev/agent.html" hidden>Open secure Agent Studio ↗</a></div>
+  <p id="draftStatus" role="status" aria-live="polite"></p>
+</dialog>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body>
+</html>

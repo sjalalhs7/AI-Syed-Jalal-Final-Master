@@ -40,7 +40,7 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v160-polish'"));
+  assert.ok(sw.includes("const CACHE='aj-v161-ai-hub'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
   assert.ok(sw.includes("new URL('api/',self.location).pathname"));
@@ -48,6 +48,8 @@ test('service worker cache is bumped and includes host-mode helper', () => {
     assert.ok(sw.includes(`'./assets/${asset}'`), `${asset} should be available offline`);
   }
   assert.ok(guide.includes('assets/guide.css?v=160'));
-  for (const html of [index, guide]) assert.ok(html.includes('assets/visual-system.css?v=160'));
+  assert.ok(index.includes('assets/visual-system.css?v=161'));
+  assert.ok(sw.includes("'./assets/visual-system.css?v=161'"));
+  assert.ok(guide.includes('assets/visual-system.css?v=160'));
   for (const html of [index, workspace]) assert.ok(html.includes('assets/preview-entry.js?v=160'));
 });
