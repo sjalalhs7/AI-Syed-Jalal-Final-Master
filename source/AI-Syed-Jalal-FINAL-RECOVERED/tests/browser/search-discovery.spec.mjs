@@ -10,14 +10,34 @@ test('public sitemap and its extensionless URLs resolve with matching canonical 
     if (doc.querySelector('parsererror')) throw new Error('Invalid sitemap XML');
     return [...doc.getElementsByTagNameNS('http://www.sitemaps.org/schemas/sitemap/0.9', 'loc')].map(n => n.textContent);
   }, xml);
-  expect(locations).toHaveLength(5);
+  expect(locations).toHaveLength(7);
   for (const location of locations) {
     const target = new URL(location);
     const result = await page.goto(target.pathname);
     expect(result.status(), target.pathname).toBe(200);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', location);
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', location);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /\S/);
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', /\S/);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://ai-syed-jalal-live.pages.dev/assets/brand/sj-social-1200x630.png');
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
     const robots = page.locator('meta[name="robots"]');
     if (await robots.count()) expect(await robots.getAttribute('content')).not.toContain('noindex');
+  }
+  const image = await request.get('/assets/brand/sj-social-1200x630.png');
+  expect(image.status()).toBe(200); expect(image.headers()['content-type']).toContain('image/png');
+});
+
+test('robots and llms.txt are served as text without exposing private application pages', async ({ request }) => {
+  const robots = await request.get('/robots.txt');
+  expect(robots.status()).toBe(200); expect(robots.headers()['content-type']).toContain('text/plain');
+  expect(await robots.text()).toContain('Sitemap: https://ai-syed-jalal-live.pages.dev/sitemap.xml');
+  const llms = await request.get('/llms.txt');
+  expect(llms.status()).toBe(200); expect(llms.headers()['content-type']).toContain('text/plain');
+  expect(await llms.text()).toContain('[Media Studio](https://ai-syed-jalal-live.pages.dev/media-studio)');
+  for (const path of ['/workspace.html', '/dashboard.html', '/agent.html']) {
+    const response = await request.get(path);
+    expect(await response.text()).toMatch(/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex/i);
   }
 });
 

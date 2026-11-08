@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f8f8">
+<meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
+<meta name="description" content="Edit a photo or trim a short video locally in your browser. No account or AI provider is required.">
+<title>Media Studio — Alsyed Jalal AI</title>
+<link rel="canonical" href="https://ai-syed-jalal-live.pages.dev/media-studio">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Alsyed Jalal AI"><meta property="og:title" content="Media Studio — Alsyed Jalal AI"><meta property="og:description" content="Edit a photo or trim a short video locally in your browser; no sign-in is required."><meta property="og:url" content="https://ai-syed-jalal-live.pages.dev/media-studio"><meta property="og:image" content="https://ai-syed-jalal-live.pages.dev/assets/brand/sj-social-1200x630.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Media Studio — Alsyed Jalal AI"><meta name="twitter:description" content="Edit a photo or trim a short video locally in your browser; no sign-in is required."><meta name="twitter:image" content="https://ai-syed-jalal-live.pages.dev/assets/brand/sj-social-1200x630.png">
+<link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png">
+<script src="assets/host-mode.js"></script>
+<link rel="stylesheet" href="assets/visual-system.css?v=162">
+<link rel="stylesheet" href="assets/media-studio.css?v=163">
+<link rel="stylesheet" href="assets/jarvis-welcome.css?v=156">
+<script src="assets/visual-theme.js"></script>
+<script src="assets/speech-preferences.js"></script>
+<script src="assets/jarvis-welcome.js?v=157" defer></script>
+<script type="module" src="assets/media-studio.js?v=163"></script>
+</head>
+<body>
+<a class="skip" href="#photo">Skip to the editor</a>
+<header class="top wrap">
+  <a class="brand" href="ai-hub.html"><img src="assets/approved-sj-rainbow-crown.svg" alt=""><span><strong>Alsyed Jalal AI</strong><small>MEDIA STUDIO</small></span></a>
+  <nav aria-label="Media Studio navigation"><a href="ai-hub.html">← AI Hub</a><a href="#photo">Photo</a><a href="#video">Video</a></nav>
+</header>
+<main class="wrap">
+  <section class="hero" aria-labelledby="title">
+    <div><p class="eyebrow">YOUR FILES · YOUR DEVICE</p><h1 id="title">Make it <em>yours.</em></h1><p>Edit a photo or trim a short video right here. Your original stays unchanged.</p><div class="hero-actions"><a class="button primary" href="#photo">Edit a photo ↗</a><a class="button secondary" href="#video">Trim a video ↗</a></div></div>
+    <aside class="privacy"><span aria-hidden="true">✦</span><strong>Private by design</strong><p>Files are processed in your browser, not uploaded by this tool. No sign-in, database or AI key is needed. Edits are not saved after you leave; download the result first.</p></aside>
+  </section>
+
+  <section class="editor" id="photo" aria-labelledby="photoTitle">
+    <div class="section-heading"><div><p class="eyebrow">01 / LOCAL PHOTO EDITOR</p><h2 id="photoTitle">Give a photo a new look.</h2><p>Crop, rotate, flip, adjust colour and download a PNG or JPEG.</p></div><span class="tag">No upload · no sign-in</span></div>
+    <div class="editor-grid">
+      <div class="preview-panel">
+        <label class="file-picker" for="photoFile"><span aria-hidden="true">＋</span><strong>Choose a photo</strong><small>Image formats supported by your browser · up to 30 MB</small></label>
+        <input id="photoFile" type="file" accept="image/*">
+        <div class="image-stage"><canvas id="photoCanvas" hidden aria-label="Edited photo preview"></canvas><p id="photoEmpty">Your photo preview will appear here.</p></div>
+        <p id="photoStatus" class="status" role="status" aria-live="polite">Choose a photo to begin.</p>
+      </div>
+      <div class="controls" id="photoControls">
+        <fieldset id="photoFields" disabled><legend>Adjust your photo</legend>
+          <div class="button-row"><button class="button secondary" id="photoRotate" type="button">↻ Rotate 90°</button><button class="button secondary" id="photoFlip" type="button" aria-pressed="false">⇄ Flip horizontally</button><button class="button secondary" id="photoReset" type="button">Reset</button></div>
+          <label for="brightness">Brightness <output id="brightnessValue">100%</output></label><input id="brightness" type="range" min="50" max="150" value="100">
+          <label for="contrast">Contrast <output id="contrastValue">100%</output></label><input id="contrast" type="range" min="50" max="150" value="100">
+          <label for="saturation">Saturation <output id="saturationValue">100%</output></label><input id="saturation" type="range" min="0" max="200" value="100">
+          <details><summary>Crop edges</summary><p class="hint">Remove up to 40% from each edge before rotation.</p>
+            <label for="cropLeft">Left <output id="cropLeftValue">0%</output></label><input id="cropLeft" type="range" min="0" max="40" value="0">
+            <label for="cropRight">Right <output id="cropRightValue">0%</output></label><input id="cropRight" type="range" min="0" max="40" value="0">
+            <label for="cropTop">Top <output id="cropTopValue">0%</output></label><input id="cropTop" type="range" min="0" max="40" value="0">
+            <label for="cropBottom">Bottom <output id="cropBottomValue">0%</output></label><input id="cropBottom" type="range" min="0" max="40" value="0">
+          </details>
+          <label for="photoScale">Output size <output id="photoScaleValue">100%</output></label><input id="photoScale" type="range" min="25" max="100" value="100">
+          <label for="photoFormat">Download format</label><select id="photoFormat"><option value="image/png">PNG · preserves transparency</option><option value="image/jpeg">JPEG · white background</option></select>
+          <button class="button primary wide" id="photoDownload" type="button">Download edited photo ↓</button>
+        </fieldset>
+        <p class="hint">The export is a new image; metadata and animation are not preserved.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="editor" id="video" aria-labelledby="videoTitle">
+    <div class="section-heading"><div><p class="eyebrow">02 / LOCAL VIDEO TRIMMER</p><h2 id="videoTitle">Keep the best part.</h2><p>Choose a clip, select its start and end, and export a shorter video.</p></div><span class="tag">Browser support varies</span></div>
+    <div class="editor-grid">
+      <div class="preview-panel">
+        <label class="file-picker" for="videoFile"><span aria-hidden="true">▷</span><strong>Choose a video</strong><small>Formats supported by your browser · up to 100 MB</small></label>
+        <input id="videoFile" type="file" accept="video/*">
+        <div class="video-stage"><video id="videoPreview" controls playsinline preload="metadata" hidden></video><p id="videoEmpty">Your video preview will appear here.</p></div>
+        <p id="videoStatus" class="status" role="status" aria-live="polite">Choose a video to begin.</p>
+      </div>
+      <div class="controls">
+        <fieldset id="videoFields" disabled><legend>Choose your clip</legend>
+          <div class="time-grid"><div><label for="videoStart">Start (seconds)</label><input id="videoStart" type="number" min="0" step="0.1" inputmode="decimal"></div><div><label for="videoEnd">End (seconds)</label><input id="videoEnd" type="number" min="0" step="0.1" inputmode="decimal"></div></div>
+          <div class="button-row"><button class="button secondary" id="setVideoStart" type="button">Set start to playhead</button><button class="button secondary" id="setVideoEnd" type="button">Set end to playhead</button></div>
+          <label class="check"><input id="videoAudio" type="checkbox" checked> Include audio</label>
+          <p class="hint">If audio cannot be kept, export stops instead of silently removing it. Uncheck for a silent clip.</p>
+          <p class="hint">Up to 2 minutes per clip. Export is re-encoded and may take time; keep this tab open until the download starts.</p>
+          <p id="videoCapability" class="hint">Checking browser export support…</p>
+          <button class="button primary wide" id="videoExport" type="button">Export trimmed video ↓</button>
+        </fieldset>
+        <button class="button secondary wide" id="videoCancel" type="button" hidden>Cancel export</button>
+        <p class="hint">The browser chooses a supported WebM or MP4 format, up to 1280 px on the longest edge. This is basic trimming, not AI video generation or a multi-track editor.</p>
+        <p class="hint">Video conversion uses Mediabunny 1.65.2. <a href="assets/vendor/mediabunny-LICENSE.txt">License</a> · <a href="https://registry.npmjs.org/mediabunny/-/mediabunny-1.65.2.tgz">Source</a></p>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="wrap footer"><span>© Alsyed Jalal AI · Local Media Studio</span><a href="ai-hub.html">Return to AI Hub ↗</a></footer>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body>
+</html>

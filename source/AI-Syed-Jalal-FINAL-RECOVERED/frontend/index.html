@@ -179,6 +179,7 @@ body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <label for="u">Username</label><input id="u" required autocomplete="username" maxlength="200" autocapitalize="none" spellcheck="false"><label for="p">Password</label><input id="p" type="password" required minlength="1" maxlength="1024" autocomplete="current-password" aria-describedby="err">
 <button type="button" class="btn" id="togglePassword" aria-pressed="false" style="margin-top:6px">Show password</button><div id="confirm-wrap" hidden><label for="confirm-p">Confirm password</label><input id="confirm-p" type="password" minlength="12" autocomplete="new-password"></div>
 <p class="provider-note" role="note">Secure connection: sign-in uses this website’s own API.</p>
+<div id="authConnection" class="provider-note" role="status" aria-live="polite" hidden><span id="authConnectionMessage"></span> <a id="authLiveLink" href="https://ai-syed-jalal-live.pages.dev/" hidden>Open the live website ↗</a> <button type="button" class="auth-switch" id="authRetry" hidden>Check again</button></div>
 <div id="err" role="alert" aria-live="assertive"></div><button class="btn g" style="width:100%;margin-top:8px" id="go">Sign in</button><p class="auth-note">New here? <button type="button" class="auth-switch" id="signup-note">Create an account</button></p><div class="provider-note">Social sign-in is not enabled in this build. Username/password is the active method.</div></form></div></div>
 <!-- The recovered V122 custom-element widget is mounted by the module below. -->
 
@@ -186,13 +187,34 @@ body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <script>
 const $=s=>document.getElementById(s),m=$('login');
 let authMode='login';const setAuthMode=mode=>{authMode=mode;$('err').textContent='';$('p').type='password';$('togglePassword').textContent='Show password';$('togglePassword').setAttribute('aria-pressed','false');$('confirm-wrap').hidden=mode!=='signup';$('confirm-p').required=mode==='signup';$('p').minLength=mode==='signup'?12:1;$('p').autocomplete=mode==='signup'?'new-password':'current-password';document.querySelector('.lf h3').textContent=mode==='signup'?'Create account':'Sign in';$('go').textContent=mode==='signup'?'Create account':'Sign in';$('signup-note').textContent=mode==='signup'?'Back to sign in':'Create an account';document.querySelector('.auth-note').firstChild.textContent=mode==='signup'?'Already registered? ':'New here? ';};
-const show=()=>{setAuthMode('login');m.classList.add('show');$('u').focus()};
+let authConnectionRequest=0,authConnectionState='unknown';
+function showDatabaseUnavailable(){
+ authConnectionState='unavailable';$('authConnection').hidden=false;$('authConnectionMessage').textContent='This website copy has no database connection, so it cannot check your password.';
+ // A Cloudflare preview has separate environment variables. Offer the known
+ // production site only for this project; never send credentials across origins.
+ $('authLiveLink').hidden=!location.hostname.toLowerCase().endsWith('.ai-syed-jalal-live.pages.dev');
+ $('authRetry').hidden=false;$('firstRun').hidden=true;$('go').disabled=true;
+}
+async function checkAuthConnection(){
+ const request=++authConnectionRequest;if(window.AJ_STATIC_HOST)return;
+ const previousState=authConnectionState;authConnectionState='checking';$('authConnection').hidden=false;$('authConnectionMessage').textContent='Checking this website’s database connection…';$('authLiveLink').hidden=true;$('authRetry').hidden=true;$('go').disabled=true;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+ try{
+  const response=await fetch('/api/health',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+  const data=await response.json().catch(()=>({}));if(request!==authConnectionRequest)return;
+  if(data.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();return}
+  if(!response.ok||data.databaseConnected!==true){$('authConnectionMessage').textContent='The database connection could not be verified. Sign-in may be unavailable.';}else{$('authConnection').hidden=true;}
+ }catch{if(request!==authConnectionRequest)return;$('authConnection').hidden=false;$('authConnectionMessage').textContent='Could not check the connection. Check your internet if sign-in fails.';}finally{clearTimeout(timer)}
+ if(request===authConnectionRequest){authConnectionState='unknown';$('go').disabled=false;if(previousState==='unavailable')checkFirstRun();}
+}
+const show=()=>{setAuthMode('login');m.classList.add('show');$('u').focus();checkAuthConnection()};
+$('authRetry').onclick=checkAuthConnection;
 $('togglePassword').onclick=()=>{const input=$('p');const visible=input.type==='password';input.type=visible?'text':'password';$('togglePassword').textContent=visible?'Hide password':'Show password';$('togglePassword').setAttribute('aria-pressed',String(visible));};
 ['open','start','start2'].forEach(i=>$(i).onclick=()=>{show();checkFirstRun()});$('signup-note').onclick=()=>setAuthMode(authMode==='signup'?'login':'signup');$('close').onclick=()=>m.classList.remove('show');
 document.addEventListener('keydown',e=>e.key==='Escape'&&m.classList.remove('show'));
 async function checkFirstRun(){const box=$('firstRun');if(!box)return;if(window.AJ_STATIC_HOST){box.hidden=true;return}
  try{const r=await fetch('/api/bootstrap/status',{credentials:'include'});const d=await r.json();
-  if(!d.available){box.hidden=true;return}
+  if(!d.available||authConnectionState==='unavailable'){box.hidden=true;return}
   box.hidden=false;$('firstRunText').textContent='No Administrator exists on this deployment, so nobody can reach admin features such as database repair. Normal registration only ever creates a Viewer. Create the first Administrator here — or, if you already have an account, enter its username and password to promote it. This closes permanently once an Administrator exists.';
  }catch{box.hidden=true}}
 // Only fixed app destinations may follow sign-in; never navigate to the query value itself.
@@ -217,17 +239,17 @@ window.AJNavigateAfterSignIn=()=>{switch(requestedPage){
  default:location.href='dashboard.html';
 }};
 if(returnPages.includes(requestedPage)){show();checkFirstRun()}
-$('firstRunBtn')?.addEventListener('click',async()=>{const out=$('firstRunResult'),btn=$('firstRunBtn');out.textContent='Creating…';btn.disabled=true;
+$('firstRunBtn')?.addEventListener('click',async()=>{const out=$('firstRunResult'),btn=$('firstRunBtn');if(authConnectionState==='checking'){out.textContent='Checking the connection. Please wait.';return}if(authConnectionState==='unavailable'){showDatabaseUnavailable();return}out.textContent='Creating…';btn.disabled=true;
  try{const r=await fetch('/api/bootstrap/admin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
   const d=await r.json().catch(()=>({}));
-  if(!r.ok){out.textContent=d.error||('Could not create the account ('+r.status+').');return}
+  if(!r.ok){if(d.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();return}out.textContent=d.error||('Could not create the account ('+r.status+').');return}
   out.textContent='Administrator created. Opening your application…';window.AJNavigateAfterSignIn();
  }catch(e){out.textContent='Could not reach the server: '+(e.message||e)}finally{btn.disabled=false}});
-$('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';if(window.AJ_STATIC_HOST){er.textContent='This static website copy cannot sign in by itself. Open the secure app server, or run the local preview with npm run dev. See the Setup options banner.';return}if(authMode==='signup'&&$('p').value!==$('confirm-p').value){er.textContent='Passwords do not match.';return}b.disabled=true;b.textContent=authMode==='signup'?'Creating account…':'Signing in…';
+$('f').onsubmit=async e=>{e.preventDefault();const b=$('go'),er=$('err');er.textContent='';if(window.AJ_STATIC_HOST){er.textContent='This static website copy cannot sign in by itself. Open the secure app server, or run the local preview with npm run dev. See the Setup options banner.';return}if(authConnectionState==='unavailable'){showDatabaseUnavailable();return}if(authConnectionState==='checking'){er.textContent='Checking the connection. Please wait.';return}if(authMode==='signup'&&$('p').value!==$('confirm-p').value){er.textContent='Passwords do not match.';return}b.disabled=true;b.textContent=authMode==='signup'?'Creating account…':'Signing in…';
  const base=location.origin;
  if(!location.protocol.startsWith('https:')&&!['localhost','127.0.0.1'].includes(location.hostname)&&!location.hostname.endsWith('.e2b.app')){er.textContent='Please open the secure HTTPS website to sign in.';b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in';return}
  try{const endpoint=authMode==='signup'?'/api/auth/register':'/api/auth/login';const r=await fetch(base+endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
-  const d=await r.json().catch(()=>({}));if(!r.ok){if(d.code==='DATABASE_NOT_CONFIGURED')throw new Error('The database is not connected yet. The owner must configure DATABASE_URL and apply migrations.');if(r.status===429)throw new Error(d.error||'Too many attempts. Please wait and try again.');throw new Error(d.error||((authMode==='signup'?'Registration':'Login')+' failed (HTTP '+r.status+')'));}
+  const d=await r.json().catch(()=>({}));if(!r.ok){if(d.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();b.textContent=authMode==='signup'?'Create account':'Sign in';return}if(r.status===429)throw new Error(d.error||'Too many attempts. Please wait and try again.');throw new Error(d.error||((authMode==='signup'?'Registration':'Login')+' failed (HTTP '+r.status+')'));}
   window.AJNavigateAfterSignIn()}
  catch(x){er.textContent=x.message==='Failed to fetch'?'Cannot reach the application server. Check the connection, or open the secure app / local preview.':x.message;b.disabled=false;b.textContent=authMode==='signup'?'Create account':'Sign in'}};
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});

@@ -1,4 +1,4 @@
-import { CATEGORIES, STARTERS, PROVIDERS, selectSkills, filterSkills, filterExperiences, skillPrompt } from './ai-hub-data.js?v=161';
+import { CATEGORIES, STARTERS, PROVIDERS, selectSkills, filterSkills, filterExperiences, skillPrompt } from './ai-hub-data.js?v=163';
 
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12;
@@ -51,6 +51,7 @@ function experienceCard(item) {
   for (const [label, value] of [['Input', item.input], ['Output', item.output], ['Limits', item.limit]]) list.append(element('dt', '', label), element('dd', '', value));
   details.append(summary, list);
   card.append(top, element('p', 'hub-card-eyebrow', item.eyebrow), element('h3', '', item.title), element('p', '', item.description), details, actionNode(item.action));
+  if (item.secondaryAction) card.append(actionNode(item.secondaryAction));
   return card;
 }
 

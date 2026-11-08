@@ -22,7 +22,9 @@ test('hub filters categories, explains unavailable generation, and stages an edi
   await expect(page.locator('#experienceGrid article')).toHaveCount(1);
   await expect(image).toContainText('Image generation not connected');
   await image.locator('summary').click();
-  await expect(image).toContainText('A text brief, not an image');
+  await expect(image).toContainText('An edited photo download');
+  await expect(image.getByRole('link', { name: /Open photo editor/ })).toHaveAttribute('href', 'media-studio.html#photo');
+  await expect(image.getByRole('button', { name: /Prepare an image brief/ })).toBeVisible();
   await page.getByRole('button', { name: 'Music', exact: true }).click();
   await expect(page.locator('#experienceGrid')).toContainText('Music generation not connected');
   await page.getByRole('button', { name: 'All', exact: true }).click();
@@ -166,7 +168,7 @@ test('installed shell can browse the public hub offline without caching provider
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
-  expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v162-provider-status'))).toBe(true);
+  expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v163-media-studio'))).toBe(true);
   await context.setOffline(true);
   try {
     await page.goto('/ai-hub');

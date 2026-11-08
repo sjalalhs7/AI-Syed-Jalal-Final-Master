@@ -26,6 +26,7 @@
     "@playwright/test": "1.64.1",
     "@sparticuz/chromium": "153.0.0",
     "esbuild": "0.25.12",
+    "mediabunny": "1.65.2",
     "pg": "^8.23.1"
   }
 }
