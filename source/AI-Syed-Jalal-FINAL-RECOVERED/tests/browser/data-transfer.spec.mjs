@@ -165,25 +165,175 @@ test('Data Vault paginates 201 matching records and exports all pages', async ({
   expect(exported.filter(row=>row.id.startsWith(prefix))).toHaveLength(201);
 });
 
-test('Data Operators see edit without delete, and record text cannot inject markup', async ({ page }) => {
-  test.setTimeout(90000);
+test.describe('Data Operator permissions', () => {
+  // Include browser-context setup, which can be slow after rendering 201 rows
+  // in a cold PGlite/Chromium sandbox.
+  test.describe.configure({ timeout:150000 });
+  test('Data Operators see edit without delete, and record text cannot inject markup', async ({ page }) => {
+    await workspace(page);
+    const username='operator-'+crypto.randomUUID().slice(0,8),password='Local-Only-Password123';
+    expect((await api(page,'/admin/users','POST',{username,password,role:'Data Operator'})).status).toBe(201);
+    expect((await api(page,'/auth/logout','POST',{})).status).toBe(200);
+    const login=await api(page,'/auth/login','POST',{username,password});
+    expect(login.status).toBe(200);expect(login.data.user.role).toBe('Data Operator');
+    expect((await api(page,'/me')).data.user.role).toBe('Data Operator');
+    const id='ROLE-'+crypto.randomUUID(),name='<img src=x onerror="window.transferInjection=true">';
+    expect((await api(page,'/records','POST',{id,name})).status).toBe(201);
+    await page.reload();
+    await expect(page.locator('#settingsUser')).toContainText('Data Operator');
+    const row=page.locator('#dataBody tr').filter({hasText:id});
+    await expect(row).toContainText(name);
+    await expect(row.locator('img')).toHaveCount(0);
+    await expect(row.getByRole('button',{name:'Edit'})).toBeVisible();
+    await expect(row.getByRole('button',{name:'Delete'})).toHaveCount(0);
+    expect(await page.evaluate(()=>window.transferInjection)).toBeUndefined();
+  });
+});
+
+test('editing another field preserves custom statuses and unchanged CRLF values', async ({ page }) => {
+  test.setTimeout(120000);
   await workspace(page);
-  const username='operator-'+crypto.randomUUID().slice(0,8),password='Local-Only-Password123';
-  expect((await api(page,'/admin/users','POST',{username,password,role:'Data Operator'})).status).toBe(201);
-  expect((await api(page,'/auth/logout','POST',{})).status).toBe(200);
-  const login=await api(page,'/auth/login','POST',{username,password});
-  expect(login.status).toBe(200);expect(login.data.user.role).toBe('Data Operator');
-  expect((await api(page,'/me')).data.user.role).toBe('Data Operator');
-  const id='ROLE-'+crypto.randomUUID(),name='<img src=x onerror="window.transferInjection=true">';
-  expect((await api(page,'/records','POST',{id,name})).status).toBe(201);
+  const original={id:'EDIT-'+crypto.randomUUID(),name:'  Preserve name  ',region:'',sector:'',status:'Special review',notes:'  first\r\nsecond  '};
+  expect((await api(page,'/records','POST',original)).status).toBe(201);
   await page.reload();
-  await expect(page.locator('#settingsUser')).toContainText('Data Operator');
+  const row=page.locator('#dataBody tr').filter({hasText:original.id});
+  await row.getByRole('button',{name:'Edit'}).click();
+  await expect(page.locator('#fStatus')).toHaveValue(original.status);
+  await expect(page.locator('#fNotes')).toHaveValue('  first\nsecond  ');
+  await page.locator('#fRegion').fill('North');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  const result=await api(page,'/records/'+original.id);
+  expect(result.data.record).toMatchObject({...original,region:'North'});
+});
+
+test('an installed worker with an old transfer helper still loads the new editor helper', async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto('/');await page.evaluate(()=>navigator.serviceWorker.ready);
+  await expect.poll(()=>page.evaluate(()=>Boolean(navigator.serviceWorker.controller)),{timeout:20000}).toBe(true);
+  await page.evaluate(async()=>{
+    // Simulate a previously installed v164 module without normalizeRecordPatch.
+    const cache=await caches.open('aj-v163-media-studio');
+    await cache.put('/assets/records-transfer.js?v=164',new Response('export function normalizeRecords() {}',{headers:{'Content-Type':'text/javascript'}}));
+  });
+  await workspace(page);
+  const id='CACHE-'+crypto.randomUUID();
+  expect((await api(page,'/records','POST',{id,name:'Cached helper test',region:'Old'})).status).toBe(201);
+  await page.reload();
+  await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Edit'}).click();
+  await page.locator('#fRegion').fill('New');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  expect((await api(page,'/records/'+id)).data.record.region).toBe('New');
+});
+
+test('individual edits reject concurrent changes and submit only changed fields', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const original={id:'CONCURRENT-'+crypto.randomUUID(),name:'Local test',region:'Old',notes:'Original'};
+  expect((await api(page,'/records','POST',original)).status).toBe(201);
+  await page.reload();
+  const row=page.locator('#dataBody tr').filter({hasText:original.id});
+  await row.getByRole('button',{name:'Edit'}).click();
+  expect((await api(page,'/records/'+original.id,'PUT',{notes:'Updated concurrently'})).status).toBe(200);
+  const payloads=[];
+  page.on('request',request=>{if(request.method()==='PUT'&&request.url().endsWith('/api/records/'+original.id))payloads.push(request.postDataJSON())});
+  await page.locator('#fRegion').fill('New');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#recordFormStatus')).toContainText('your edit was not saved');
+  expect((await api(page,'/records/'+original.id)).data.record).toMatchObject({region:'Old',notes:'Updated concurrently'});
+  expect(payloads).toHaveLength(1);expect(payloads[0]).toMatchObject({region:'New'});
+  expect(Object.keys(payloads[0]).sort()).toEqual(['expectedVersion','region']);
+  expect(payloads[0].expectedVersion).toMatch(/^\d+$/);
+  await page.locator('#closeModal').click();
+  await row.getByRole('button',{name:'Edit'}).click();
+  await expect(page.locator('#fNotes')).toHaveValue('Updated concurrently');
+  await page.locator('#fRegion').fill('New');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  expect((await api(page,'/records/'+original.id)).data.record).toMatchObject({region:'New',notes:'Updated concurrently'});
+  expect(payloads).toHaveLength(2);expect(payloads[1].expectedVersion).not.toBe(payloads[0].expectedVersion);
+  await page.locator('#dataBody tr').filter({hasText:original.id}).getByRole('button',{name:'Edit'}).click();
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toHaveText('No changes to save.');
+  expect(payloads).toHaveLength(2);
+});
+
+test('central edit does not open when its row version cannot be verified', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const id='NO-VERSION-'+crypto.randomUUID();
+  expect((await api(page,'/records','POST',{id,name:'Version check'})).status).toBe(201);
+  await page.reload();
+  let writes=0;
+  page.on('request',request=>{if(request.method()==='PUT'&&request.url().endsWith('/api/records/'+id))writes++});
+  await page.route('**/api/records/'+id,route=>route.fulfill({json:{record:{id,name:'Version check',region:'',sector:'',status:'Active',notes:''}}}));
+  await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Edit'}).click();
+  await expect(page.locator('#toast')).toContainText('Cannot verify this record version');
+  await expect(page.locator('#modal')).toHaveClass(/hidden/);
+  expect(writes).toBe(0);
+});
+
+test('local individual edits preserve newer untouched fields in one transaction', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const id='LOCAL-'+crypto.randomUUID();
+  await page.evaluate(async id=>{
+    state.apiUrl='';
+    const transaction=db.transaction(STORE,'readwrite');
+    transaction.objectStore(STORE).add({id,name:'Local record',region:'Old',sector:'',status:'Custom',notes:'first\r\nsecond'});
+    await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)});
+    nav('data');
+  },id);
   const row=page.locator('#dataBody tr').filter({hasText:id});
-  await expect(row).toContainText(name);
-  await expect(row.locator('img')).toHaveCount(0);
-  await expect(row.getByRole('button',{name:'Edit'})).toBeVisible();
-  await expect(row.getByRole('button',{name:'Delete'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.transferInjection)).toBeUndefined();
+  await row.getByRole('button',{name:'Edit'}).click();
+  await expect(page.locator('#fNotes')).toHaveValue('first\nsecond');
+  await page.evaluate(async id=>{
+    const transaction=db.transaction(STORE,'readwrite'),store=transaction.objectStore(STORE),get=store.get(id);
+    get.onsuccess=()=>store.put({...get.result,notes:'Changed in another tab'});
+    await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)});
+  },id);
+  await page.locator('#fRegion').fill('New');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  const saved=await page.evaluate(id=>new Promise((resolve,reject)=>{const request=db.transaction(STORE).objectStore(STORE).get(id);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)}),id);
+  expect(saved).toMatchObject({id,region:'New',status:'Custom',notes:'Changed in another tab'});
+});
+
+test('a lost single-record save response is uncertain and not retried automatically', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  let calls=0;
+  await page.route('**/api/records',route=>{
+    if(route.request().method()==='POST'){calls++;return route.abort('failed')}
+    return route.continue();
+  });
+  await page.locator('#addBtn').click();
+  await page.locator('#fName').fill('Local test name');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#recordFormStatus')).toContainText('Save could not be confirmed');
+  await expect(page.locator('#recordFormStatus')).toContainText('before retrying');
+  expect(calls).toBe(1);
+  await expect(page.locator('#recordForm button[type="submit"]')).toBeEnabled();
+});
+
+test('a lost single-record deletion response is uncertain and not retried automatically', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const id='DELETE-'+crypto.randomUUID();
+  expect((await api(page,'/records','POST',{id,name:'Local test'})).status).toBe(201);
+  await page.reload();
+  let calls=0;
+  await page.route('**/api/records/**',route=>{
+    if(route.request().method()==='DELETE'){calls++;return route.abort('failed')}
+    return route.continue();
+  });
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Delete'}).click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Deletion could not be confirmed');
+  await expect(page.locator('#dataImportStatus')).toContainText('before retrying');
+  expect(calls).toBe(1);
+  expect((await api(page,'/records/'+id)).status).toBe(200);
 });
 
 test('a lost merge response is reported as uncertain and is not retried', async ({ page }) => {

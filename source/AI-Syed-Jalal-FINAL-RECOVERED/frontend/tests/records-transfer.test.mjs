@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRecordsCsv, normalizeRecords, prepareRecordsExport, recordsToCsv, recordBatches, MAX_BATCH_BYTES, MAX_TRANSFER_FILE_BYTES } from '../assets/records-transfer.js';
+import { parseRecordsCsv, normalizeRecords, normalizeRecordPatch, prepareRecordsExport, recordsToCsv, recordBatches, MAX_BATCH_BYTES, MAX_TRANSFER_FILE_BYTES } from '../assets/records-transfer.js';
 
 test('CSV preserves commas, quotes, CRLF and embedded newlines through an export/import', () => {
   const source = [{ id:'AJ-1', name:'Jalal, "Ali"', region:'Punjab', sector:'R&D', status:'Active', notes:'first line\r\nsecond, "quoted"\nlast line' }];
@@ -43,6 +43,14 @@ test('normalization rejects duplicate IDs, overlong fields and invalid text rath
   assert.throws(() => normalizeRecords([{ name:'A', region:{ private:'data' } }]), /must be text/);
   assert.throws(() => normalizeRecords([{ id:'   ', name:'A' }]), /requires an id/);
   assert.deepEqual(normalizeRecords([{ name:'  A  ', id:' id ', status:'', notes:'  keep  ' }]), [{ id:' id ', name:'  A  ', region:'', sector:'', status:'', notes:'  keep  ' }]);
+});
+
+test('record patches validate changed fields while leaving omitted or null fields untouched', () => {
+  assert.deepEqual(normalizeRecordPatch({ notes:'  line\nnext  ', status:'' }), { name:null, region:null, sector:null, status:'', notes:'  line\nnext  ' });
+  assert.deepEqual(normalizeRecordPatch({ name:null, region:'North' }), { name:null, region:'North', sector:null, status:null, notes:null });
+  assert.throws(() => normalizeRecordPatch({ name:'   ' }), /requires a name/);
+  assert.throws(() => normalizeRecordPatch({ notes:'x'.repeat(10001) }), /notes exceeds/);
+  assert.throws(() => normalizeRecordPatch({ region:{ nested:'invalid' } }), /must be text/);
 });
 
 test('records exports reject invalid envelopes and warn when they cannot be merged here', () => {
