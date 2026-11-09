@@ -8,6 +8,7 @@ Canonical production origin: `https://ai-syed-jalal-live.pages.dev/`.
 - The public AI Hub and local Media Studio can be indexed. The editor processes selected files locally; indexing a public editor page does not publish a user's selected media.
 - Public pages contain descriptions, Open Graph and Twitter card metadata pointing to the existing 1200×630 social image. These control supported social previews, not search ranking guarantees.
 - `llms.txt` is a short, truthful guide for compatible AI agents. It is not a Google Search ranking signal and does not ensure that any AI service will use the file. See [Google's AI optimization guide](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide).
+- A public IndexNow verification text file is included at `/203b7f5d68c6330147a1951dd4a06b29.txt`. It can be used to notify participating search engines about public URLs after it is deployed. This file is public website-verification material, not a database, Cloudflare or account credential. Do not submit private `noindex` application pages. The file alone does not prove that a notification was sent, a webmaster account was verified, or any page was indexed. Even an accepted notification is not an indexing or ranking guarantee. See the [IndexNow protocol](https://www.indexnow.org/documentation).
 
 ## Account-dependent status
 

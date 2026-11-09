@@ -179,7 +179,40 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 @media(max-width:620px){.aj-voice-label{display:none}.aj-voice-choice{max-width:145px;min-width:90px;flex:1}}
 @media(prefers-reduced-motion:reduce){.btn,.icon-btn,.aj-row button,.aj-row label,.aj-voice-choice{transition:none}.aj-theme-ripple{animation:none;display:none}}
 </style>
-<link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="workspace" defer></script><link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
+<link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="workspace" defer></script><link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script>
+<style id="workspace-responsive-actions">
+/* Links were inline, so their padded button backgrounds overlapped when they
+   wrapped. Let each action occupy a real, touch-sized box at every width. */
+.local-assistant-actions{display:flex;flex-wrap:wrap;gap:9px}
+.local-assistant-actions>.btn{display:inline-flex;align-items:center;justify-content:center;flex:1 1 160px;min-width:0;min-height:44px;max-width:100%;line-height:1.35;text-align:center;text-decoration:none;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:780px){
+  /* A perspective on the root makes fixed controls follow the document rather
+     than the phone viewport. Individual 3D effects still have their own transforms. */
+  html{perspective:none}
+  body.aj-workspace{--aj-dock-max:45vh}
+  .topbar{gap:8px}.brand{flex:1 1 auto;min-width:0}.brand strong{font-size:14px}
+  .top-actions{flex:0 0 auto;gap:6px}
+  /* The legacy mobile rule hid every non-primary action, including Exit. */
+  .top-actions .btn.logout-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px}
+  .mobile-nav{grid-template-columns:repeat(5,minmax(0,1fr));bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .mobile-nav button{min-height:44px}
+  html[data-aj-theme] .topbar .brand strong{background:none;color:var(--aj-ink);-webkit-text-fill-color:currentColor}
+  html[data-aj-theme] .mobile-nav button{color:var(--aj-ink)}
+  html[data-aj-theme] .mobile-nav button.active{color:var(--aj-ink);background:var(--aj-soft);font-weight:800;box-shadow:inset 0 0 0 1px var(--aj-line)}
+  /* Keep welcome, theme and chat controls in separate touchable areas. */
+  body.aj-workspace .aj-theme-studio{left:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+  body.aj-workspace .aj-welcome-notice{bottom:calc(140px + env(safe-area-inset-bottom,0px));max-height:min(480px,max(44px,calc(100vh - 220px - env(safe-area-inset-bottom,0px))))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-studio{left:auto;right:12px;bottom:calc(var(--aj-dock-max) + 86px + env(safe-area-inset-bottom,0px))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-menu{max-height:max(100px,calc(100vh - var(--aj-dock-max) - 222px - env(safe-area-inset-bottom,0px)))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-welcome-notice{bottom:calc(var(--aj-dock-max) + 142px + env(safe-area-inset-bottom,0px));max-height:min(480px,max(44px,calc(100vh - var(--aj-dock-max) - 222px - env(safe-area-inset-bottom,0px))))}
+}
+@media(max-width:780px) and (max-height:500px){
+  /* Landscape phones need a shorter, scrollable composer and a menu that
+     opens inside the visible screen instead of above its top edge. */
+  body.aj-workspace{--aj-dock-max:max(56px,calc(100vh - 210px - env(safe-area-inset-bottom,0px)))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-menu{position:fixed;top:68px;left:12px;right:12px;width:auto;max-height:max(80px,calc(100vh - 154px - env(safe-area-inset-bottom,0px)));margin:0}
+}
+</style></head>
 <body class="aj-workspace" data-final-ui="v56-complete-motion">
 <!-- Historical compatibility markers: AL-SYED JALAL AI / Mission Command Center / LIVE PRODUCTION / DEMO MODE. Current UI is the active presentation. -->
 
@@ -259,7 +292,7 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 <div class="hero"><div><div class="eyebrow">Verified workspace tools</div><h1>Choose a working tool.</h1><p>Only connected workflows and useful local utilities are listed here. Demo missions and sample metrics have been removed.</p></div></div>
 <div class="grid g2">
 <div class="card"><h3>AI Workspace</h3><p class="muted">Send prompts to the configured AI provider. Provider availability is shown in the workspace.</p><button class="btn primary" data-nav="ai-command">Open AI Workspace →</button></div>
-<div class="card"><h3>JalalAi · Local Assistant</h3><p class="muted">Calculate, plan, review and organize private tasks and notes. Optional voice and cloud AI are clearly labeled. OpenJarvis desktop control is not connected.</p><a class="btn primary" href="jarvis.html">Open JARVIS voice console →</a> <a class="btn primary" href="agent.html">Open Agent Studio →</a> <a class="btn" href="jalalai.html">JalalAi</a> <a class="btn" href="guide.html">Start here / Help</a></div>
+<div class="card"><h3>JalalAi · Local Assistant</h3><p class="muted">Calculate, plan, review and organize private tasks and notes. Optional voice and cloud AI are clearly labeled. OpenJarvis desktop control is not connected.</p><div class="local-assistant-actions" role="group" aria-label="Local assistant tools"><a class="btn primary" href="jarvis.html">Open JARVIS voice console →</a><a class="btn primary" href="agent.html">Open Agent Studio →</a><a class="btn" href="jalalai.html">JalalAi</a><a class="btn" href="guide.html">Start here / Help</a></div></div>
 <div class="card"><h3>Data Vault</h3><p class="muted">Search and export central records. Create, edit and import permissions depend on your account role.</p><button class="btn" data-nav="data">Open Data Vault →</button><div class="muted" style="margin-top:8px">Records: <b id="statRecords">—</b></div></div>
 <div class="card"><h3>Print Studio</h3><p class="muted">Prepare and print an A4 verification sheet in this browser. Print output is not stored in the central database.</p><button class="btn" data-nav="documents">Open Print Studio →</button></div>
 <div class="card"><h3>Operations Center</h3><p class="muted">Live service, database, permissions, integrity, backup and recovery checks. Admin access required.</p><button class="btn" data-nav="operations">Open Operations →</button></div>
@@ -331,11 +364,18 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 body:has(#ajDockToggle[aria-expanded="false"]) #view-data{padding-bottom:12px}
 #ajUniversalDock{position:fixed;z-index:9998;right:18px;bottom:18px;width:min(430px,calc(100vw - 24px));max-height:54vh;overflow:auto;background:rgba(5,14,28,.97);border:1px solid #47718f;border-radius:18px;box-shadow:0 12px 48px #0009;padding:12px;color:#eef6ff;backdrop-filter:blur(18px)}
 #ajUniversalDock textarea{box-sizing:border-box;width:100%;resize:vertical;min-height:62px;max-height:150px;background:#081323;color:#fff;border:1px solid #38536b;border-radius:10px;padding:10px;font:inherit}
+#ajDockBody[hidden]{display:none}
 #ajUniversalDock .aj-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}#ajUniversalDock button,#ajUniversalDock label{font:inherit;font-size:12px;padding:8px 10px;border:1px solid #42647e;border-radius:9px;background:#10263b;color:#eef6ff;cursor:pointer}#ajUniversalDock button:disabled{opacity:.5;cursor:wait}#ajUniversalDock #ajDockReply{white-space:pre-wrap;overflow-wrap:anywhere;max-height:130px;overflow:auto;margin-top:8px;font-size:13px}#ajDockFiles{max-width:100%;font-size:11px}#ajDockStatus{font-size:11px;color:#a9c2d5;display:block;margin-top:6px}
-@media(max-width:650px){#ajUniversalDock{right:8px;bottom:76px;width:calc(100vw - 16px);max-height:45vh;padding:10px}#ajUniversalDock textarea{min-height:48px}#view-data{padding-bottom:calc(45vh + 90px)}.data-pagination{scroll-margin-bottom:calc(45vh + 90px)}}
+@media(max-width:780px){
+ #ajUniversalDock{right:8px;bottom:calc(76px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px);max-height:var(--aj-dock-max,45vh);padding:10px}
+ #ajUniversalDock.is-collapsed{width:auto;padding:5px}
+ #ajUniversalDock.is-collapsed .aj-dock-title,#ajUniversalDock.is-collapsed [data-ai-report-open]{display:none}
+ #ajUniversalDock.is-collapsed #ajDockToggle{min-height:44px}
+ #ajUniversalDock textarea{min-height:48px}#view-data{padding-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}.data-pagination{scroll-margin-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 <aside id="ajUniversalDock" aria-label="Universal AI chat">
- <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong>✦ Ask AI · Available everywhere</strong><div style="display:flex;gap:4px"><button type="button" data-ai-report-open data-ai-report-target="ajDockReply">Report</button><button type="button" id="ajDockToggle" aria-expanded="true">Minimize −</button></div></div>
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong class="aj-dock-title">✦ Ask AI · Available everywhere</strong><div style="display:flex;gap:4px"><button type="button" data-ai-report-open data-ai-report-target="ajDockReply">Report</button><button type="button" id="ajDockToggle" aria-controls="ajDockBody" aria-expanded="true">Minimize −</button></div></div>
  <div id="ajDockBody"><form id="ajDockForm"><textarea id="ajDockInput" maxlength="12000" required placeholder="Type your message, ask about a photo, or use voice…"></textarea>
  <div class="aj-row"><button type="button" id="ajDockMic">🎙️ Speak</button><button type="button" id="ajDockPermission">Allow microphone</button><label for="ajDockFiles">📎 Add photo/files</label><input id="ajDockFiles" type="file" accept="image/*,.txt,.md,.csv,.json,.log" multiple><label class="aj-voice-label" for="ajVoiceChoice">Voice</label><select id="ajVoiceChoice" data-aj-voice class="aj-voice-choice" aria-label="Choose speech voice"><option value="">System default</option></select><button type="button" id="ajDockRead">🔊 Read reply</button><button type="button" id="ajDockStop">Stop</button><button type="submit" id="ajDockSend">Send ➤</button></div></form>
  <small id="ajDockStatus">Local tools work without a key after sign-in. Cloud AI is selected in AI Command. Attachments are not processed by this dock. <a href="jalalai.html" style="color:#79def3">Open full assistant</a>.</small><div id="ajDockReply" role="status" aria-live="polite"></div></div>
@@ -920,7 +960,20 @@ window.workspaceReady.catch(()=>{});
 // One shared authenticated composer for every workspace view/agent.
 const ajDock=$('#ajUniversalDock'),ajDockBody=$('#ajDockBody'),ajDockInput=$('#ajDockInput'),ajDockFiles=$('#ajDockFiles'),ajDockStatus=$('#ajDockStatus'),ajDockReply=$('#ajDockReply'),ajDockSend=$('#ajDockSend');
 let ajDockLastReply='';
-$('#ajDockToggle')?.addEventListener('click',()=>{const hidden=ajDockBody.style.display==='none';ajDockBody.style.display=hidden?'block':'none';$('#ajDockToggle').textContent=hidden?'Minimize −':'Open chat +';$('#ajDockToggle').setAttribute('aria-expanded',String(hidden))});
+// Keep the assistant available without covering half the phone screen. A
+// touch user can open it at any time; desktop keeps its existing default.
+const ajDockToggle=$('#ajDockToggle'),ajDockCompact=window.matchMedia?.('(max-width: 780px), (pointer: coarse)');
+let ajDockChangedByUser=false;
+function setDockExpanded(expanded){ajDockBody.hidden=!expanded;ajDock.classList.toggle('is-collapsed',!expanded);ajDockToggle.textContent=expanded?'Minimize −':'Open chat +';ajDockToggle.setAttribute('aria-expanded',String(expanded))}
+setDockExpanded(!ajDockCompact?.matches);
+ajDockToggle?.addEventListener('click',()=>{
+ const expanding=ajDockBody.hidden;
+ // As with starting another assistant, opening phone chat stops the greeting
+ // rather than leaving a second floating panel in the user's way.
+ if(expanding&&ajDockCompact?.matches)window.AJWelcome?.interruptForAssistant();
+ ajDockChangedByUser=true;setDockExpanded(expanding);
+});
+ajDockCompact?.addEventListener?.('change',event=>{if(!ajDockChangedByUser)setDockExpanded(!event.matches)});
 $('#ajDockPermission')?.addEventListener('click',async()=>{if(!navigator.mediaDevices?.getUserMedia){ajDockStatus.textContent='Microphone permission is unavailable in this browser. Use typing or browser settings.';return}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});stream.getTracks().forEach(t=>t.stop());ajDockStatus.textContent='Microphone permission granted by your browser. Tap Speak to dictate a message.'}catch(err){ajDockStatus.textContent='Microphone permission not granted ('+(err.name||'blocked')+'). Allow it in your browser/site settings or continue by typing.'}});
 $('#ajDockMic')?.addEventListener('click',()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){ajDockStatus.textContent='Speech-to-text is not supported in this browser. You can still type and send messages.';return}try{const r=new SR();r.lang=navigator.language||'en-US';r.interimResults=false;r.maxAlternatives=1;$('#ajDockMic').disabled=true;$('#ajDockMic').textContent='Listening…';r.onresult=e=>{const s=e.results?.[0]?.[0]?.transcript||'';ajDockInput.value=(ajDockInput.value.trim()?ajDockInput.value.trim()+' ':'')+s;ajDockInput.focus()};r.onerror=e=>{ajDockStatus.textContent='Voice input issue: '+(e.error||'permission denied')+'. You can type instead.'};r.onend=()=>{$('#ajDockMic').disabled=false;$('#ajDockMic').textContent='🎙️ Speak'};r.start()}catch(e){$('#ajDockMic').disabled=false;$('#ajDockMic').textContent='🎙️ Speak';ajDockStatus.textContent='Could not start voice input. Check microphone permission.'}});
 $('#ajDockRead')?.addEventListener('click',()=>{if(!ajDockLastReply){ajDockStatus.textContent='First send a message so there is a reply to read aloud.';return}if(!window.speechSynthesis){ajDockStatus.textContent='Speech playback is not supported here.';return}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(ajDockLastReply);u.lang=navigator.language||'en-US';if(window.AJSpeech)window.AJSpeech.apply(u,{lang:navigator.language});window.speechSynthesis.speak(u)});

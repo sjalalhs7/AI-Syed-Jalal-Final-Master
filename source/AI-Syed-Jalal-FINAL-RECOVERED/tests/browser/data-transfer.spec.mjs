@@ -156,9 +156,13 @@ test('Data Vault paginates 201 matching records and exports all pages', async ({
   await expect(page.locator('#nextPage')).toBeDisabled();
   await page.locator('#prevPage').click();
   await expect(page.locator('#pageInfo')).toHaveText('201 records · page 2/3');
-  // The open floating chat must not hide page controls on a phone-sized screen.
+  // Phone chat starts compact; explicitly open it so this still verifies that
+  // the expanded floating chat does not hide the pagination controls.
   await page.setViewportSize({width:390,height:844});
-  await page.locator('#nextPage').click();
+  const dockToggle = page.locator('#ajDockToggle');
+  if (await dockToggle.getAttribute('aria-expanded') !== 'true') await dockToggle.click({timeout:10000});
+  await expect(dockToggle).toHaveAttribute('aria-expanded', 'true');
+  await page.locator('#nextPage').click({timeout:10000});
   await expect(page.locator('#pageInfo')).toHaveText('201 records · page 3/3');
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportBtn').click()]);
   const exported=JSON.parse(await readFile(await download.path(),'utf8'));

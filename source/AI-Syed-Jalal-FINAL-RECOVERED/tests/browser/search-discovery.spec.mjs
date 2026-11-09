@@ -41,6 +41,16 @@ test('robots and llms.txt are served as text without exposing private applicatio
   }
 });
 
+test('the public IndexNow verification file is served as plain text', async ({ request }) => {
+  // This is a public site-ownership proof for URL notifications, not a cloud,
+  // database or account credential. Its presence does not prove submission.
+  const key = '203b7f5d68c6330147a1951dd4a06b29';
+  const response = await request.get('/' + key + '.txt');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toContain('text/plain');
+  expect((await response.text()).trim()).toBe(key);
+});
+
 test('the public JARVIS overview opens the noindex assistant', async ({ page }) => {
   await page.goto('/about-jarvis');
   await expect(page.getByRole('heading', { name: /Meet JARVIS/i })).toBeVisible();
