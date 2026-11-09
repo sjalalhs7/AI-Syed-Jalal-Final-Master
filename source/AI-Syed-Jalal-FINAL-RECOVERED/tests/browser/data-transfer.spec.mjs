@@ -165,27 +165,29 @@ test('Data Vault paginates 201 matching records and exports all pages', async ({
   expect(exported.filter(row=>row.id.startsWith(prefix))).toHaveLength(201);
 });
 
-test('Data Operators see edit without delete, and record text cannot inject markup', async ({ page }) => {
-  // This journey creates and signs in a second account after the pagination
-  // test; cold PGlite/Chromium sandboxes can take longer to start it.
-  test.setTimeout(150000);
-  await workspace(page);
-  const username='operator-'+crypto.randomUUID().slice(0,8),password='Local-Only-Password123';
-  expect((await api(page,'/admin/users','POST',{username,password,role:'Data Operator'})).status).toBe(201);
-  expect((await api(page,'/auth/logout','POST',{})).status).toBe(200);
-  const login=await api(page,'/auth/login','POST',{username,password});
-  expect(login.status).toBe(200);expect(login.data.user.role).toBe('Data Operator');
-  expect((await api(page,'/me')).data.user.role).toBe('Data Operator');
-  const id='ROLE-'+crypto.randomUUID(),name='<img src=x onerror="window.transferInjection=true">';
-  expect((await api(page,'/records','POST',{id,name})).status).toBe(201);
-  await page.reload();
-  await expect(page.locator('#settingsUser')).toContainText('Data Operator');
-  const row=page.locator('#dataBody tr').filter({hasText:id});
-  await expect(row).toContainText(name);
-  await expect(row.locator('img')).toHaveCount(0);
-  await expect(row.getByRole('button',{name:'Edit'})).toBeVisible();
-  await expect(row.getByRole('button',{name:'Delete'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.transferInjection)).toBeUndefined();
+test.describe('Data Operator permissions', () => {
+  // Include browser-context setup, which can be slow after rendering 201 rows
+  // in a cold PGlite/Chromium sandbox.
+  test.describe.configure({ timeout:150000 });
+  test('Data Operators see edit without delete, and record text cannot inject markup', async ({ page }) => {
+    await workspace(page);
+    const username='operator-'+crypto.randomUUID().slice(0,8),password='Local-Only-Password123';
+    expect((await api(page,'/admin/users','POST',{username,password,role:'Data Operator'})).status).toBe(201);
+    expect((await api(page,'/auth/logout','POST',{})).status).toBe(200);
+    const login=await api(page,'/auth/login','POST',{username,password});
+    expect(login.status).toBe(200);expect(login.data.user.role).toBe('Data Operator');
+    expect((await api(page,'/me')).data.user.role).toBe('Data Operator');
+    const id='ROLE-'+crypto.randomUUID(),name='<img src=x onerror="window.transferInjection=true">';
+    expect((await api(page,'/records','POST',{id,name})).status).toBe(201);
+    await page.reload();
+    await expect(page.locator('#settingsUser')).toContainText('Data Operator');
+    const row=page.locator('#dataBody tr').filter({hasText:id});
+    await expect(row).toContainText(name);
+    await expect(row.locator('img')).toHaveCount(0);
+    await expect(row.getByRole('button',{name:'Edit'})).toBeVisible();
+    await expect(row.getByRole('button',{name:'Delete'})).toHaveCount(0);
+    expect(await page.evaluate(()=>window.transferInjection)).toBeUndefined();
+  });
 });
 
 test('editing another field preserves custom statuses and unchanged CRLF values', async ({ page }) => {
