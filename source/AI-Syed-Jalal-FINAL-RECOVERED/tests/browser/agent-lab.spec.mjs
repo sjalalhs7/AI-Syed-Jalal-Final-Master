@@ -68,3 +68,16 @@ test('Agent Lab: static host is honest and cannot run checks', async ({ page }) 
   await expect(page.locator('#skillQuery')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('Agent Lab discloses test writes and uncertain results after a lost response', async ({ page }) => {
+  await page.goto('/agent-lab.html');
+  await expect(page.locator('#selfCheckEffects')).toContainText('create, read and delete a test audit entry');
+  await expect(page.locator('#selfCheckEffects')).toContainText('may leave a test entry');
+  await expect(page.locator('.honesty')).toContainText('columns and data are not checked');
+  await page.getByRole('button', { name: 'Try the local preview' }).click();
+  await expect(page.locator('#runStatus')).toContainText('Ready · signed in');
+  await page.route('**/api/agent/self-check', route => route.fulfill({ status: 500, json: { error: 'Request interrupted' } }));
+  await page.locator('#runBtn').click();
+  await expect(page.locator('#runStatus')).toContainText('response could not be confirmed');
+  await expect(page.locator('#runStatus')).toContainText('may still have run or been stored');
+});

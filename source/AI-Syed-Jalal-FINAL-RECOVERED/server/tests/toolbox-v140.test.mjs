@@ -134,7 +134,8 @@ test('a failing tool is reported as a failure, never smoothed into an answer', a
   const run = await runAgent({ prompt: 'show my open tasks', db: broken, me, env: {} });
   const tasks = run.steps.find(step => step.tool === 'tasks');
   assert.equal(tasks.ok, false);
-  assert.match(tasks.observation, /database is unreachable/);
+  assert.match(tasks.observation, /Account data could not be read/);
+  assert.doesNotMatch(tasks.observation, /database is unreachable/);
   assert.equal(run.trace.failures, 1);
   assert.match(run.output, /FAILED/);
 });

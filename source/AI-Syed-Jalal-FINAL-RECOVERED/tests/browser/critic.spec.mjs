@@ -103,3 +103,38 @@ test('the architecture record names what merged, what stayed separate and what r
   expect(body).toContain('assets/jarvis.js');
   await expect(page.locator('.finding').first()).toBeVisible();
 });
+
+test('Expert Critic distinguishes missing evidence, uncertain storage and a lost response', async ({ page }) => {
+  await page.route('**/api/me', route => route.fulfill({ json: { authenticated: true, csrfToken: 'test-token', user: { username: 'tester' } } }));
+  await page.route('**/api/assistant/critic/reviews', route => route.fulfill({ json: { reviews: [] } }));
+  let posts = 0;
+  await page.route('**/api/assistant/critic/review', async route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { review: null } });
+    posts++;
+    if (posts === 1) return route.fulfill({ status: 503, json: { code: 'CRITIC_EVIDENCE_UNAVAILABLE', error: 'The review could not read its database evidence.' } });
+    if (posts === 3) return route.fulfill({ status: 500, json: { error: 'An internal error occurred.' } });
+    return route.fulfill({ json: {
+      ok: true, id: posts === 4 ? 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' : null,
+      storageStatus: posts === 4 ? 'confirmed' : 'unconfirmed',
+      durationMs: 12, score: 0, verdict: 'not-ready', engine: 'sj-expert-critic', simulated: false,
+      findings: [], dimensions: [], weakest: [], counts: {}, generated: { summary: 'Limited evidence.' }
+    } });
+  });
+  await page.goto('/critic.html');
+  await expect(page.locator('#runState')).toContainText('No review stored yet');
+  const run = page.locator('#runBtn');
+  await run.click();
+  await expect(page.locator('#runState')).toContainText('Review failed');
+  await expect(page.locator('#runMessage')).toContainText('could not read its database evidence');
+
+  await run.click();
+  await expect(page.locator('#runMessage')).toContainText(/storage could not be confirmed/i);
+  await expect(page.locator('#runMessage')).not.toContainText('not stored');
+
+  await run.click();
+  await expect(page.locator('#runState')).toContainText('outcome unconfirmed');
+  await expect(page.locator('#runMessage')).toContainText('may have been stored');
+
+  await run.click();
+  await expect(page.locator('#runMessage')).toContainText('Stored as aaaaaaaa');
+});

@@ -14,7 +14,7 @@
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
     const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal: options.signal || AbortSignal.timeout(45000) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
+    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; error.code = data.code; throw error; }
     return data;
   }
 
@@ -135,14 +135,18 @@
     try {
       const data = await api('/assistant/critic/review', { method: 'POST', body: '{}' });
       setState(`Reviewed · ${data.findings.length} finding(s)`, data.verdict);
-      message(`Review ${data.id ? 'stored as ' + data.id.slice(0, 8) : 'produced (not stored)'} in ${data.durationMs} ms. ${data.simulated === false ? 'Deterministic engine, no model call.' : ''}`);
+      const storage = data.id ? `Stored as ${data.id.slice(0, 8)}.`
+        : 'Storage could not be confirmed. Check history when available before rerunning.';
+      message(`Review produced in ${data.durationMs} ms. ${storage} ${data.simulated === false ? 'Deterministic engine, no model call.' : ''}`);
       show(data);
       loadHistory();
     } catch (error) {
-      setState('Review failed', 'bad');
+      const rejected = error.status === 401 || error.status === 429 || error.code === 'CRITIC_EVIDENCE_UNAVAILABLE';
+      setState(rejected ? 'Review failed' : 'Review outcome unconfirmed', rejected ? 'bad' : 'warn');
       message(error.status === 401 ? 'Sign in to run a review. Storage also requires the review table to be available.'
         : error.status === 429 ? 'Reviews are rate limited. Wait a minute and run it again.'
-        : error.message);
+        : error.code === 'CRITIC_EVIDENCE_UNAVAILABLE' ? error.message
+        : 'The review response could not be confirmed. It may have been stored; check history when available before rerunning.');
     } finally {
       $('runBtn').disabled = false;
     }

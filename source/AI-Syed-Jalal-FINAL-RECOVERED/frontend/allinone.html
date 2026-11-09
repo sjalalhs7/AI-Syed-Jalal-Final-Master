@@ -23,16 +23,17 @@
 <div class="login-banner" id="loginBanner" hidden><p id="loginMessage">Sign in to use the panel.</p><div class="composer-row"><a class="btn small" href="index.html">Account sign in</a><button class="btn small primary" id="demoBtn" type="button" hidden>Try the local preview</button></div></div>
 
 <section class="panel composer-panel" aria-labelledby="askTitle">
-  <header class="panel-head"><h2 id="askTitle">Your request</h2><small id="routeHint">Routing is deterministic and shown before you send.</small></header>
+  <header class="panel-head"><h2 id="askTitle">Your request</h2><small id="routeHint">Preview routing sends this text to the app only when you tap Preview.</small></header>
   <form id="askForm">
     <label for="prompt" class="sr-only">Your request</label>
     <textarea id="prompt" rows="3" maxlength="4000" placeholder="e.g. calculate (1200 + 350) * 15% and critique the launch risk"></textarea>
     <div class="composer-row">
       <button class="btn primary" id="askBtn" type="submit" disabled>Answer with every specialist ↗</button>
+      <button class="btn" id="previewRouteBtn" type="button" disabled>Preview routing</button>
       <button class="btn" id="voiceBtn" type="button" aria-pressed="false">🎙 Speak it</button>
       <button class="btn" id="stopBtn" type="button">Stop</button>
     </div>
-    <div class="statusline" id="status" role="status" aria-live="polite">Sign in to begin. Nothing is sent anywhere until you send it.</div>
+    <div class="statusline" id="status" role="status" aria-live="polite">Sign in to begin. Preview or answer sends the text to the app.</div>
   </form>
   <div class="quick" id="quick" aria-label="Try one">
     <button class="btn small" data-prompt="calculate (1200 + 350) * 15% * 3 and show my tasks">Tools + arithmetic</button>
@@ -52,9 +53,9 @@
 <section id="answers" class="answers" aria-live="polite"></section>
 
 <section class="panel" id="pickerPanel" hidden aria-labelledby="pickerTitle">
-  <header class="panel-head"><h2 id="pickerTitle">Choose specialists yourself</h2><small>Optional — the panel already routed for you.</small></header>
+  <header class="panel-head"><h2 id="pickerTitle">Choose specialists yourself</h2><small>Optional — choose instead of automatic routing.</small></header>
   <div class="picker" id="picker"></div>
-  <p class="hint">Choosing explicitly overrides the router. Nothing is executed: every specialist reads local rules or the four published tools.</p>
+  <p class="hint">Choosing explicitly overrides the router. Specialists use local profiles or the agent runtime; some requests read account data or query Wikipedia.</p>
 </section>
 
 <section class="panel limits">
@@ -70,5 +71,5 @@
 </main>
 <footer class="hint">AI-Syed Jalal · All-in-one panel · Same runtime, same limits, more visible reasoning · Approved SJ identity preserved.</footer>
 </div>
-<script src="assets/allinone.js"></script>
+<script src="assets/allinone.js?v=165"></script>
 </body></html>

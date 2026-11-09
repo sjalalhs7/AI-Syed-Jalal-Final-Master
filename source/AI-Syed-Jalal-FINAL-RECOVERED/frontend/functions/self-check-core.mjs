@@ -8,7 +8,7 @@
 //
 // Design rules:
 // * Deterministic: no Math.random, no clock other than an injected one.
-// * Bounded: each check has a hard timeout through the caller's AbortSignal.
+// * Bounded waiting: each check has a timeout, but underlying work may continue.
 // * Honest: cloud providers are only reported as "not configured" or
 //   "configured; live call not verified" until a caller supplies evidence.
 // Path-safe for both the Cloudflare bundle (frontend/functions) and the local
@@ -18,6 +18,7 @@ import { JUDGE, judgeVerdict } from './arena.mjs';
 import { AGENT_TOOLS, planFor } from './agent-runtime.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
 import { REQUIRED_TABLES } from './schema-bundle.mjs';
+import { providerConfiguration } from './provider-settings.mjs';
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -70,7 +71,7 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
-      id: 'db.schema', title: 'Database has every required table', group: 'data', weight: 6, severity: 'critical',
+      id: 'db.schema', title: 'Required database table names are present', group: 'data', weight: 6, severity: 'critical',
       async run({ db }) {
         const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
         const names = new Set(rows.map(row => String(row.table_name)));
@@ -84,11 +85,17 @@ export function builtInChecks() {
       async run({ db }) {
         const id = crypto.randomUUID();
         await db.query('INSERT INTO audit_events(id,user_id,action,detail,ip) VALUES($1,NULL,$2,$3,$4)', [id, 'V133_SELF_CHECK', 'self-check write probe', 'self-check']);
-        const rows = await db.query('SELECT action FROM audit_events WHERE id=$1', [id]);
-        const removed = await db.query('DELETE FROM audit_events WHERE id=$1 RETURNING id', [id]);
+        let rows, removed;
+        try {
+          rows = await db.query('SELECT action FROM audit_events WHERE id=$1', [id]);
+        } finally {
+          // Once insertion is confirmed, attempt cleanup even if the read fails.
+          // A lost insert or delete response can still leave an uncertain result.
+          removed = await db.query('DELETE FROM audit_events WHERE id=$1 RETURNING id', [id]);
+        }
         if (rows.length !== 1) throw new Error('Inserted row was not readable');
         if (removed.length !== 1) throw new Error('Probe row could not be deleted');
-        return 'INSERT → SELECT → DELETE completed in one round trip';
+        return 'INSERT → SELECT → DELETE succeeded; each operation was checked';
       }
     }),
     defineCheck({
@@ -131,7 +138,7 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
-      id: 'agent.confirmation', title: 'Task creation is proposed first and never saved silently', group: 'agents', weight: 6, severity: 'critical',
+      id: 'agent.confirmation', title: 'A tested task proposal does not save itself', group: 'agents', weight: 6, severity: 'critical',
       async run({ db, me }) {
         const before = await db.query('SELECT count(*)::int AS n FROM assistant_tasks WHERE user_id=$1', [me?.id || null]);
         const result = localAssistant('add task: Self-check must not autosave', 'general');
@@ -152,19 +159,22 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
-      id: 'agent.no-fake-cloud', title: 'Unconfigured cloud models are labelled, not simulated', group: 'honesty', weight: 6, severity: 'critical',
+      id: 'agent.no-fake-cloud', title: 'Local fallback labels unavailable open-ended generation', group: 'honesty', weight: 6, severity: 'critical',
       async run({ env }) {
-        const configured = ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY'].filter(key => Boolean(env[key]));
+        const states = ['gemini', 'openai', 'anthropic', 'deepseek'].map(id => providerConfiguration(env, id));
+        const configured = states.filter(state => state === true).length;
+        const unknown = states.some(state => state === null);
         // The runtime must carry the honest fallback path regardless of configuration.
         const fallback = localAssistant('Tell me a story', 'general');
-        if (!fallback.needsProvider) throw new Error('Open-ended chat is answered locally without disclosing the missing provider');
-        return configured.length
-          ? `${configured.length} provider key(s) configured; the local fallback still declares "needsProvider"`
-          : 'No provider keys configured; open-ended chat declares needsProvider instead of inventing an answer';
+        if (!fallback.needsProvider) throw new Error('Open-ended chat did not disclose that local generation is unavailable');
+        const status = configured ? `${configured} checked provider key(s) configured${unknown ? '; other statuses are unknown' : ''}`
+          : unknown ? 'Checked provider configuration is unknown because stored settings could not be read'
+            : 'No checked provider keys configured (Gemini, OpenAI, Anthropic, DeepSeek)';
+        return `${status}; local fallback declares needsProvider. No live provider call was tested`;
       }
     }),
     defineCheck({
-      id: 'auth.session', title: 'Sessions use HttpOnly cookies and CSRF-protected writes', group: 'security', weight: 7, severity: 'critical',
+      id: 'auth.session', title: 'Session endpoint checks a security header and authenticated CSRF token', group: 'security', weight: 7, severity: 'critical',
       async run({ onRequest, request, env }) {
         const target = new URL(request.url); target.pathname = '/api/me';
         const response = await onRequest({ request: new Request(target, { method: 'GET', headers: request.headers }), env });
@@ -177,12 +187,12 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
-      id: 'auth.write-guard', title: 'A write without a CSRF token is rejected', group: 'security', weight: 7, severity: 'critical',
+      id: 'auth.write-guard', title: 'An unconfirmed request without a CSRF token is rejected', group: 'security', weight: 7, severity: 'critical',
       async run({ onRequest, request, env, me }) {
         if (!me) return 'Skipped write probe: this self-check ran anonymously, so there is no session to abuse';
         const target = new URL(request.url); target.pathname = '/api/assistant/confirm';
         const headers = new Headers(request.headers); headers.set('content-type', 'application/json'); headers.delete('x-csrf-token');
-        const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ confirmed: true, action: { type: 'create_note', content: 'self-check should not save' } }) }), env });
+        const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ confirmed: false, action: {} }) }), env });
         if (response.status !== 403) throw new Error(`CSRF-less write returned ${response.status}; expected 403`);
         return 'POST /api/assistant/confirm without X-CSRF-Token → 403';
       }
@@ -314,11 +324,26 @@ export async function runChecks(checks, context, options = {}) {
   const timeoutMs = Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS;
   const only = Array.isArray(options.only) && options.only.length ? new Set(options.only) : null;
   const selected = checks.filter(check => !only || only.has(check.id));
+  // Database exceptions may include connection strings or raw SQL. Built-in
+  // checks still report their own useful observations (including missing table
+  // names), but underlying query errors must never become saved evidence.
+  const originalDb = context?.db;
+  const checkedContext = originalDb && typeof originalDb.query === 'function'
+    ? { ...context, db: new Proxy(originalDb, {
+      get(target, property) {
+        if (property !== 'query') return Reflect.get(target, property, target);
+        return async (...args) => {
+          try { return await target.query(...args); }
+          catch { throw new Error('Database operation could not be confirmed. Check connectivity and required tables; do not assume a write was rolled back.'); }
+        };
+      }
+    }) }
+    : context;
   const results = [];
   for (const check of selected) {
     const started = Date.now();
     try {
-      const detail = await withTimeout(Promise.resolve().then(() => check.run(context)), timeoutMs, check.id);
+      const detail = await withTimeout(Promise.resolve().then(() => check.run(checkedContext)), timeoutMs, check.id);
       results.push({ id: check.id, title: check.title, group: check.group, weight: check.weight, severity: check.severity, ok: true, detail: truncate(detail || 'Completed with no detail'), ms: Date.now() - started });
     } catch (error) {
       results.push({ id: check.id, title: check.title, group: check.group, weight: check.weight, severity: check.severity, ok: false, detail: truncate(error instanceof TimeoutError ? error.message : error?.message || 'Check failed'), ms: Date.now() - started });

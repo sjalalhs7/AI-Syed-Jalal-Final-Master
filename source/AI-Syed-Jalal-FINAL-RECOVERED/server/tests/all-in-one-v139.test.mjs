@@ -81,7 +81,7 @@ test('the panel answers, labels and never fabricates', async () => {
 
 test('a failing specialist is reported as failed, never replaced by filler', async () => {
   // A database double that throws: the tool specialist must fail honestly.
-  const brokenDb = { query: async () => { throw new Error('database is down'); } };
+  const brokenDb = { query: async () => { throw new Error('private database connection detail'); } };
   const panel = await answerAll({ prompt: 'show my tasks', db: brokenDb, me, env: {} });
   const agent = panel.answers.find(item => item.id === 'agent');
   // The runtime isolates the failure: the step is recorded as FAILED in the
@@ -89,7 +89,8 @@ test('a failing specialist is reported as failed, never replaced by filler', asy
   assert.equal(agent.ok, true);
   assert.equal(agent.trace.failures, 1);
   assert.match(agent.output, /FAILED/);
-  assert.match(agent.output, /database is down/);
+  assert.match(agent.output, /Account data could not be read/);
+  assert.doesNotMatch(agent.output, /private database connection detail/);
   assert.equal(panel.needsProvider, true, 'a run whose only step failed must say it needs a model');
   assert.ok(!panel.answers.some(item => /No tasks saved yet/.test(item.output || '')), 'a failed read must not look like an empty list');
 });
@@ -145,5 +146,14 @@ test('the page, the route and the tests all read the same modules', async () => 
   for (const file of ['frontend/jalalai.html', 'frontend/jarvis.html']) {
     const html = await read(file);
     for (const profile of ['architect', 'reviewer', 'writer']) assert.ok(html.includes(`value="${profile}"`), `${file} is missing the ${profile} profile`);
+  }
+});
+
+test('the panel identifies unsaved proposals and publishes the current tool count', async () => {
+  const { AGENT_TOOLS } = await import('../../frontend/functions/agent-runtime.mjs');
+  for (const only of [['agent'], ['planner']]) {
+    const panel = await answerAll({ prompt: 'add task: private draft', db, me, env: {}, only });
+    assert.equal(panel.answers[0].action.type, 'create_task');
+    assert.match(panel.limits.join(' '), new RegExp(`${AGENT_TOOLS.length} tools are published`));
   }
 });

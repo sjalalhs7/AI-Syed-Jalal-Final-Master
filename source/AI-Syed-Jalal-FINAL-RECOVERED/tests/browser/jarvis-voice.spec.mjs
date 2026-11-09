@@ -85,9 +85,9 @@ test('JARVIS: every option works — voice in, real tools, voice out, trace and 
   await expect(page.locator('#talkBtn')).toHaveAttribute('aria-pressed', 'false'); // microphone closed again
 
   // 4. A real tool ran and the trace proves it.
-  await expect(page.locator('.agent-trace-head').first()).toContainText('1 tool call(s)', { timeout: 30000 });
+  await expect(page.locator('.agent-trace-head').first()).toContainText('1 successful tool result(s)', { timeout: 30000 });
   await expect(page.locator('.agent-step').first()).toContainText('= 697.5');
-  await expect(page.locator('#lastTrace')).toContainText('1 tool call(s)');
+  await expect(page.locator('#lastTrace')).toContainText('1 successful tool result(s)');
   // Hands-free is on, so the status line may already say it is speaking. Either
   // message proves the run finished; the trace above proves a tool really ran.
   await expect(page.locator('#status')).toContainText(/Finished|Speaking the reply/);

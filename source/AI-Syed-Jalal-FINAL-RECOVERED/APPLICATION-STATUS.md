@@ -1,4 +1,16 @@
-# Application implementation and verification — 5 November 2026 (V142 · final)
+# Historical application implementation and verification — V142
+
+> **Historical snapshot, not current production instructions.** This report preserves
+> the V129–V142 implementation and test history. Statements below describing V142 as
+> “final,” 19/21 required tables, provider setup, or deployment steps are historical.
+> For the deployed website, current checks, the 24-table readiness scope and open
+> limitations, read [Current application handoff](../../docs/CURRENT-STATUS.md).
+>
+> Before any production schema change, an authorized operator must identify the
+> actual target, verify a protected full restorable backup, and rehearse the exact
+> repair on an isolated target. Follow [Production database safety](../../docs/PRODUCTION-DATABASE-SAFETY.md);
+> the historical migration list below is **not** authorization or a safe repair plan.
+> A records export is not a full database backup.
 
 > **Current architecture (V142).** Arena, JalalAi, JARVIS and SJ Agent Studio now share one bounded
 > agent runtime, one remembered voice preference and one evidence chain (run → trace → self-check →
@@ -90,7 +102,7 @@ Browser tests use npm-distributed Chromium and a separate disposable `.data/e2e`
 
 Hosted verification for the unified platform: [application CI run 41392227632](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392227632), [recovery-control run 41392419328](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392419328) and [CodeQL run 41392418993](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/41392418993) passed. Cloudflare Pages and Workers Builds checks also passed. CodeRabbit was skipped by configuration, not failed. The application workflow now runs on `main`, Arena work branches and pull requests.
 
-## Production deployment: still required
+## Historical deployment checklist — superseded for the live site
 
 PRs #13 and #14 were merged into `main`; historical superseded PRs #1, #2 and #12 were closed. No manual production deployment, DNS change, provider-key configuration or production database migration was performed. Hosted build/deployment checks are recorded separately from owner-controlled production certification.
 

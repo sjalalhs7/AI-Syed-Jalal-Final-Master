@@ -3,7 +3,7 @@
 <script src="assets/host-mode.js"></script><meta charset="utf-8"><meta name="secure-app-url" content="https://ai-syed-jalal-live.pages.dev/">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#f2f8f8">
 <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/app-icons/favicon-32.png" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png"><link rel="manifest" href="manifest.webmanifest">
-<title>Toolbench — every deterministic agent tool · AI-Syed Jalal</title>
+<title>Toolbench — bounded agent tools · AI-Syed Jalal</title>
 <meta name="description" content="Run the agent runtime's tools directly: calculator, Wikipedia, records, tasks, time zones, unit conversion, JSON, hashes, contrast, CSV, code audit, diff and the page builder.">
 <link rel="stylesheet" href="assets/allinone.css">
 <link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="toolbench" defer></script><link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><script src="assets/speech-preferences.js?v=164"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
@@ -15,12 +15,12 @@
   <div>
     <div class="eyebrow">SAME RUNTIME THE AGENT USES — RUN IT BY HAND</div>
     <h1>Toolbench</h1>
-    <p>Every deterministic tool the agent has. Each one either returns a result you can check or says it failed — there is no prose filler and no model in the loop. This is the exact code the agent calls when you ask it a question in Agent Studio, JalalAi or the All-in-one panel.</p>
+    <p>Explore the bounded tools the agent uses. Steps can use local code, your account data or Wikipedia; each shows its result or failure. This page does not call a cloud language model.</p>
   </div>
   <span class="status-pill" id="connectionStatus" role="status">Checking connection…</span>
 </section>
 
-<div class="login-banner" id="loginBanner" hidden><p id="loginMessage">Sign in to run tools against your own records and tasks.</p><div class="composer-row"><a class="btn small" href="index.html">Account sign in</a><button class="btn small primary" id="demoBtn" type="button" hidden>Try the local preview</button></div></div>
+<div class="login-banner" id="loginBanner" hidden><p id="loginMessage">Sign in to use workspace records and your own tasks.</p><div class="composer-row"><a class="btn small" href="index.html">Account sign in</a><button class="btn small primary" id="demoBtn" type="button" hidden>Try the local preview</button></div></div>
 
 <section class="panel" aria-labelledby="toolsTitle">
   <header class="panel-head"><h2 id="toolsTitle">The tools</h2><small id="toolCount">Loading catalogue…</small></header>
@@ -46,10 +46,10 @@
 <section class="panel limits">
   <header class="panel-head"><h2>What this page really does</h2></header>
   <ul>
-    <li><strong>Every tool is listed above with its implementation.</strong> If a tool fails you see the failure message, not a substitute answer.</li>
-    <li><strong>No model is called.</strong> Arithmetic, units, dates, hashes, contrast, CSV, JSON, diff and code audit are computed locally. Research calls the public Wikipedia API and nothing else.</li>
-    <li><strong>Nothing leaves the app except the Wikipedia request.</strong> No filesystem, no shell, no <code>eval</code>, no arbitrary URL.</li>
-    <li><strong>Read-only on your data.</strong> Records, tasks and notes are read; writes always need a separate explicit confirmation on their own page.</li>
+    <li><strong>When available, the catalogue lists each tool with its description and source type.</strong> If a tool fails you see the failure message, not a substitute answer.</li>
+    <li><strong>No cloud language model is called.</strong> Local tools include arithmetic, units, dates, hashes, contrast, CSV, JSON, diff and code audit. Time and generated IDs can change. Research calls the public Wikipedia API.</li>
+    <li><strong>Where requests go.</strong> Requests are sent to the application server; research queries also go to Wikipedia. The app may save the prompt and trace in your account’s agent-run history. The agent exposes no shell, filesystem, <code>eval</code> or arbitrary-URL tool.</li>
+    <li><strong>Task and note saves need confirmation.</strong> Toolbench can prepare a proposal but cannot confirm it; use JalalAi or JARVIS to prepare and confirm a save. Records, tasks and notes may be read.</li>
     <li><strong>Passing tools are not proof of correctness.</strong> The code audit is pattern matching, not a security review; the calculator is 64-bit floating point, not arbitrary precision.</li>
   </ul>
 </section>
@@ -57,5 +57,5 @@
 <footer class="foot">AI-Syed Jalal · Same runtime, no second implementation · Evidence over claims.</footer>
 </main>
 </div>
-<script src="assets/toolbench.js"></script>
+<script src="assets/toolbench.js?v=165"></script>
 </body></html>

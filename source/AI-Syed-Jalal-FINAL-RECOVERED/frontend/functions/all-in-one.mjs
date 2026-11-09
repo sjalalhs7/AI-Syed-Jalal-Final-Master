@@ -7,16 +7,16 @@
 // with the reason it was chosen. When nothing fits, it says so instead of
 // pretending a general model handled it.
 //
-// Nothing here executes anything new: the panel calls runAgent() (four published
-// tools) and localAssistant() (eight deterministic profiles). No eval, no shell,
-// no network beyond the Wikipedia adapter the runtime already publishes.
+// The panel calls the shared runAgent() and localAssistant() implementations.
+// It does not execute user code or call a cloud language model; agent steps may
+// read account data or query the documented Wikipedia adapter.
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
 import { AGENT_TOOLS, runAgent } from './agent-runtime.mjs';
 import { TOOLBOX_TOOLS, planFromToolbox } from './toolbox.mjs';
 
 /** Every specialist that can answer without a model key. */
 export const SPECIALISTS = Object.freeze([
-  Object.freeze({ id: 'agent', label: 'Tool Agent', kind: 'runtime', note: 'Runs the four published tools and shows the trace.' }),
+  Object.freeze({ id: 'agent', label: 'Tool Agent', kind: 'runtime', note: 'Can use the published agent tools as needed and shows the trace.' }),
   Object.freeze({ id: 'planner', label: 'Planner', kind: 'profile', note: 'Turns a goal into numbered, executable steps.' }),
   Object.freeze({ id: 'critic', label: 'Critic', kind: 'profile', note: 'Challenges evidence, security, reliability and operations.' }),
   Object.freeze({ id: 'analyst', label: 'Analyst', kind: 'profile', note: 'Structures the decision, the unknowns and the options.' }),
@@ -93,7 +93,7 @@ async function runSpecialist(id, { prompt, db, me, env }) {
       const run = await runAgent({ prompt, db, me, env });
       return {
         id, label: specialist.label, kind: specialist.kind, ok: true, ms: Date.now() - started,
-        output: run.output, trace: run.trace, steps: run.steps, needsProvider: run.needsProvider, simulated: false
+        output: run.output, trace: run.trace, steps: run.steps, action: run.action || null, needsProvider: run.needsProvider, simulated: false
       };
     }
     const profile = PROFILE_FOR[id] || 'general';
@@ -105,7 +105,7 @@ async function runSpecialist(id, { prompt, db, me, env }) {
     };
   } catch (error) {
     // A specialist that fails is reported as failed — never replaced by filler.
-    return { id, label: specialist.label, kind: specialist.kind, ok: false, ms: Date.now() - started, error: String(error?.message || 'The specialist failed.') };
+    return { id, label: specialist.label, kind: specialist.kind, ok: false, ms: Date.now() - started, error: 'The specialist could not complete this request.' };
   }
 }
 
@@ -145,7 +145,7 @@ export async function answerAll({ prompt, db, me, env, limit = 3, only = null })
     needsProvider,
     // The panel states its own scope, so the UI cannot oversell it.
     limits: [
-      `Answered by ${answers.length} specialist(s) working from local rules and four published tools — no external model was called.`,
+      `Answered by ${answers.length} specialist(s) using local profiles or the agent runtime; ${AGENT_TOOLS.length} tools are published; no external model was called.`,
       'Not every profile is a model: the planner, critic and analyst frames are deterministic checklists, labelled as such.',
       'One provider-backed answer still requires a server-side key in Cloud AI mode.',
       'Nothing here executes code, sends messages, reads email or controls a device.'

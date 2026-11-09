@@ -39,7 +39,7 @@ test('Toolbench: every published tool listed, three real runs, failures shown as
   await expect(page.locator('.answer-body').first()).toContainText('2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e730433', { timeout: 45000 });
 
   // A signed-in user always has a real trace, never a simulated one.
-  await expect(page.locator('.panel-limits')).toContainText('Tools actually used');
+  await expect(page.locator('.panel-limits')).toContainText('Tools with usable results');
   expect(errors).toEqual([]);
 });
 

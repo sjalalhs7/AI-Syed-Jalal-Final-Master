@@ -9,7 +9,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let user = null, csrf = '', busy = false, recognition = null, listening = false, controller = null;
-  let specialists = [], chosen = new Set(), lastRoute = [];
+  let specialists = [], chosen = new Set(), lastRoute = [], previewBusy = false, routeSequence = 0;
 
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
@@ -22,6 +22,7 @@
   const setStatus = text => { $('status').textContent = text; };
   function updateControls() {
     $('askBtn').disabled = !user || busy || !$('prompt').value.trim();
+    $('previewRouteBtn').disabled = !user || busy || previewBusy || chosen.size > 0 || $('prompt').value.trim().length < 3;
     $('voiceBtn').disabled = !user || busy;
     $('stopBtn').disabled = !busy && !listening;
     $('askBtn').textContent = busy ? 'Working…' : 'Answer with every specialist ↗';
@@ -29,19 +30,26 @@
   }
 
   /* ---------------- routing preview ---------------- */
-  let routeTimer = null;
-  function previewRoute() {
+  function invalidateRoute() {
+    routeSequence += 1;
+    $('routeBar').hidden = true;
+  }
+  async function previewRoute() {
     const prompt = $('prompt').value.trim();
-    clearTimeout(routeTimer);
-    if (chosen.size || prompt.length < 3) { $('routeBar').hidden = true; return; }
-    // Local preview of routing so the UI feels immediate; the server is the
-    // authority and its answer is what gets rendered after a real request.
-    routeTimer = setTimeout(async () => {
-      try {
-        const data = await api('/assistant/all/route', { method: 'POST', body: JSON.stringify({ prompt }) });
-        renderRoute(data.routed);
-      } catch { $('routeBar').hidden = true; }
-    }, 300);
+    if (!user || busy || previewBusy || chosen.size || prompt.length < 3) return;
+    const sequence = ++routeSequence;
+    previewBusy = true; updateControls();
+    setStatus('Requesting a routing preview from the app…');
+    try {
+      const data = await api('/assistant/all/route', { method: 'POST', body: JSON.stringify({ prompt }) });
+      if (sequence !== routeSequence || prompt !== $('prompt').value.trim() || chosen.size) return;
+      renderRoute(data.routed);
+      setStatus('Routing preview received. Review it, then ask when ready.');
+    } catch (error) {
+      if (sequence === routeSequence) { $('routeBar').hidden = true; setStatus('Routing preview unavailable. ' + error.message); }
+    } finally {
+      previewBusy = false; updateControls();
+    }
   }
 
   function renderRoute(routed) {
@@ -74,12 +82,19 @@
     card.append(head, why, body);
     if (answer.trace) {
       const trace = document.createElement('p'); trace.className = 'trace';
-      trace.textContent = `${answer.trace.toolCalls} tool call(s) · ${answer.trace.failures} failure(s) · tools: ${answer.trace.tools.join(', ') || 'none'}`;
+      trace.textContent = `${answer.trace.attempted ?? answer.trace.toolCalls} attempted · ${answer.trace.toolCalls} successful tool result(s) · ${answer.trace.failures} failure(s) · tools with results: ${answer.trace.tools.join(', ') || 'none'}`;
       card.appendChild(trace);
     }
     if (answer.needsProvider) {
       const note = document.createElement('p'); note.className = 'needs';
-      note.textContent = 'This answer needed a cloud model for generated prose; no provider key is configured, so nothing was invented.';
+      note.textContent = answer.trace?.failures
+        ? 'A tool step failed; review it before retrying. This panel did not call a cloud model; provider configuration was not checked here.'
+        : 'This panel did not call a cloud model. Some requests need generated prose; provider configuration was not checked here.';
+      card.appendChild(note);
+    }
+    if (answer.action) {
+      const note = document.createElement('p'); note.className = 'needs';
+      note.textContent = 'This is an unsaved proposal. Use JalalAi or JARVIS to prepare and confirm the save; this panel cannot confirm it.';
       card.appendChild(note);
     }
     const actions = document.createElement('div'); actions.className = 'answer-actions';
@@ -104,10 +119,12 @@
     prompt = String(prompt || $('prompt').value).trim();
     if (!user) { setStatus('Sign in first.'); return; }
     if (busy || !prompt) return;
-    busy = true; updateControls();
+    invalidateRoute(); busy = true; updateControls();
     $('answers').replaceChildren();
     setStatus('Asking every specialist that fits… Stop cancels the wait.');
     controller = new AbortController();
+    const requestController = controller;
+    const timeout = setTimeout(() => requestController.abort(), 60000);
     try {
       const body = { prompt };
       if (chosen.size) body.only = [...chosen];
@@ -126,10 +143,10 @@
       host.appendChild(limits);
       setStatus(panel.counts.failed ? `Finished with ${panel.counts.failed} failed specialist(s) — see the cards.` : `Finished · ${panel.counts.specialists} specialist(s).`);
     } catch (error) {
-      if (error.name === 'AbortError') setStatus('Stopped. Nothing was sent after the cancel.');
+      if (error.name === 'AbortError') setStatus('Stopped waiting. The server may still finish the request.');
       else setStatus(error.status === 429 ? 'That is a lot of requests — wait a minute and try again.' : error.message);
     } finally {
-      busy = false; controller = null; updateControls();
+      clearTimeout(timeout); busy = false; controller = null; updateControls();
     }
   }
 
@@ -144,9 +161,10 @@
       box.type = 'checkbox';
       box.value = specialist.id;
       box.onchange = () => {
+        invalidateRoute();
         if (box.checked) chosen.add(specialist.id); else chosen.delete(specialist.id);
         if (chosen.size > 4) { box.checked = false; chosen.delete(specialist.id); setStatus('Pick at most four specialists.'); }
-        $('routeHint').textContent = chosen.size ? `Answering only with: ${[...chosen].join(', ')}` : 'Routing is deterministic and shown before you send.';
+        $('routeHint').textContent = chosen.size ? `Answering only with: ${[...chosen].join(', ')}` : 'Preview routing sends this text to the app only when you tap Preview.';
         updateControls();
       };
       const text = document.createElement('span');
@@ -174,7 +192,7 @@
     recognition.onstart = () => { listening = true; setStatus('Listening… speak your request.'); updateControls(); };
     recognition.onresult = event => {
       const transcript = Array.from(event.results).map(result => result[0].transcript).join(' ').trim();
-      $('prompt').value = transcript; updateControls();
+      invalidateRoute(); $('prompt').value = transcript; updateControls();
       if (event.results[event.results.length - 1].isFinal) { stopListening(); setStatus('Heard you. Review the text, then send.'); }
     };
     recognition.onerror = event => { stopListening(); setStatus(event.error === 'not-allowed' ? 'Microphone permission denied — type instead.' : `Voice input failed (${event.error}). You can still type.`); };
@@ -206,13 +224,14 @@
 
   /* ---------------- wiring ---------------- */
   $('askForm').onsubmit = event => { event.preventDefault(); ask(); };
-  $('prompt').addEventListener('input', () => { updateControls(); previewRoute(); });
+  $('prompt').addEventListener('input', () => { invalidateRoute(); updateControls(); });
+  $('previewRouteBtn').onclick = previewRoute;
   $('prompt').addEventListener('keydown', event => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); ask(); }
   });
-  document.querySelectorAll('[data-prompt]').forEach(button => button.onclick = () => { $('prompt').value = button.dataset.prompt; updateControls(); previewRoute(); ask(); });
+  document.querySelectorAll('[data-prompt]').forEach(button => button.onclick = () => { invalidateRoute(); $('prompt').value = button.dataset.prompt; updateControls(); ask(); });
   $('voiceBtn').onclick = () => { if (listening) { stopListening(); setStatus('Microphone stopped.'); } else startListening(); };
-  $('stopBtn').onclick = () => { stopListening(); if (controller) controller.abort(); setStatus('Stopped.'); };
+  $('stopBtn').onclick = () => { stopListening(); if (controller) { controller.abort(); setStatus('Stopped waiting. The server may still finish the request.'); } else setStatus('Microphone stopped.'); };
   $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST', body: '{}' }); await signIn(); } catch (error) { setStatus(error.message); } finally { $('demoBtn').disabled = false; } };
   window.addEventListener('pagehide', () => { stopListening(); controller?.abort(); });
   if (window.AJSpeech) window.AJSpeech.refresh();
