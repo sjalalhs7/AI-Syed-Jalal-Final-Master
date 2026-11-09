@@ -171,7 +171,16 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     }
 
     const result = localAssistant(message, profile);
-    if (body.mode !== 'cloud' || result.action || (result.tool && !result.needsProvider) || isSimpleGreeting(message)) return reply(result);
+    // The built-in greeting is English. Keep the free local response for an
+    // English (or unspecified) language, but let an explicitly selected cloud
+    // provider respond in another requested language instead of speaking English
+    // with an Urdu or other non-English voice.
+    let localGreeting = isSimpleGreeting(message) && body.language === undefined;
+    if (isSimpleGreeting(message) && typeof body.language === 'string' && body.language.length <= 35) {
+      try { localGreeting = Intl.getCanonicalLocales(body.language.trim())[0]?.split('-')[0] === 'en'; }
+      catch { /* cloudPrompt will reject the invalid tag */ }
+    }
+    if (body.mode !== 'cloud' || result.action || (result.tool && !result.needsProvider) || localGreeting) return reply(result);
     const provider = String(body.provider || 'gemini');
     const configured = providerConfiguration(env, provider);
     if (configured !== true) return reply({ ...result, cloudError: configured === null

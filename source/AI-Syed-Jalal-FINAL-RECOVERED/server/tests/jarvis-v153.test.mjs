@@ -72,6 +72,13 @@ test('cloud conversations handle greetings and number-prefixed questions without
   }
   const greeting = await route({ message: 'Assalam o alaikum', mode: 'cloud', provider: 'openai' });
   assert.equal(greeting.forwarded, null);
+  const englishGreeting = await route({ message: 'hello', mode: 'cloud', provider: 'openai', language: 'en-US' });
+  assert.equal(englishGreeting.forwarded, null);
+  const urduGreeting = await route({ message: 'Assalam o alaikum', mode: 'cloud', provider: 'openai', language: 'ur-PK' });
+  assert.match(urduGreeting.forwarded.prompt, /requested language \(ur-PK\)/);
+  const invalidGreeting = await route({ message: 'hello', mode: 'cloud', provider: 'openai', language: 'en-unsafe!' });
+  assert.equal(invalidGreeting.status, 400);
+  assert.equal(invalidGreeting.forwarded, null);
   assert.match(localAssistant('calculate 1 / 0').output, /Calculation failed/i);
 });
 
