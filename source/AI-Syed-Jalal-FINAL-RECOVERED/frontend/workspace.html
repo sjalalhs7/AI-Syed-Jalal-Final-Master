@@ -321,7 +321,7 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 <section class="view" id="view-settings"><div class="hero"><div><div class="eyebrow">System</div><h1>Settings</h1><p>Control local preferences and session behavior.</p></div></div><div class="grid g2"><div class="card"><h3>Interface</h3><button class="btn" id="settingsTheme" data-aj-theme-open>Choose visual theme</button><p class="muted" style="margin-top:12px">Theme preference is saved locally.</p></div><div class="card"><h3>Session</h3><p class="muted">Current operator</p><strong id="settingsUser">Operator</strong><div style="margin-top:14px"><button class="btn danger" id="settingsLogout">Sign out</button></div></div></div><div class="card" style="margin-top:16px"><h3>Security Operations</h3><p class="muted">Session controls are available when connected to the current API.</p><div class="toolbar"><button class="btn" id="revokeSessionsBtn">Revoke other sessions</button><button class="btn" id="changePasswordBtn">Change password</button></div><p id="securityMessage" class="muted" style="margin:10px 0 0">No security action run.</p></div><div class="card" style="margin-top:16px"><h3>Production note</h3><p class="muted">Shared authentication and central records are served by Cloudflare Pages Functions and Neon PostgreSQL. Interface themes and learning progress are saved locally in this browser.</p></div></section>
 <div class="footer"><span>AI-Syed Jalal · Professional AI Workspace · V75</span><small>Design by: Syed Jalal Hussain Shah</small></div>
 </main></div><nav class="mobile-nav" id="mobileNav"><button data-nav="home">⌂<br>Home</button><button data-nav="data">▤<br>Data</button><button data-nav="documents">▱<br>Print</button><button data-nav="operations">⚙<br>Ops</button><button data-nav="settings">⚙<br>More</button></nav></section>
-<div id="modal" class="modal hidden"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Data record</div><h3 id="modalTitle">Add record</h3></div><button class="btn" id="closeModal">✕</button></div><form id="recordForm"><input type="hidden" id="recordId"><div class="grid g2"><div class="field"><label>Name</label><input id="fName" required></div><div class="field"><label>Region</label><input id="fRegion" required></div><div class="field"><label>Sector</label><input id="fSector" required></div><div class="field"><label>Status</label><select id="fStatus"><option>Active</option><option>Pending</option><option>Verified</option><option>Archived</option></select></div></div><div class="field"><label>Notes</label><textarea id="fNotes" rows="4"></textarea></div><button class="btn primary" type="submit">Save record</button></form></div></div>
+<div id="modal" class="modal hidden"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Data record</div><h3 id="modalTitle">Add record</h3></div><button class="btn" id="closeModal">✕</button></div><form id="recordForm"><input type="hidden" id="recordId"><div class="grid g2"><div class="field"><label for="fName">Name</label><input id="fName" required maxlength="500"></div><div class="field"><label for="fRegion">Region</label><input id="fRegion" maxlength="200"></div><div class="field"><label for="fSector">Sector</label><input id="fSector" maxlength="200"></div><div class="field"><label for="fStatus">Status</label><select id="fStatus"><option>Active</option><option>Pending</option><option>Verified</option><option>Archived</option></select></div></div><div class="field"><label for="fNotes">Notes</label><textarea id="fNotes" rows="4" maxlength="10000"></textarea></div><div id="recordFormStatus" class="muted" role="status" aria-live="polite"></div><button class="btn primary" type="submit">Save record</button></form></div></div>
 <div id="toast" class="toast"></div>
 <!-- Universal AI composer: available on every workspace tab -->
 <style>
@@ -351,7 +351,7 @@ function escape(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':
 
 function renderMarkdownSafe(value){const blocks=[];let html=escape(value).replace(/```([\w+-]*)\n([\s\S]*?)```/g,(_,lang,code)=>'@@AJCODE'+blocks.push({lang:lang||'',code:code.replace(/\n+$/,'')})+'@@');html=html.replace(/`([^`\n]+)`/g,'<code style="background:#101827;padding:2px 5px;border-radius:5px">$1</code>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/^[-*] (.+)$/gm,'• $1').replace(/\n/g,'<br>');return html.replace(/@@AJCODE(\d+)@@/g,(_,n)=>{const i=Number(n)-1,b=blocks[i];return '<div style="margin:10px 0;border:1px solid #ffffff24;border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#111827;font-size:11px"><span>'+escape(b.lang||'CODE')+'</span><button type="button" class="btn s" data-copy-ai-code="'+i+'">Copy code</button></div><pre style="margin:0;padding:12px;overflow:auto;white-space:pre"><code data-ai-code="'+i+'">'+b.code+'</code></pre></div>'})}
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-copy-ai-code]');if(!b)return;const i=b.getAttribute('data-copy-ai-code'),node=document.querySelector('[data-ai-code="'+i+'"]');if(!node)return;try{await navigator.clipboard.writeText(node.textContent);b.textContent='Copied'}catch{b.textContent='Copy unavailable'}setTimeout(()=>{b.textContent='Copy code'},1300)});
-async function api(path,options={}){if(!state.apiUrl)throw new Error('API URL is not configured');const method=String(options.method||'GET').toUpperCase();if(method!=='GET'&&method!=='HEAD'&&!state.csrf){try{const c=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/csrf',{credentials:'include'});if(c.ok)state.csrf=(await c.json()).token||''}catch{}}const headers={'Content-Type':'application/json',...(options.headers||{})};if(state.token)headers.Authorization='Bearer '+state.token;if(method!=='GET'&&method!=='HEAD'&&state.csrf)headers['X-CSRF-Token']=state.csrf;const r=await fetch(state.apiUrl.replace(/\/$/,'')+path,{...options,headers,credentials:'include'});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
+async function api(path,options={}){if(!state.apiUrl)throw new Error('API URL is not configured');const method=String(options.method||'GET').toUpperCase();if(method!=='GET'&&method!=='HEAD'&&!state.csrf){try{const c=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/csrf',{credentials:'include',signal:options.signal});if(c.ok)state.csrf=(await c.json()).token||''}catch{}}const headers={'Content-Type':'application/json',...(options.headers||{})};if(state.token)headers.Authorization='Bearer '+state.token;if(method!=='GET'&&method!=='HEAD'&&state.csrf)headers['X-CSRF-Token']=state.csrf;const r=await fetch(state.apiUrl.replace(/\/$/,'')+path,{...options,headers,credentials:'include'});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||('HTTP '+r.status));return data}
 function remoteMode(){return Boolean(state.apiUrl&&state.user)}
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE)){const s=d.createObjectStore(STORE,{keyPath:'id'});s.createIndex('region','region');s.createIndex('sector','sector')}if(!d.objectStoreNames.contains(AUD))d.createObjectStore(AUD,{keyPath:'id',autoIncrement:true})};r.onsuccess=()=>{db=r.result;res(db)};r.onerror=()=>rej(r.error)})}
 function tx(store,mode='readonly'){return db.transaction(store,mode).objectStore(store)}
@@ -559,10 +559,61 @@ async function renderData(){
 }
 async function populateRemoteFilters(generation){try{const x=await api('/api/meta');if(generation!==dataReadGeneration)return;const rf=$('#regionFilter'),sf=$('#sectorFilter');rf.innerHTML='<option value="">All regions</option>'+(x.regions||[]).map(v=>`<option>${escape(v)}</option>`).join('');sf.innerHTML='<option value="">All sectors</option>'+(x.sectors||[]).map(v=>`<option>${escape(v)}</option>`).join('');rf.value=state.region;sf.value=state.sector}catch{}}
 function populateFilters(rows){const regs=[...new Set(rows.map(r=>r.region).filter(Boolean))].sort(),secs=[...new Set(rows.map(r=>r.sector).filter(Boolean))].sort();const rf=$('#regionFilter'),sf=$('#sectorFilter');const oldR=state.region,oldS=state.sector;rf.innerHTML='<option value="">All regions</option>'+regs.map(x=>`<option>${escape(x)}</option>`).join('');sf.innerHTML='<option value="">All sectors</option>'+secs.map(x=>`<option>${escape(x)}</option>`).join('');rf.value=oldR;sf.value=oldS}
-function openModal(r){$('#modal').classList.remove('hidden');$('#modalTitle').textContent=r?'Edit record':'Add record';$('#recordId').value=r?.id||'';$('#fName').value=r?.name||'';$('#fRegion').value=r?.region||'';$('#fSector').value=r?.sector||'';$('#fStatus').value=r?.status||'Active';$('#fNotes').value=r?.notes||'';$('#fName').focus()}
-async function editRecord(id){if(remoteMode()){try{const x=await api('/api/records/'+encodeURIComponent(id));openModal(x.record)}catch(e){toast(e.message)}return}const r=(await all(STORE)).find(x=>x.id===id);if(r)openModal(r)}async function deleteRecord(id){if(!confirm('Delete this record?'))return;try{if(remoteMode()){await api('/api/records/'+encodeURIComponent(id),{method:'DELETE'});toast('Central record deleted')}else{await del(STORE,id);await log('DELETE',id);toast('Record deleted')}await renderData()}catch(e){toast(e.message)}}
-$('#addBtn').onclick=()=>openModal();$('#closeModal').onclick=()=>$('#modal').classList.add('hidden');$('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').classList.add('hidden')};
-$('#recordForm').onsubmit=async e=>{e.preventDefault();const id=$('#recordId').value;const r={name:$('#fName').value.trim(),region:$('#fRegion').value.trim(),sector:$('#fSector').value.trim(),status:$('#fStatus').value,notes:$('#fNotes').value.trim()};try{if(remoteMode()){await api(id?'/api/records/'+encodeURIComponent(id):'/api/records',{method:id?'PUT':'POST',body:JSON.stringify(r)});toast(id?'Central record updated':'Central record added')}else{const rid=id||('AJ-'+Date.now().toString(36).toUpperCase());await put(STORE,{...r,id:rid,updatedAt:new Date().toISOString()});await log(id?'UPDATE':'CREATE',rid);toast(id?'Record updated':'Record added')}$('#modal').classList.add('hidden');await renderData()}catch(err){toast(err.message||'Save failed')}};
+let editOriginal=null,editInitial=null;
+function openModal(r){
+ $('#modal').classList.remove('hidden');$('#modalTitle').textContent=r?'Edit record':'Add record';$('#recordId').value=r?.id||'';
+ $('#fName').value=r?.name??'';$('#fRegion').value=r?.region??'';$('#fSector').value=r?.sector??'';$('#fNotes').value=r?.notes??'';$('#recordFormStatus').textContent='';
+ const select=$('#fStatus');select.querySelectorAll('[data-existing-status]').forEach(option=>option.remove());
+ const current=r?String(r.status??''):'Active';
+ if(![...select.options].some(option=>option.value===current)){const option=document.createElement('option');option.value=current;option.textContent=current||'(empty status)';option.dataset.existingStatus='true';select.append(option)}
+ select.value=current;
+ // Text inputs and textareas can normalize line endings on assignment. If a
+ // field is visually unchanged, submit the original central value instead.
+ editOriginal=r?Object.fromEntries(['name','region','sector','status','notes'].map(key=>[key,String(r[key]??'')])):null;
+ editInitial={name:$('#fName').value,region:$('#fRegion').value,sector:$('#fSector').value,status:select.value,notes:$('#fNotes').value};
+ $('#fName').focus();
+}
+let recordWritePending=false;
+function writeLocalRecord(operation,value){return new Promise((resolve,reject)=>{const transaction=db.transaction(STORE,'readwrite'),store=transaction.objectStore(STORE);if(operation==='delete')store.delete(value);else store.put(value);transaction.oncomplete=()=>resolve();transaction.onerror=()=>reject(transaction.error||new Error('Local transaction failed.'));transaction.onabort=()=>reject(transaction.error||new Error('Local transaction aborted.'))})}
+async function editRecord(id){if(recordWritePending)return;if(remoteMode()){try{const x=await api('/api/records/'+encodeURIComponent(id));openModal(x.record)}catch(e){toast(e.message)}return}const r=(await all(STORE)).find(x=>x.id===id);if(r)openModal(r)}
+async function deleteRecord(id){
+ if(recordWritePending||!confirm('Delete this record?'))return;
+ recordWritePending=true;let sent=false,confirmed=false,auditWarning='';
+ try{
+  if(remoteMode()){
+   sent=true;const result=await api('/api/records/'+encodeURIComponent(id),{method:'DELETE',signal:AbortSignal.timeout(60000)});
+   if(result?.ok!==true||result.softDeleted!==true)throw new Error('The server response did not confirm deletion.');
+  }else{sent=true;await writeLocalRecord('delete',id);try{await log('DELETE',id)}catch{auditWarning=' Local audit could not be saved.'}}
+  confirmed=true;$('#dataImportStatus').textContent='Record deletion confirmed.'+auditWarning;toast('Record deleted');await renderData();
+ }catch(e){
+  const message=confirmed?'Deletion was confirmed, but the list could not refresh.':sent?'Deletion could not be confirmed. Refresh and review the record before retrying.':'Deletion did not start.';
+  $('#dataImportStatus').textContent=message+' '+(e.message||'');toast(message);
+ }finally{recordWritePending=false}
+}
+$('#addBtn').onclick=()=>{if(!recordWritePending)openModal()};$('#closeModal').onclick=()=>{if(!recordWritePending)$('#modal').classList.add('hidden')};$('#modal').onclick=e=>{if(e.target.id==='modal'&&!recordWritePending)$('#modal').classList.add('hidden')};
+$('#recordForm').onsubmit=async e=>{
+ e.preventDefault();if(recordWritePending)return;
+ const id=$('#recordId').value,button=e.target.querySelector('button[type="submit"]'),status=$('#recordFormStatus');
+ const shown={name:$('#fName').value,region:$('#fRegion').value,sector:$('#fSector').value,status:$('#fStatus').value,notes:$('#fNotes').value};
+ const input={id,...Object.fromEntries(Object.entries(shown).map(([key,value])=>[key,editOriginal&&value===editInitial[key]?editOriginal[key]:value]))};
+ recordWritePending=true;button.disabled=true;status.textContent='Validating record…';let sent=false,confirmed=false,auditWarning='';
+ try{
+  const transfer=await recordsTransfer(),[row]=transfer.normalizeRecords([input]),r={name:row.name,region:row.region,sector:row.sector,status:row.status,notes:row.notes};
+  if(remoteMode()){
+   status.textContent='Saving record…';sent=true;
+   const result=await api(id?'/api/records/'+encodeURIComponent(id):'/api/records',{method:id?'PUT':'POST',signal:AbortSignal.timeout(60000),body:JSON.stringify(r)});
+   if(typeof result?.record?.id!=='string'||!result.record.id||(id&&result.record.id!==id)||Object.entries(r).some(([key,value])=>result.record[key]!==value))throw new Error('The server response did not confirm the submitted values.');
+  }else{
+   const rid=id||('AJ-'+crypto.randomUUID().toUpperCase());sent=true;
+   await writeLocalRecord('put',{...r,id:rid,updatedAt:new Date().toISOString()});
+   try{await log(id?'UPDATE':'CREATE',rid)}catch{auditWarning=' Local audit could not be saved.'}
+  }
+  confirmed=true;$('#modal').classList.add('hidden');$('#dataImportStatus').textContent='Record save confirmed.'+auditWarning;toast('Record saved');await renderData();
+ }catch(err){
+  const message=confirmed?'Save was confirmed, but the list could not refresh.':sent?'Save could not be confirmed. Refresh and review the record before retrying.':'Record was not saved.';
+  status.textContent=message+' '+(err.message||'');$('#dataImportStatus').textContent=status.textContent;toast(message);
+ }finally{recordWritePending=false;button.disabled=false}
+};
 $('#search').oninput=e=>{state.query=e.target.value;state.page=1;renderData()};$('#regionFilter').onchange=e=>{state.region=e.target.value;state.page=1;renderData()};$('#sectorFilter').onchange=e=>{state.sector=e.target.value;state.page=1;renderData()};$('#prevPage').onclick=()=>{if(dataPages&&state.page>1){state.page--;renderData()}};$('#nextPage').onclick=()=>{if(dataPages&&state.page<dataPages){state.page++;renderData()}};
 function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
 async function fetchAllCentralRecords(){

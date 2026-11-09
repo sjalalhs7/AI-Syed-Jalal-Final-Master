@@ -186,6 +186,59 @@ test('Data Operators see edit without delete, and record text cannot inject mark
   expect(await page.evaluate(()=>window.transferInjection)).toBeUndefined();
 });
 
+test('editing another field preserves custom statuses and unchanged CRLF values', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const original={id:'EDIT-'+crypto.randomUUID(),name:'  Preserve name  ',region:'',sector:'',status:'Special review',notes:'  first\r\nsecond  '};
+  expect((await api(page,'/records','POST',original)).status).toBe(201);
+  await page.reload();
+  const row=page.locator('#dataBody tr').filter({hasText:original.id});
+  await row.getByRole('button',{name:'Edit'}).click();
+  await expect(page.locator('#fStatus')).toHaveValue(original.status);
+  await expect(page.locator('#fNotes')).toHaveValue('  first\nsecond  ');
+  await page.locator('#fRegion').fill('North');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  const result=await api(page,'/records/'+original.id);
+  expect(result.data.record).toMatchObject({...original,region:'North'});
+});
+
+test('a lost single-record save response is uncertain and not retried automatically', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  let calls=0;
+  await page.route('**/api/records',route=>{
+    if(route.request().method()==='POST'){calls++;return route.abort('failed')}
+    return route.continue();
+  });
+  await page.locator('#addBtn').click();
+  await page.locator('#fName').fill('Local test name');
+  await page.locator('#recordForm button[type="submit"]').click();
+  await expect(page.locator('#recordFormStatus')).toContainText('Save could not be confirmed');
+  await expect(page.locator('#recordFormStatus')).toContainText('before retrying');
+  expect(calls).toBe(1);
+  await expect(page.locator('#recordForm button[type="submit"]')).toBeEnabled();
+});
+
+test('a lost single-record deletion response is uncertain and not retried automatically', async ({ page }) => {
+  test.setTimeout(120000);
+  await workspace(page);
+  const id='DELETE-'+crypto.randomUUID();
+  expect((await api(page,'/records','POST',{id,name:'Local test'})).status).toBe(201);
+  await page.reload();
+  let calls=0;
+  await page.route('**/api/records/**',route=>{
+    if(route.request().method()==='DELETE'){calls++;return route.abort('failed')}
+    return route.continue();
+  });
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Delete'}).click();
+  await expect(page.locator('#dataImportStatus')).toContainText('Deletion could not be confirmed');
+  await expect(page.locator('#dataImportStatus')).toContainText('before retrying');
+  expect(calls).toBe(1);
+  expect((await api(page,'/records/'+id)).status).toBe(200);
+});
+
 test('a lost merge response is reported as uncertain and is not retried', async ({ page }) => {
   await workspace(page, 'operations');
   let calls=0;await page.route('**/api/restore', route => {calls++;return route.abort('failed')});

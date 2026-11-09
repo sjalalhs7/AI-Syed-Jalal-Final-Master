@@ -19,9 +19,17 @@ File validation, bounded batches, progress and uncertain-response handling follo
 
 API compatibility: `/api/records/bulk` now rejects an invalid batch instead of silently skipping or truncating invalid values, and reports soft-deleted IDs as skipped. `/api/restore` requires the exported `version: 1`, skips deleted IDs by default, and requires the explicit two-field opt-in above to reactivate them. Existing automation relying on the old behavior must be reviewed before upgrading.
 
+## Individual record editing
+
+Single-record create and update now validate field types and length limits rather than silently truncating or accepting blank names. On update, omitted or `null` fields remain unchanged. Auto-generated IDs use a full UUID. The editor preserves existing custom or empty statuses and, for fields that have not visibly changed, their original values including CRLF line endings. A field that is actually edited uses the browser's input value, which may normalize line endings.
+
+On the tested schema, create, update and soft-delete each write the record and its `record_history` snapshot in one PostgreSQL statement. A history-write error aborts that statement; the separate audit event remains best-effort. This is not a full audit, backup or rollback guarantee, and production schema/trigger behavior must be verified independently. If a response is lost, the UI warns that a save or deletion might already have happened and does not retry it automatically.
+
+**Compatibility:** individual create and update now reject invalid or overlong values rather than accepting, coercing objects, or truncating them. Existing clients relying on those behaviors need review. Editing legacy records with values beyond the current limits requires a separate approved correction, not silent truncation.
+
 ## Remaining limitations
 
-- An authorized writer can still overwrite active records by ID after confirmation; the current API does not provide an atomic preview/version conflict check.
+- An authorized writer can still overwrite active records by ID after confirmation; the current API does not provide an atomic preview/version conflict check. Individual edits also have no version/compare-and-swap check, so concurrent edits can overwrite each other.
 - Existing `BULK_IMPORT` and `BACKUP_RESTORE` audit events are best-effort and do not constitute a per-record change history or rollback. Audit-write failures are deliberately not treated as proof that the record operation failed.
 - Validation and one SQL statement protect each request, not an entire multi-request transfer. Database, network, permissions, backup and recovery status remain deployment-specific.
 - The Admin `/api/backup` endpoint returns all active records in one response; large datasets can exceed runtime, network or browser limits. A downloaded file and its optional checksum do not prove a complete or restorable database backup.
