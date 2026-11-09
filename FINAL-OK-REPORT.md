@@ -1,5 +1,7 @@
 # AI-Syed Jalal — Final OK Report
 
+> Historical local-audit snapshot only. For the current live schema and unresolved production gates, see [CURRENT-STATUS.md](docs/CURRENT-STATUS.md). Do not run the older migration instructions below without the current database-safety prerequisites.
+
 **Date:** 2 November 2026  
 **Status:** **OK — unified platform finalized and verified locally**  
 **Canonical branch:** `main`  

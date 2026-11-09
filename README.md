@@ -1,15 +1,18 @@
 # AI-Syed-Jalal — Reconciled Recovery Master
 
-This repository contains the unified AI-Syed Jalal platform on `main`: the recovered source lineage, the repaired runnable application, and **SJ Agent Studio** (`/agent.html`). Historical recovery archives are preserved unchanged and are also available in the published `v1.0.0` GitHub Release.
+This repository contains the unified AI-Syed Jalal platform on `main`: the recovered source lineage, the runnable application, and **SJ Agent Studio** (`/agent.html`). Historical recovery archives are preserved unchanged and are also available in the published `v1.0.0` GitHub Release.
+
+**Current readiness:** see [CURRENT-STATUS.md](docs/CURRENT-STATUS.md). A connected database or old release label does not establish that the live schema, private data, backups, providers or device tests are complete.
 
 ## Locked design rule
-The approved Login Page + Homepage layout, theme language and hierarchy are locked: add capabilities without unnecessary redesign, and older concept boards stay historical references. The logo is now the **SJS** monogram (V152) and supersedes the earlier crowned-SJ mark; it ships in `frontend/assets/brand/` with small-size, maskable, monochrome and social variants.
+The approved Login Page + Homepage layout, theme language and hierarchy are locked: add capabilities without unnecessary redesign, and older concept boards stay historical references. The selected **crowned SJ** identity and recorded greeting were restored after V152; do not replace them with an older logo or another voice. Historical SJS assets remain in the repository.
 
 ## Quick links
 
 The runnable application lives in `source/AI-Syed-Jalal-FINAL-RECOVERED/`. Start with [START-HERE.md](START-HERE.md).
 
-- `/jarvis.html` — SJS-branded voice and text assistant, optional conversation, real tools and explicit confirmations.
+- `/ai-hub` and `/media-studio` — curated prompt references, local photo editing and browser-dependent video trimming; not AI media generation.
+- `/jarvis.html` — voice and text assistant, optional conversation, real tools and explicit confirmations.
 - `/allinone.html` — one request, every specialist that can serve it, each answer labelled with why.
 - `/toolbench.html` — the agent's deterministic tools by hand (dates, units, JSON, hashes, WCAG contrast, CSV, code audit, diff, page builder).
 - `/pagebuilder.html` — one sentence in, a complete single-file HTML page out; sandboxed preview, self-audit, real download.
@@ -42,7 +45,9 @@ Offline regression/source gates pass for the V76/V73/V75 lineage, 3,500 skills a
 Local PostgreSQL-compatible integration and Chromium browser journeys now pass. Not yet proven as live production: owner-controlled Neon/Cloudflare staging, real provider calls, live Google Search grounding, physical device/voice tests, production load/penetration tests, and exact V25 lineage recovery. Source presence or UI controls are not proof of live integration.
 
 See:
-- `docs/FINALIZATION-STATUS.md`
+- `docs/CURRENT-STATUS.md` for the current production gaps
+- `docs/RECORDS-TRANSFER.md` for import/export safety and limits
+- `docs/FINALIZATION-STATUS.md` for the historical recovery audit
 - `docs/AGENT-CAPABILITY-ROADMAP.md`
 - `docs/RELEASE-ASSET-HANDOFF.md`
 - `docs/visual-history/` in the full recovery package
@@ -81,10 +86,10 @@ evidence and its fix. On a used preview it reported **ready, 97/100**; on an emp
 
 ## V153 — JARVIS conversation (7 November 2026)
 
-**JARVIS** (`/jarvis.html`) now provides a voice and text console with optional
+**JARVIS** (`/jarvis.html`) provides a voice and text console with optional
 multi-turn listening, selectable cloud providers, bounded page-only cloud
-context, real local tools and explicit task/note confirmation. It uses the SJS
-logo and preserves the approved homepage/login design. Speech is browser- and
+context, real local tools and explicit task/note confirmation. The later crowned
+SJ identity and selected opening recording preserve the approved design. Speech is browser- and
 device-dependent; no physical microphone or live cloud provider was verified in
 this environment. Read [START-HERE.md](START-HERE.md) for setup, privacy and
 limitations, and [the V153 release notes](V153-JARVIS-CONVERSATION-2026-11-07.md)

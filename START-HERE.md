@@ -1,6 +1,6 @@
-# Start here — AI-Syed Jalal with SJS and JARVIS
+# Start here — AI-Syed Jalal and JARVIS
 
-The **SJS** logo and the application are included. Start with a local preview,
+The selected **crowned SJ** identity, recorded greeting and application are included. Start with a local preview,
 then follow the production checklist before using real accounts or private data.
 The application does not have Iron Man–style autonomous access to devices,
 email, or the outside world.
@@ -36,7 +36,8 @@ are kept in the ignored `.data/` directory.
    reply. Press **Stop**, hide the tab, or leave it to end the voice session.
    Stop ends local listening/speech and stops waiting for a request; a server
    request already sent may still finish.
-5. In **Voice settings**, choose the language and a device voice. Language
+5. In **Voice settings**, choose the language and a device voice for assistant
+   read-aloud. This does not replace the selected opening recording. Language
    selects recognition and pronunciation, not translation. Urdu recognition and
    voices depend on the browser and device. Typing remains available when
    speech input is unavailable.

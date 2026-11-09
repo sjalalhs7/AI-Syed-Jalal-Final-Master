@@ -33,10 +33,13 @@ same production origin and backend.
    lose changes made since the chosen time. Do not restore or migrate the live
    branch without the owner's specific approval and a verified recovery plan.
 
-The Workspace **Records Backup** button exports *active records only*. It does
-not back up users, deleted records, documents, audit history, notes, sessions or
-other tables. Its SHA-256 describes that downloaded file; it is not proof of a
-complete database backup or a successful restore.
+The Workspace **Records Backup** button exports *active records only*, including
+their record-note fields. It does not back up users, deleted records, documents,
+audit history, separate assistant notes, sessions or other tables. The Operations
+export also supplies a SHA-256 for the downloaded file; it is not proof of a
+complete database backup or a successful restore. The records merge can overwrite
+matching IDs and may be partially applied across batches; see
+[Records transfer](RECORDS-TRANSFER.md) for its explicit deletion and retry limits.
 
 ## Optional single-database archive for an experienced operator
 

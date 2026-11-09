@@ -11,8 +11,8 @@ permissions:
 jobs:
   application:
     runs-on: ubuntu-latest
-    # Cold Chromium/PGlite runs can exceed 15 minutes on slower hosted runners.
-    timeout-minutes: 25
+    # Cold Chromium/PGlite runs can exceed 25 minutes on slower hosted runners.
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
