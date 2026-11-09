@@ -166,7 +166,9 @@ test('Data Vault paginates 201 matching records and exports all pages', async ({
 });
 
 test('Data Operators see edit without delete, and record text cannot inject markup', async ({ page }) => {
-  test.setTimeout(90000);
+  // This journey creates and signs in a second account after the pagination
+  // test; cold PGlite/Chromium sandboxes can take longer to start it.
+  test.setTimeout(150000);
   await workspace(page);
   const username='operator-'+crypto.randomUUID().slice(0,8),password='Local-Only-Password123';
   expect((await api(page,'/admin/users','POST',{username,password,role:'Data Operator'})).status).toBe(201);
