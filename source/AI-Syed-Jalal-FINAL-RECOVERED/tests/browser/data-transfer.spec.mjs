@@ -57,6 +57,15 @@ test('JSON exports exact values and CSV neutralizes spreadsheet formulas', async
   await expect(page.locator('#view-data')).toContainText('CSV prefixes formula-like cells');
 });
 
+test('records export refuses an unverifiable total instead of downloading an empty file', async ({ page }) => {
+  await workspace(page);
+  let downloads=0;page.on('download',()=>downloads++);
+  await page.route('**/api/records?**',route=>route.fulfill({json:{records:[],total:null,page:1,pages:1}}));
+  await page.locator('#exportBtn').click();
+  await expect(page.locator('#toast')).toContainText('could not be verified');
+  expect(downloads).toBe(0);
+});
+
 test('records backup refuses malformed responses and warns about unmergeable values', async ({ page }) => {
   await workspace(page);
   let requests=0,downloads=0;

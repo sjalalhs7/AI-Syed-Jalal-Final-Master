@@ -569,8 +569,8 @@ async function fetchAllCentralRecords(){
  const allRows=[],ids=new Set();let page=1,pages=1,expected=null;
  do{
   const result=await api('/api/records?page='+page+'&limit=200');
-  const total=Number(result.total),reportedPages=Number(result.pages);
-  if(!Array.isArray(result.records)||!Number.isSafeInteger(total)||total<0||!Number.isSafeInteger(reportedPages)||reportedPages<1||Number(result.page)!==page)throw new Error('The records response could not be verified. No file was downloaded.');
+  const total=result.total,reportedPages=result.pages;
+  if(!Array.isArray(result.records)||result.records.length>200||!Number.isSafeInteger(total)||total<result.records.length||!Number.isSafeInteger(reportedPages)||reportedPages!==Math.max(1,Math.ceil(total/200))||result.page!==page)throw new Error('The records response could not be verified. No file was downloaded.');
   if(total>20000||reportedPages>100)throw new Error('Export is capped at 20,000 records per download.');
   if(expected===null)expected=total;else if(total!==expected||reportedPages!==pages)throw new Error('Records changed during export. Refresh and try again.');
   pages=reportedPages;
