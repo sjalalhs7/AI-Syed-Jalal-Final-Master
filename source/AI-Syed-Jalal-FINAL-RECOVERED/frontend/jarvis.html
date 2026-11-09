@@ -15,9 +15,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="assets/design-tokens.css">
   <link rel="stylesheet" href="assets/clean-glass.css">
-  <link rel="stylesheet" href="assets/jarvis.css">
+  <link rel="stylesheet" href="assets/jarvis.css?v=164">
   <script src="assets/host-mode.js"></script>
-  <script src="assets/speech-preferences.js"></script>
+  <script src="assets/speech-preferences.js?v=164"></script>
 <link rel="stylesheet" href="assets/content-report.css"><script src="assets/content-report.js" data-surface="jarvis" defer></script><link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
 <body>
 <div class="shell">
@@ -48,16 +48,28 @@
           <div class="message assistant"><div class="meta">JARVIS · ready when you are</div>Assalam-o-alaikum! Try “calculate six times seven”, “show my tasks” or “add task: Review my project”. Your microphone stays off until you start it.</div>
         </div>
         <form class="composer" id="consoleForm" autocomplete="off">
+          <div class="session-options" aria-label="Conversation setup">
+            <div class="field"><label for="mode">Response engine</label><select id="mode"><option value="agent">Agent — limited tools (no AI key)</option><option value="local">Local tools / guidance</option><option value="research">Research — Wikipedia</option><option value="cloud">Cloud AI — open-ended chat (server key required)</option></select></div>
+            <div class="field"><label for="speechLanguage">Speech language</label><select id="speechLanguage"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ur-PK">Urdu (Pakistan)</option><option value="hi-IN">Hindi (India)</option><option value="pa-PK">Punjabi (Pakistan)</option><option value="pa-IN">Punjabi (India)</option><option value="ar-SA">Arabic (Saudi Arabia)</option><option value="bn-BD">Bangla (Bangladesh)</option><option value="tr-TR">Turkish</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="de-DE">German</option><option value="zh-CN">Chinese (Mandarin)</option><option value="custom">Other language code…</option></select></div>
+          </div>
+          <div class="field" id="customLanguageField" hidden><label for="customLanguage">Language code (for example, fr-CA)</label><input id="customLanguage" type="text" maxlength="35" autocomplete="off" placeholder="fr-CA"><small id="languageHelp">Use a valid language tag. Availability depends on your browser and device.</small></div>
+          <p class="hint" id="engineHelp">Agent mode runs bounded tools, not general AI chat. Choose Cloud AI for open-ended conversation; a working provider is required and provider charges may apply.</p>
+          <div id="cloudOptions" hidden>
+            <div class="field"><label for="provider">Cloud provider</label><select id="provider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic Claude</option><option value="deepseek">DeepSeek</option></select></div>
+            <p class="hint" id="cloudStatus">Checking provider configuration…</p>
+            <label class="check"><input type="checkbox" id="rememberContext"><span>Remember up to 3 cloud exchanges for this page session<small>When enabled, recent cloud messages are sent to the selected provider with your next cloud request. They may be shortened. Clear the session or turn this off to forget them.</small></span></label>
+          </div>
           <div class="composer-label"><label for="prompt">Speak or type a command</label><button class="text-button" id="clearChat" type="button">Clear this session</button></div>
           <textarea id="prompt" maxlength="2000" rows="2" placeholder="What can I help you with?" aria-describedby="composerHelp"></textarea>
           <div class="composer-row">
-            <button class="btn big" id="talkBtn" type="button" aria-pressed="false" disabled>Start listening</button>
+            <button class="btn primary big" id="conversationBtn" type="button" aria-pressed="false" disabled>Start conversation</button>
+            <button class="btn" id="talkBtn" type="button" aria-pressed="false" disabled>Start listening</button>
             <button class="btn primary" id="sendBtn" type="submit" disabled>Run command ↗</button>
             <button class="btn" id="speakBtn" type="button" disabled>Repeat last reply</button>
             <button class="btn danger" id="stopBtn" type="button" aria-pressed="false" disabled>Stop</button>
           </div>
           <div class="statusline" id="status" role="status" aria-live="polite">Sign in to begin. Nothing is listening yet.</div>
-          <p class="hint" id="composerHelp">Enter sends · Shift+Enter adds a line. Review dictated text before sending unless you opt in to automatic sending.</p>
+          <p class="hint" id="composerHelp">Start conversation sends each final transcript and listens again after each reply. Stop ends it. Start listening lets you review one transcript unless continuous mode is enabled below.</p>
         </form>
       </section>
 
@@ -67,17 +79,11 @@
           <label class="check"><input type="checkbox" id="handsFree" checked><span>Read replies aloud automatically</span></label>
           <label class="check"><input type="checkbox" id="autoRun"><span>Send a final transcript automatically</span></label>
           <label class="check conversation-option"><input type="checkbox" id="conversationMode"><span><strong>Continue the conversation</strong><small>After you start, send each transcript and listen again after each reply. Stops on Stop, an error, or when you leave or hide this tab.</small></span></label>
-          <div class="field"><label for="speechLanguage">Speech language</label><select id="speechLanguage"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ur-PK">Urdu (Pakistan, if supported)</option></select></div>
           <div class="field"><label for="voice">Browser voice</label><select id="voice" data-aj-voice><option value="">System default</option></select></div>
-          <div class="field"><label for="mode">Response engine</label><select id="mode"><option value="agent">Agent — tools with a trace</option><option value="research">Research — live Wikipedia</option><option value="local">Local tools / structured guidance</option><option value="cloud">Cloud AI (requires server key)</option></select></div>
-          <div id="cloudOptions" hidden>
-            <div class="field"><label for="provider">Cloud provider</label><select id="provider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic Claude</option><option value="deepseek">DeepSeek</option></select></div>
-            <p class="hint" id="cloudStatus">Checking provider configuration…</p>
-            <label class="check"><input type="checkbox" id="rememberContext"><span>Remember up to 3 cloud exchanges for this page session<small>When enabled, recent cloud messages are sent to the selected provider with your next cloud request. They may be shortened. Clear the session or turn this off to forget them.</small></span></label>
-          </div>
+          <p class="hint" id="voiceLanguageHint" role="status">Voice and language availability depends on your device.</p>
           <div class="field"><label for="profile">Expert profile</label><select id="profile"><option value="general">General assistant</option><option value="planner">Professional planner</option><option value="critic">Critical reviewer</option><option value="coding">Coding advisor</option><option value="analysis">Analysis advisor</option><option value="architect">Software architect</option><option value="reviewer">Release reviewer</option><option value="writer">Writing coach</option></select></div><p class="hint">Profiles shape guidance and cloud prompts; deterministic tools still return their actual results.</p>
           <p class="hint" id="voiceDiagnostics" role="status">Checking speech support…</p>
-          <p class="hint">Speech language selects recognition and pronunciation; it does not translate replies. The browser voice is shared with JalalAi, Agent Studio and the Workspace dock. Recognition may send audio to your browser vendor’s speech service; some browser voices may also use an online service.</p>
+          <p class="hint">Speech language requests recognition and pronunciation; cloud replies are asked to use that language, but this is not guaranteed. Local tools respond in English. The browser voice is shared with JalalAi, Agent Studio and the Workspace dock. Recognition may send audio to your browser vendor’s speech service; some browser voices may also use an online service.</p>
           <a class="inline-link" href="guide.html#voice-test">Test voice on this device →</a>
         </section>
 
@@ -116,6 +122,6 @@
   </main>
   <footer class="hint">AI-Syed Jalal · JARVIS voice assistant · Your microphone and saved actions remain under your control.</footer>
 </div>
-<script type="module" src="assets/jarvis.js?v=162"></script>
+<script type="module" src="assets/jarvis.js?v=164"></script>
 </body>
 </html>

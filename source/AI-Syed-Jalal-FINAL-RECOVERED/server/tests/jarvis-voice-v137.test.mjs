@@ -66,9 +66,9 @@ test('the voice surface check is part of the graded self-check', async () => {
   assert.equal(voice.group, 'honesty');
   // Run it the way the engine does, with the page inventory supplied.
   const pages = ['index.html', 'agent.html', 'jalalai.html', 'workspace.html', 'dashboard.html', 'guide.html', 'agent-lab.html', 'arena.html', 'jarvis.html']
-    .map(file => ({ file, exists: true, closesHtml: true }));
+    .map(file => ({ file, exists: true, closesHtml: true, voiceContract: { ok: true } }));
   const detail = await voice.run({ pages });
-  assert.match(detail, /voice surfaces share one remembered voice/);
+  assert.match(detail, /voice pages declare a shared preference module and selector/);
   // A missing page must fail the check rather than pass quietly.
   await assert.rejects(() => voice.run({ pages: pages.filter(page => page.file !== 'jarvis.html') }), /jarvis\.html/);
 });

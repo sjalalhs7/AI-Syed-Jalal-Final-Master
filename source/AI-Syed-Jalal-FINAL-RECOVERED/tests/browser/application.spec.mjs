@@ -46,7 +46,7 @@ test('workspace: navigation, local AI, dock, records CRUD, admin, print and them
   await expect(page.locator('#approvalList')).toContainText('Browser approval'); await page.locator('[data-approval-action="approved"]').click(); await expect(page.locator('#approvalList')).toContainText('No pending approvals');
   await page.locator('.side [data-nav="users"]').click(); await expect(page.locator('#usersBody')).toContainText('Admin');
   await page.locator('.side [data-nav="operations"]').click(); await page.locator('#opsDiagnosticsBtn').click(); await expect(page.locator('#opsDiagnostics')).toContainText('healthy');
-  await page.locator('.side [data-nav="documents"]').click(); await page.locator('#pvName').fill('Print test'); await expect(page.locator('#pvPrevName')).toHaveText('Print test');
+  await page.locator('.side [data-nav="documents"]').click(); await page.locator('#docTitle').fill('Meeting notes'); await expect(page.locator('#docPrevTitle')).toHaveText('Meeting notes');
   await page.locator('.side [data-nav="settings"]').click(); await page.locator('#settingsTheme').click(); await expect(page.locator('#aj-theme-menu')).toBeVisible(); await page.locator('#aj-theme-menu [data-theme-choice="ice"]').click(); await expect(page.locator('html')).toHaveAttribute('data-aj-theme', 'ice');
   expect(errors).toEqual([]);
 });

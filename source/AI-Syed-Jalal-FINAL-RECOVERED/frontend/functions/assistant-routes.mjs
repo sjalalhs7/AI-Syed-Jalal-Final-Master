@@ -2,17 +2,25 @@ import { localAssistant, proposedAssistantAction, isSimpleGreeting, PROFILE_IDS 
 import { providerConfiguration, aggregateProviderConfiguration } from './provider-settings.mjs';
 import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
+import { pageStatus } from './page-inventory.mjs';
 import { buildPage, describePage, parseSpec, PALETTES, SECTIONS } from './page-builder.mjs';
 import { VOICE_SURFACES } from './voice-surfaces.mjs';
 import { answerAll, routePrompt, specialistCatalogue } from './all-in-one.mjs';
 
 // Cloud context is optional and transient. Bound it independently of the UI,
 // include only plain user/assistant text, and never truncate the current request.
-export function cloudPrompt(message, profile, history = []) {
+export function cloudPrompt(message, profile, history = [], language = undefined) {
   if (!Array.isArray(history) || history.length > 6 || history.some(turn =>
     !turn || !['user', 'assistant'].includes(turn.role) || typeof turn.content !== 'string' || turn.content.length > 1200
   )) throw Object.assign(new Error('Conversation context must contain at most six short user or assistant messages.'), { status: 400 });
-  const intro = `You are JalalAi, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services.`;
+  let requestedLanguage = '';
+  if (language !== undefined) {
+    if (typeof language !== 'string' || !language.trim() || language.length > 35) throw Object.assign(new Error('Choose a valid response language tag.'), { status: 400 });
+    try { requestedLanguage = Intl.getCanonicalLocales(language.trim())[0] || ''; }
+    catch { throw Object.assign(new Error('Choose a valid response language tag.'), { status: 400 }); }
+  }
+  const intro = `You are JalalAi, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services.` +
+    (requestedLanguage ? ` When possible, answer in the requested language (${requestedLanguage}); keep quoted text and code intact.` : '');
   const current = `\n\nCurrent user request:\n${message}`;
   let included = [];
   for (let i = history.length - 1; i >= 0; i--) {
@@ -102,9 +110,10 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
   // V138 — expert review. Stored evidence only: every finding cites what it read.
   if (path === '/api/assistant/critic/review' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
-    const pages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html', 'refactor-plan.html']
-      .map(file => ({ file, exists: true, closesHtml: true }));
-    const review = await runReview({ db, me, env, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } });
+    const pages = await pageStatus(env);
+    let review;
+    try { review = await runReview({ db, me, env, pages, runtime: { toolTimeoutMs: 9000 } }); }
+    catch { return reply({ ok: false, code: 'CRITIC_EVIDENCE_UNAVAILABLE', error: 'The review could not read its database evidence. Check Audit & Health for missing tables or access problems. No schema changes were made.' }, 503); }
     const id = crypto.randomUUID();
     try {
       await db.query('INSERT INTO expert_reviews(id,user_id,mode,score,verdict,dimensions,findings,counts,duration_ms) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9)',
@@ -153,9 +162,10 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     // V138 — the critic profile reviews this deployment instead of printing a checklist.
     if (profile === 'critic' && !body.mode) {
       if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
-      const pages = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html']
-        .map(file => ({ file, exists: true, closesHtml: true }));
-      const review = await critique({ db, me, env, pages, runtime: { toolTimeoutMs: 9000, csrfEnforced: true } }, message);
+      const pages = await pageStatus(env);
+      let review;
+      try { review = await critique({ db, me, env, pages, runtime: { toolTimeoutMs: 9000 } }, message); }
+      catch { return reply({ ok: false, code: 'CRITIC_EVIDENCE_UNAVAILABLE', error: 'The review could not read its database evidence. Check Audit & Health for missing tables or access problems. No schema changes were made.' }, 503); }
       await audit(db, me, 'ASSISTANT_EXPERT_REVIEW', `Chat review: ${review.verdict} (${review.score}/100)`, request);
       return reply(review);
     }
@@ -170,7 +180,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     const headers = new Headers(request.headers); headers.delete('content-length'); headers.set('content-type', 'application/json');
     const target = new URL(request.url); target.pathname = '/api/ai/run';
     let prepared;
-    try { prepared = cloudPrompt(message, profile, body.history ?? []); }
+    try { prepared = cloudPrompt(message, profile, body.history ?? [], body.language); }
     catch (error) { return reply({ error: error.message }, error.status || 400); }
     const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ prompt: prepared.prompt, provider, agentId: profile === 'critic' || profile === 'planner' ? 'analysis' : profile, privacyMode: true }) }), env });
     const data = await response.json();

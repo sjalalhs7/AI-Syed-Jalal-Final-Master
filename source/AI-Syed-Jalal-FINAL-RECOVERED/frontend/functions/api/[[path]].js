@@ -292,6 +292,7 @@ export async function onRequest(ctx){
   }
   if(u.pathname==='/api/ai/run'&&request.method==='POST'){
    const x=await readBody(request,24*1024*1024),privacyMode=x.privacyMode===true;
+   if(x.thinking===true)return reply({ok:false,error:'Extended thinking is not implemented by this endpoint. Use the provider’s normal model settings.',code:'THINKING_CONTROL_UNAVAILABLE'},400);
    if(!await consumeRateLimit(db,'ai-minute',me.id,20,3))return reply({error:'AI request limit reached (20 per minute). Please wait and retry.'},429,{'Retry-After':'60'});
    if(!await consumeRateLimit(db,'ai-day',me.id,200,432))return reply({error:'Daily AI request limit reached (200 per day). Please retry tomorrow.'},429,{'Retry-After':'3600'});
    const prompt=String(x.prompt||'').trim(),agentId=String(x.agentId||'general').slice(0,80),attachments=Array.isArray(x.attachments)?x.attachments:[];
@@ -341,14 +342,30 @@ export async function onRequest(ctx){
     const userContent=imageAttachments.length?[{type:'text',text:prompt},...imageAttachments.map(a=>({type:'image',source:{type:'base64',media_type:a.type,data:a.dataUrl.split(',')[1]}}))]:prompt;payload={model,max_tokens:2048,system:systemPrompt,messages:[{role:'user',content:userContent}]};
    } else {
     url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent';headers['x-goog-api-key']=cfg.key;
-    const parts=[{text:prompt},...imageAttachments.map(a=>({inline_data:{mime_type:a.type,data:a.dataUrl.split(',')[1]}}))];payload={systemInstruction:{parts:[{text:systemPrompt}]},contents:[{role:'user',parts}],generationConfig:{maxOutputTokens:2048,thinkingConfig:{thinkingLevel:'low'}}};
+    const parts=[{text:prompt},...imageAttachments.map(a=>({inline_data:{mime_type:a.type,data:a.dataUrl.split(',')[1]}}))];payload={systemInstruction:{parts:[{text:systemPrompt}]},contents:[{role:'user',parts}],generationConfig:{maxOutputTokens:2048}};
    }
    let upstream,data;
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
    try{for(let attempt=0;attempt<3;attempt++){upstream=await fetch(url,{method:'POST',headers,body:JSON.stringify(payload),signal:controller.signal});data=await upstream.json().catch(()=>({}));if(upstream.ok||![408,429,500,502,503,504].includes(upstream.status)||attempt===2)break;await new Promise(resolve=>setTimeout(resolve,900*(2**attempt)));}}
    catch(err){clearTimeout(timer);const msg=err?.name==='AbortError'?'Provider request timed out after 45 seconds.':'Could not reach the selected AI provider.';const row=await saveRun('failed',msg,{mode:'provider_error',provider,model,error:err?.name||'network_error'});await audit(db,me,'AI_RUN_FAILED',provider+': network/timeout',request);return reply({ok:false,traceId,provider,model,status:'failed',error:msg,createdAt:row[0]?.created_at},502);}
    finally{clearTimeout(timer);}
-   if(!upstream.ok){const providerMessage=String(data?.error?.message||data?.message||'').replace(/[\r\n\t]+/g,' ').slice(0,240);const overloaded=upstream.status===503&&(provider==='gemini'||/high demand|overload|temporarily unavailable/i.test(providerMessage));const msg=overloaded?'The AI provider is temporarily overloaded (HTTP 503). Automatic retries were attempted. Wait 30–60 seconds and retry; if this keeps happening, configure a second provider key in Cloudflare Pages and select that provider. No automatic provider failover is active.':'Provider request failed (HTTP '+upstream.status+').'+(providerMessage?' Provider says: '+providerMessage:' Check provider availability, API key, model access, and quota.');const retryAfter=overloaded?60:null;const row=await saveRun('failed',msg,{mode:'provider_error',provider,model,httpStatus:upstream.status,providerCode:data?.error?.status||null,retryable:[408,429,500,502,503,504].includes(upstream.status),retryAfterSeconds:retryAfter});await audit(db,me,'AI_RUN_FAILED',provider+': HTTP '+upstream.status,request);return reply({ok:false,traceId,provider,model,status:'failed',error:msg,code:overloaded?'PROVIDER_OVERLOADED':undefined,retryable:[408,429,500,502,503,504].includes(upstream.status),retryAfterSeconds:retryAfter,providerStatus:upstream.status,providerMessage:providerMessage||null,createdAt:row[0]?.created_at},502,overloaded?{'Retry-After':'60'}:{});}
+   if(!upstream.ok){
+    // Provider error bodies can echo request data or secrets. Use them only to
+    // identify overload, never return or persist their untrusted text.
+    const providerMessage=String(data?.error?.message||data?.message||'');
+    const overloaded=upstream.status===503&&(provider==='gemini'||/high demand|overload|temporarily unavailable/i.test(providerMessage));
+    const auth=upstream.status===401||upstream.status===403,quota=upstream.status===429,modelMissing=upstream.status===404,badRequest=upstream.status===400;
+    const msg=overloaded?'The AI provider is temporarily overloaded (HTTP 503). Automatic retries were attempted. Wait 30–60 seconds and retry; if this keeps happening, configure a second provider key in Cloudflare Pages and select that provider. No automatic provider failover is active.'
+     :auth?`The AI provider rejected credentials or model access (HTTP ${upstream.status}). An administrator should check the server-side key and model permissions; never share a key in chat.`
+     :quota?'The AI provider reported a rate limit or quota problem (HTTP 429). Check its account limits and retry later.'
+     :modelMissing?'The AI provider could not find the selected model or endpoint (HTTP 404). Check the configured model and endpoint.'
+     :badRequest?'The AI provider rejected the request (HTTP 400). Check the configured model and request settings.'
+     :`Provider request failed (HTTP ${upstream.status}). Check provider availability, model access and quota.`;
+    const retryAfter=overloaded?60:null,code=overloaded?'PROVIDER_OVERLOADED':auth?'PROVIDER_ACCESS_REJECTED':quota?'PROVIDER_RATE_OR_QUOTA':modelMissing?'PROVIDER_MODEL_NOT_FOUND':badRequest?'PROVIDER_BAD_REQUEST':'PROVIDER_UPSTREAM_ERROR';
+    const row=await saveRun('failed',msg,{mode:'provider_error',provider,model,httpStatus:upstream.status,retryable:[408,429,500,502,503,504].includes(upstream.status),retryAfterSeconds:retryAfter});
+    await audit(db,me,'AI_RUN_FAILED',provider+': HTTP '+upstream.status,request);
+    return reply({ok:false,traceId,provider,model,status:'failed',error:msg,code,retryable:[408,429,500,502,503,504].includes(upstream.status),retryAfterSeconds:retryAfter,providerStatus:upstream.status,createdAt:row[0]?.created_at},502,overloaded?{'Retry-After':'60'}:{});
+   }
    let output='';
    if(provider==='openai'||provider==='deepseek'||provider==='omniroute'){const v=data?.choices?.[0]?.message?.content;output=Array.isArray(v)?v.map(z=>z?.text||'').join('\n'):String(v||'');}
    else if(provider==='anthropic')output=(data?.content||[]).filter(z=>z?.type==='text').map(z=>z.text||'').join('\n');

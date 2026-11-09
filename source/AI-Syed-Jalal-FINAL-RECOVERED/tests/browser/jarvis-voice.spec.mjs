@@ -180,5 +180,5 @@ test('JARVIS is reachable from every main surface and the Agent Lab grades it', 
   const voice = checks.find(check => check.id === 'voice.surfaces');
   expect(voice, 'the voice contract must be graded by the self-check').toBeTruthy();
   expect(voice.ok).toBe(true);
-  expect(voice.detail).toContain('voice surfaces share one remembered voice');
+  expect(voice.detail).toContain('voice pages declare a shared preference module and selector');
 });

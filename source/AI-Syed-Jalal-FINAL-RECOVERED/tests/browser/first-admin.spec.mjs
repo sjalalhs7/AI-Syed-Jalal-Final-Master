@@ -58,3 +58,39 @@ import { test, expect } from '@playwright/test';
 
   expect(errors).toEqual([]);
 });
+
+test('short phone: the first-admin form remains usable while the welcome is playing', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.addInitScript(() => {
+    window.__welcomePause = 0;
+    window.Audio = class { play() { this.onplaying?.(); return Promise.resolve(); } pause() { window.__welcomePause++; } };
+  });
+  await page.route('**/api/bootstrap/status', route => route.fulfill({ json: { available: true, admins: 0, users: 0, completed: false } }));
+  let payload;
+  await page.route('**/api/bootstrap/admin', route => {
+    payload = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: { ok: true } });
+  });
+  await page.goto('/index.html?next=jarvis.html');
+  await expect(page.locator('#firstRun')).toBeVisible();
+  await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
+  await page.locator('#u').fill('phoneowner');
+  await page.locator('#p').fill('PhonePassword123');
+  await page.locator('#firstRunBtn').click(); // No force click or dismissing the greeting.
+  await expect.poll(() => payload).toEqual({ username: 'phoneowner', password: 'PhonePassword123' });
+  await page.waitForURL('**/jarvis.html');
+});
+
+test('short phone: the greeting can be stopped from inside the login dialog', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.addInitScript(() => {
+    window.__welcomePause = 0;
+    window.Audio = class { play() { this.onplaying?.(); return Promise.resolve(); } pause() { window.__welcomePause++; } };
+  });
+  await page.goto('/index.html?next=jarvis.html');
+  await expect(page.locator('#aj-welcome-notice-status')).toContainText('speaking');
+  await page.locator('#loginStopWelcome').click();
+  expect(await page.evaluate(() => window.__welcomePause)).toBeGreaterThan(0);
+  await expect(page.locator('#aj-welcome-notice')).toBeHidden();
+  await expect(page.locator('#login')).toHaveClass(/show/);
+});

@@ -90,24 +90,23 @@
   }
 
   function fillSelect(select) {
-    const current = select.value || preferredId();
+    const current = preferredId();
     const voices = list();
     select.replaceChildren(new Option('System default', ''));
     for (const voice of voices) select.add(new Option(`${voice.name} (${voice.lang})`, voiceId(voice)));
     const known = [...select.options].some(option => option.value === current);
-    select.value = known ? current : '';
-    // getVoices() is often temporarily empty during page load. Preserve the
-    // preference until a real list arrives before declaring it unavailable.
-    if (!known && current && voices.length) setPreferredQuiet('');
-    select.title = voices.length
-      ? 'Used by every read-aloud button in this application.'
+    // Device voice lists can be incomplete or differ across devices. Preserve
+    // the user's saved choice until they explicitly choose another one.
+    if (!known && current) {
+      const unavailable = new Option(`Saved voice unavailable: ${current}`, current);
+      unavailable.disabled = true;
+      select.add(unavailable);
+    }
+    select.value = current;
+    select.title = !known && current
+      ? 'Your saved voice is unavailable here; a matching language or the system default may be used until it returns.'
+      : voices.length ? 'Used by every read-aloud button in this application.'
       : 'Your browser has not exposed named voices yet; the default voice is used.';
-  }
-
-  // Avoid dispatching change events while reconciling an unavailable voice.
-  function setPreferredQuiet(id) {
-    memoryPreference = String(id || '');
-    storage.set(KEY, memoryPreference);
   }
 
   function syncSelects() {
@@ -115,6 +114,7 @@
       if (select.dataset.ajVoiceReady === 'unsupported') continue;
       const wanted = preferredId();
       if ([...select.options].some(option => option.value === wanted)) select.value = wanted;
+      else fillSelect(select);
     }
   }
 

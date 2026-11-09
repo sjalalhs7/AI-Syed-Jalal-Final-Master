@@ -217,7 +217,7 @@ test('an installed worker with an old transfer helper still loads the new editor
   await expect.poll(()=>page.evaluate(()=>Boolean(navigator.serviceWorker.controller)),{timeout:20000}).toBe(true);
   await page.evaluate(async()=>{
     // Simulate a previously installed v164 module without normalizeRecordPatch.
-    const cache=await caches.open('aj-v163-media-studio');
+    const cache=await caches.open('aj-v164-voice-health');
     await cache.put('/assets/records-transfer.js?v=164',new Response('export function normalizeRecords() {}',{headers:{'Content-Type':'text/javascript'}}));
   });
   await workspace(page);
