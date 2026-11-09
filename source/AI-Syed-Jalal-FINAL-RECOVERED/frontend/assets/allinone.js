@@ -31,8 +31,10 @@
 
   /* ---------------- routing preview ---------------- */
   function invalidateRoute() {
+    const hadPreview = previewBusy || !$('routeBar').hidden;
     routeSequence += 1;
     $('routeBar').hidden = true;
+    if (hadPreview && !busy) setStatus('Request or selection changed. Preview again if needed.');
   }
   async function previewRoute() {
     const prompt = $('prompt').value.trim();

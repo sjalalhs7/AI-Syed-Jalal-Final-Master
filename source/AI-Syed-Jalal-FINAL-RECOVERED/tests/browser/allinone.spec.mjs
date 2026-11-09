@@ -160,7 +160,9 @@ test('a routing preview is explicit and discarded if the text changes', async ({
   expect(previews).toBe(0);
   await page.locator('#previewRouteBtn').click();
   await page.locator('#prompt').fill('the changed text');
+  await expect(page.locator('#status')).toContainText('changed');
   await page.waitForTimeout(350);
   expect(previews).toBe(1);
   await expect(page.locator('#routeBar')).toBeHidden();
+  await expect(page.locator('#status')).not.toContainText('Requesting a routing preview');
 });
