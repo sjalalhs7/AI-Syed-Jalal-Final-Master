@@ -40,11 +40,37 @@ test('a user reviews and submits a reply and an Admin can safely review it', asy
   expect(await page.evaluate(() => window.__reportXSS)).not.toBeTruthy();
   const card = list.locator('.card').filter({ hasText: context });
   await expect(card).toContainText('OPEN');
-  page.once('dialog', dialog => dialog.accept());
-  const reviewed = page.waitForResponse(response => response.request().method() === 'POST' && /\/api\/admin\/content-reports\/[^/]+\/review$/.test(response.url()));
-  await card.getByRole('button', { name: 'Mark reviewed' }).click();
-  expect((await reviewed).status()).toBe(200);
-  await expect(card).toContainText('REVIEWED', { timeout: 30000 });
+  // Hold the real refresh after review so the test exercises the loading gap.
+  // The list element remains mounted while its report cards are replaced.
+  let releaseRefresh, refreshStarted;
+  const refreshGate = new Promise(resolve => { releaseRefresh = resolve; });
+  const refreshObserved = new Promise(resolve => { refreshStarted = resolve; });
+  await page.route('**/api/admin/content-reports', async route => {
+    refreshStarted();
+    await refreshGate;
+    await route.continue().catch(() => {});
+  });
+  try {
+    page.once('dialog', dialog => dialog.accept());
+    const reviewed = page.waitForResponse(response => response.request().method() === 'POST' && /\/api\/admin\/content-reports\/[^/]+\/review$/.test(response.url()));
+    await card.getByRole('button', { name: 'Mark reviewed' }).click();
+    expect((await reviewed).status()).toBe(200);
+    await refreshObserved;
+    await expect(list).toHaveText('Loading reports…');
+    releaseRefresh();
+
+    // Poll through the stable list rather than a temporarily missing card.
+    // Check the status of this unique report, not a different reviewed row.
+    await expect.poll(() => list.evaluate((element, details) => {
+      const report = Array.from(element.querySelectorAll(':scope > .card')).find(row => row.textContent.includes(details));
+      return report?.querySelector('strong')?.textContent.split(' · ')[0] || '';
+    }, context), { timeout: 30000 }).toBe('REVIEWED');
+    await expect(card.locator('strong')).toContainText('REVIEWED');
+    await expect(card.getByRole('button', { name: 'Mark reviewed' })).toHaveCount(0);
+  } finally {
+    releaseRefresh();
+    await page.unroute('**/api/admin/content-reports');
+  }
 });
 
 test('reporting is available in Agent Studio and Arena without sending automatically', async ({ page }) => {

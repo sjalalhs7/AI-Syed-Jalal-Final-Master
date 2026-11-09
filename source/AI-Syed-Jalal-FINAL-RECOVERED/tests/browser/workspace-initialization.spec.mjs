@@ -81,13 +81,17 @@ test('Operations does not keep stale green status when telemetry or readiness fa
   await page.waitForLoadState('networkidle');
   await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ ready:false, schemaTables:23, required:24, missing:['agent_runs'] } }));
   await page.route('**/api/stats', route => route.fulfill({ status:500, json:{ error:'telemetry unavailable' } }));
+  // Give the independent endpoints known successful responses. Their real
+  // integration is exercised above; this checks behavior during a partial outage.
+  await page.route('**/api/admin/system-snapshot', route => route.fulfill({ json:{ records:{ active:42, deleted:5 }, documents:2, sessions:{ active:3 }, audit24h:{ total:4 }, ai:{ active:1 }, regions:[], sectors:[] } }));
+  await page.route('**/api/admin/metrics', route => route.fulfill({ json:{ requests:{ requests:9, errors:1, rateLimited:0 }, db:{ activeSessions:3 } } }));
   await page.locator('#opsRefreshBtn').click();
   await expect(page.locator('#schemaRepairTag')).toHaveText('INCOMPLETE');
   await expect(page.locator('#opsDb')).toHaveText('INCOMPLETE');
   await expect(page.locator('#opsApi')).toHaveText('ONLINE');
   await expect(page.locator('#opsRecords')).toHaveText('—');
-  await expect(page.locator('#opsSnapshot')).toContainText('Active records');
-  await expect(page.locator('#opsTelemetry')).toContainText('AI runs (24h)');
+  await expect(page.locator('#opsSnapshot')).toContainText('Active records: 42');
+  await expect(page.locator('#opsTelemetry')).toContainText('AI runs (24h): 9');
   await expect(page.locator('#opsMessage')).toContainText('record statistics');
   await page.unroute('**/api/ready');
   await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ error:'database unavailable' } }));

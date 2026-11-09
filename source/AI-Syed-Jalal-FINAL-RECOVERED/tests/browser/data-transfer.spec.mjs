@@ -199,13 +199,25 @@ test('editing another field preserves custom statuses and unchanged CRLF values'
   await workspace(page);
   const original={id:'EDIT-'+crypto.randomUUID(),name:'  Preserve name  ',region:'',sector:'',status:'Special review',notes:'  first\r\nsecond  '};
   expect((await api(page,'/records','POST',original)).status).toBe(201);
-  await page.reload();
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.evaluate(()=>window.workspaceReady);
   const row=page.locator('#dataBody tr').filter({hasText:original.id});
-  await row.getByRole('button',{name:'Edit'}).click();
+  await expect(row).toContainText(original.id, {timeout:30000});
+  const recordPath='/api/records/'+original.id;
+  const [loaded]=await Promise.all([
+    page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname===recordPath,{timeout:60000}),
+    row.getByRole('button',{name:'Edit'}).click()
+  ]);
+  expect(loaded.status()).toBe(200);
+  await expect(page.locator('#modal')).toBeVisible();
   await expect(page.locator('#fStatus')).toHaveValue(original.status);
   await expect(page.locator('#fNotes')).toHaveValue('  first\nsecond  ');
   await page.locator('#fRegion').fill('North');
-  await page.locator('#recordForm button[type="submit"]').click();
+  const [saved]=await Promise.all([
+    page.waitForResponse(response=>response.request().method()==='PUT'&&new URL(response.url()).pathname===recordPath,{timeout:65000}),
+    page.locator('#recordForm button[type="submit"]').click()
+  ]);
+  expect(saved.status()).toBe(200);
   await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
   const result=await api(page,'/records/'+original.id);
   expect(result.data.record).toMatchObject({...original,region:'North'});
@@ -223,10 +235,25 @@ test('an installed worker with an old transfer helper still loads the new editor
   await workspace(page);
   const id='CACHE-'+crypto.randomUUID();
   expect((await api(page,'/records','POST',{id,name:'Cached helper test',region:'Old'})).status).toBe(201);
-  await page.reload();
-  await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Edit'}).click();
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.evaluate(()=>window.workspaceReady);
+  const row=page.locator('#dataBody tr').filter({hasText:id});
+  await expect(row).toContainText(id, {timeout:30000});
+  const recordPath='/api/records/'+id;
+  const [loaded]=await Promise.all([
+    page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname===recordPath,{timeout:60000}),
+    row.getByRole('button',{name:'Edit'}).click()
+  ]);
+  expect(loaded.status()).toBe(200);
+  await expect(page.locator('#modal')).toBeVisible();
   await page.locator('#fRegion').fill('New');
-  await page.locator('#recordForm button[type="submit"]').click();
+  // The application allows up to 60 seconds for this write; still require a
+  // successful response and a confirmed value, rather than timing out early.
+  const [saved]=await Promise.all([
+    page.waitForResponse(response=>response.request().method()==='PUT'&&new URL(response.url()).pathname===recordPath,{timeout:65000}),
+    page.locator('#recordForm button[type="submit"]').click()
+  ]);
+  expect(saved.status()).toBe(200);
   await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
   expect((await api(page,'/records/'+id)).data.record.region).toBe('New');
 });
