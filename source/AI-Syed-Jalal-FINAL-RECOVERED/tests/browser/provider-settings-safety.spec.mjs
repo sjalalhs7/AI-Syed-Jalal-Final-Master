@@ -20,12 +20,23 @@ test('provider-key controls preserve other local preview keys and identify their
     await expect(page.locator('#providerList')).toContainText('admin-console');
     await page.locator('#providerPick').selectOption('gemini');
     await page.locator('#providerKey').fill('local-browser-gemini-key-12345678');
-    await page.locator('#providerSaveBtn').click();
+    // Observe the specific mutations as well as their UI confirmation. A
+    // stale list or an older "Saved" message is not evidence of a new write.
+    const mutation = remove => page.waitForResponse(response => {
+      const request=response.request();
+      if(request.method()!=='POST'||!request.url().endsWith('/api/admin/providers'))return false;
+      const body=request.postDataJSON();return body.provider==='gemini'&&Boolean(body.remove)===remove;
+    }, { timeout:30000 });
+    const [saved]=await Promise.all([mutation(false),page.locator('#providerSaveBtn').click()]);
+    expect(saved.status()).toBe(200);
+    await expect(page.locator('#providerResult')).toContainText('Saved.', { timeout:30000 });
     const rows = page.locator('#providerList > div');
-    await expect(rows.filter({ hasText: 'openai' })).toContainText('KEY SET');
-    await expect(rows.filter({ hasText: 'gemini' })).toContainText('KEY SET');
-    await page.locator('#providerRemoveBtn').click();
-    await expect(rows.filter({ hasText: 'gemini' })).toContainText('NO KEY');
+    await expect(rows.filter({ hasText: 'openai' })).toContainText('KEY SET', { timeout:30000 });
+    await expect(rows.filter({ hasText: 'gemini' })).toContainText('KEY SET', { timeout:30000 });
+    const [removed]=await Promise.all([mutation(true),page.locator('#providerRemoveBtn').click()]);
+    expect(removed.status()).toBe(200);
+    await expect(page.locator('#providerResult')).toContainText('Stored key removal recorded.', { timeout:30000 });
+    await expect(rows.filter({ hasText: 'gemini' })).toContainText('NO KEY', { timeout:30000 });
     await expect(rows.filter({ hasText: 'openai' })).toContainText('KEY SET');
   } finally {
     // The browser test server owns an isolated PGlite database. Do not let
