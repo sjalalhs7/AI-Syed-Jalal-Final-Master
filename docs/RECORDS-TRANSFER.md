@@ -19,9 +19,19 @@ File validation, bounded batches, progress and uncertain-response handling follo
 
 API compatibility: `/api/records/bulk` now rejects an invalid batch instead of silently skipping or truncating invalid values, and reports soft-deleted IDs as skipped. `/api/restore` requires the exported `version: 1`, skips deleted IDs by default, and requires the explicit two-field opt-in above to reactivate them. Existing automation relying on the old behavior must be reviewed before upgrading.
 
+## Individual record editing
+
+Single-record create and update now validate field types and length limits rather than silently truncating or accepting blank names. On update, omitted or `null` fields remain unchanged. Auto-generated IDs use a full UUID. The editor preserves existing custom or empty statuses and sends only visibly changed fields, so untouched central values—including CRLF line endings—are not replaced. Local edits patch the current record in one IndexedDB transaction. A field that is actually edited uses the browser's input value, which may normalize line endings.
+
+Central single-record edits also pass the short-lived PostgreSQL row version obtained when opening the form. The UPDATE compares it in the same SQL statement; if the record changed, the tested API returns a conflict without applying the edit. The editor keeps the form open so the user can retain their input, then close and reopen to review the current record. A missing or invalid version prevents this editor from submitting an update. The token is based on PostgreSQL `xmin`; it is not a durable, globally unique revision or an audit history, and restore/maintenance and transaction-ID reuse are outside its guarantees.
+
+On the tested schema, create, update and soft-delete each write the record and its `record_history` snapshot in one PostgreSQL statement. A history-write error aborts that statement; the separate audit event remains best-effort. This is not a full audit, backup or rollback guarantee, and production schema/trigger behavior must be verified independently. If a response is lost, the UI warns that a save or deletion might already have happened and does not retry it automatically.
+
+**Compatibility:** individual create and update now reject invalid or overlong values rather than accepting, coercing objects, or truncating them. Existing clients relying on those behaviors need review. Changing an overlong legacy field requires a separate approved correction, not silent truncation; whether other fields can be edited depends on browser and server validation.
+
 ## Remaining limitations
 
-- An authorized writer can still overwrite active records by ID after confirmation; the current API does not provide an atomic preview/version conflict check.
+- An authorized writer can still overwrite active records by ID after transfer confirmation; bulk imports and restores have no atomic preview/version conflict check. The optional single-record version check is used by the current central editor, but older API clients can omit it; deletes and other write paths do not use it. Local edits merge untouched fields transactionally but do not detect two tabs changing the same field.
 - Existing `BULK_IMPORT` and `BACKUP_RESTORE` audit events are best-effort and do not constitute a per-record change history or rollback. Audit-write failures are deliberately not treated as proof that the record operation failed.
 - Validation and one SQL statement protect each request, not an entire multi-request transfer. Database, network, permissions, backup and recovery status remain deployment-specific.
 - The Admin `/api/backup` endpoint returns all active records in one response; large datasets can exceed runtime, network or browser limits. A downloaded file and its optional checksum do not prove a complete or restorable database backup.

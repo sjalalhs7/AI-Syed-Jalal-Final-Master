@@ -122,3 +122,98 @@ test('record merge skips deleted records unless an Admin explicitly opts in', as
       { name:'Backup deleted', deleted_at:null, deleted_by:null });
   } finally { await db.close(); }
 });
+
+test('individual record writes validate all supplied values without silent truncation', async () => {
+  const { db, admin, token } = await fixture();
+  try {
+    for (const row of [
+      { id:'BAD-A', name:' ' },
+      { id:'BAD-B', name:'Valid', region:'x'.repeat(201) },
+      { id:'BAD-C', name:'Valid', notes:'x'.repeat(10001) },
+      { id:'BAD-D', name:'Valid', sector:{ nested:'invalid' } },
+      { id:'x'.repeat(201), name:'Valid' }
+    ]) assert.equal((await admin('/records', 'POST', row, token)).status, 400);
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM records')).rows[0].n, 0);
+
+    const original = { id:'ONE', name:'  Preserve name  ', region:'  North  ', sector:'', status:'', notes:'\nFirst\nLast  ' };
+    const created = await admin('/records','POST',original,token);
+    assert.equal(created.status,201);assert.deepEqual(created.data.record,original);
+    assert.deepEqual((await db.query("SELECT id,name,region,sector,status,notes FROM records WHERE id='ONE'")).rows[0],original);
+    const before = (await db.query("SELECT id,name,region,sector,status,notes FROM records WHERE id='ONE'")).rows[0];
+    for (const patch of [{ name:' ' }, { region:'x'.repeat(201) }, { notes:'x'.repeat(10001) }]) {
+      assert.equal((await admin('/records/ONE','PUT',patch,token)).status,400);
+      assert.deepEqual((await db.query("SELECT id,name,region,sector,status,notes FROM records WHERE id='ONE'")).rows[0],before);
+    }
+    const updated=await admin('/records/ONE','PUT',{notes:'  Updated\nline  ',name:null},token);
+    assert.equal(updated.status,200);assert.equal(updated.data.record.name,original.name);
+    assert.equal(updated.data.record.notes,'  Updated\nline  ');assert.equal(updated.data.record.status,'');
+    assert.equal((await admin('/records/ONE','DELETE',{},token)).status,200);
+    const history=(await db.query("SELECT action,snapshot FROM record_history WHERE record_id='ONE' ORDER BY created_at,id")).rows;
+    assert.equal(history.length,3);assert.deepEqual(new Set(history.map(row=>row.action)),new Set(['CREATE','UPDATE','SOFT_DELETE']));
+    assert.equal(history.find(row=>row.action==='CREATE').snapshot.notes,original.notes);
+  } finally { await db.close(); }
+});
+
+test('individual create returns stored fields when a BEFORE trigger changes a value', async () => {
+  const { db, admin, token } = await fixture();
+  try {
+    await db.exec(`CREATE FUNCTION local_record_trigger() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN NEW.region := 'Changed by trigger'; RETURN NEW; END $$;
+      CREATE TRIGGER local_record_trigger BEFORE INSERT ON records FOR EACH ROW EXECUTE FUNCTION local_record_trigger();`);
+    const created=await admin('/records','POST',{id:'TRIGGER',name:'Example',region:'Submitted'},token);
+    assert.equal(created.status,201);
+    assert.equal(created.data.record.region,'Changed by trigger');
+    const saved=(await db.query("SELECT region FROM records WHERE id='TRIGGER'")).rows[0];
+    assert.equal(saved.region,created.data.record.region);
+    const history=(await db.query("SELECT snapshot FROM record_history WHERE record_id='TRIGGER'")).rows[0];
+    assert.equal(history.snapshot.region,created.data.record.region);
+  } finally { await db.close(); }
+});
+
+test('versioned individual edits reject stale versions without mutating records or history', async () => {
+  const { db, admin, token } = await fixture();
+  try {
+    assert.equal((await admin('/records','POST',{id:'VERSIONED',name:'Original',notes:'First'},token)).status,201);
+    const first=await admin('/records/VERSIONED');
+    assert.equal(first.status,200);assert.match(first.data.record.version,/^\d+$/);
+    const initialVersion=first.data.record.version;
+    // An older client without the optional version remains supported.
+    assert.equal((await admin('/records/VERSIONED','PUT',{notes:'Concurrent'},token)).status,200);
+    const before=(await db.query("SELECT id,name,notes,updated_at FROM records WHERE id='VERSIONED'")).rows[0];
+    const historyBefore=(await db.query("SELECT count(*)::int AS n FROM record_history WHERE record_id='VERSIONED'")).rows[0].n;
+    const stale=await admin('/records/VERSIONED','PUT',{name:'Must not overwrite',expectedVersion:initialVersion},token);
+    assert.equal(stale.status,409);assert.equal(stale.data.code,'RECORD_CONFLICT');
+    assert.deepEqual((await db.query("SELECT id,name,notes,updated_at FROM records WHERE id='VERSIONED'")).rows[0],before);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM record_history WHERE record_id='VERSIONED'")).rows[0].n,historyBefore);
+    for(const expectedVersion of [null,123,'','invalid','1'.repeat(21)]) {
+      assert.equal((await admin('/records/VERSIONED','PUT',{name:'Invalid',expectedVersion},token)).status,400);
+    }
+    const current=(await admin('/records/VERSIONED')).data.record;
+    assert.notEqual(current.version,initialVersion);
+    assert.equal((await admin('/records/VERSIONED','PUT',{name:'Reviewed',expectedVersion:current.version},token)).status,200);
+    assert.deepEqual((await db.query("SELECT name,notes FROM records WHERE id='VERSIONED'")).rows[0],{name:'Reviewed',notes:'Concurrent'});
+    assert.equal((await admin('/records/DOES-NOT-EXIST','PUT',{name:'Missing',expectedVersion:current.version},token)).status,404);
+    const shared=(await admin('/records/VERSIONED')).data.record.version;
+    const attempts=await Promise.all(['First writer','Second writer'].map(name=>admin('/records/VERSIONED','PUT',{name,expectedVersion:shared},token)));
+    assert.deepEqual(attempts.map(result=>result.status).sort(),[200,409]);
+    assert.ok(['First writer','Second writer'].includes((await admin('/records/VERSIONED')).data.record.name));
+  } finally { await db.close(); }
+});
+
+test('individual writes roll back when the history table is unavailable', async () => {
+  const { db, admin, token } = await fixture();
+  try {
+    assert.equal((await admin('/records','POST',{id:'ORIGINAL',name:'Untouched'},token)).status,201);
+    const before=(await db.query("SELECT id,name,notes,updated_at,deleted_at,deleted_by FROM records WHERE id='ORIGINAL'")).rows[0];
+    await db.exec('ALTER TABLE record_history RENAME TO local_history_unavailable');
+    for (const [path,method,body] of [
+      ['/records','POST',{id:'NOT-CREATED',name:'New'}],
+      ['/records/ORIGINAL','PUT',{name:'Must not update'}],
+      ['/records/ORIGINAL','DELETE',{}]
+    ]) assert.equal((await admin(path,method,body,token)).status,500);
+    assert.deepEqual((await db.query("SELECT id,name,notes,updated_at,deleted_at,deleted_by FROM records WHERE id='ORIGINAL'")).rows[0],before);
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM records WHERE id='NOT-CREATED'")).rows[0].n,0);
+    await db.exec('ALTER TABLE local_history_unavailable RENAME TO record_history');
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM record_history WHERE record_id='ORIGINAL'")).rows[0].n,1);
+  } finally { await db.close(); }
+});

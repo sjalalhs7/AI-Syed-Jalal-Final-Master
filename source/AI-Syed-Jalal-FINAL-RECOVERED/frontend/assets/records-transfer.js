@@ -79,6 +79,17 @@ export function normalizeRecords(input, { requireId = false } = {}) {
   });
 }
 
+/** Validate a partial record update without replacing omitted or null fields. */
+export function normalizeRecordPatch(patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Record update must be an object.');
+  const fields = RECORD_FIELDS.filter(key => key !== 'id');
+  const supplied = Object.fromEntries(fields.filter(key => Object.hasOwn(patch, key) && patch[key] != null).map(key => [key, patch[key]]));
+  // A name is mandatory only when it is being changed. The temporary name is
+  // never returned or written for an update that leaves the name untouched.
+  const row = normalizeRecords([{ name:'validation placeholder', ...supplied }])[0];
+  return Object.fromEntries(fields.map(key => [key, Object.hasOwn(supplied, key) ? row[key] : null]));
+}
+
 /** Validate the export envelope and warn if this UI cannot merge its records. */
 export function prepareRecordsExport(payload) {
   if (payload?.format !== 'alsyed-jalal-backup' || payload.version !== 1 || !Array.isArray(payload.records) ||

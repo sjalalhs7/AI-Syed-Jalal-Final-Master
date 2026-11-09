@@ -5,7 +5,7 @@ This is a practical status summary, not a declaration that all data or external 
 ## Confirmed baseline
 
 - The current production website is <https://ai-syed-jalal-live.pages.dev/>. The merged baseline [PR #62](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/pull/62) added local photo editing, browser-dependent video trimming, login connectivity guidance and public search metadata. Selected files stay in the browser; these tools do not generate media with AI.
-- The baseline passed application, recovery, CodeQL and Cloudflare checks. A complete browser suite passed 154 tests locally and in CI for that baseline. Later changes must pass their own checks.
+- That baseline passed application, recovery, CodeQL and Cloudflare checks. [PR #63](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/pull/63) subsequently hardened records transfer; the full 166-test browser suite passed in its branch, PR and post-merge main CI runs. Later changes must pass their own checks.
 - The selected crowned SJ identity and recorded Urdu greeting are preserved. Browser tests do not prove audio is audible on every physical device.
 - The public sitemap, robots policy, `llms.txt` and Google verification file are reachable. Google/Bing account ownership, sitemap submission, indexing and rankings have not been verified. See [Search discovery](SEARCH-DISCOVERY.md).
 
@@ -16,7 +16,7 @@ This is a practical status summary, not a declaration that all data or external 
 3. Google Search Console and Bing Webmaster Tools statuses require their own account dashboards; an existing verification file is not account verification.
 4. The Android artifact is a test build, not a signed or Play-approved release. Store policy, account deletion, privacy contact and real-device checks remain owner-controlled; see [Google release readiness](GOOGLE-RELEASE-READINESS.md).
 5. The original historical V25 archive is missing/unverified. No missing private records, backups or capabilities can be reconstructed from table counts alone.
-6. Published release `v1.0.1` contains an older 'all issues resolved/production-ready' claim. Its title and historical test counts are not proof of the current deployment's readiness; no release was changed by this handoff.
+6. Published release `v1.0.1` is now labeled as a historical test report and points to this status and the database safety prerequisites. Its historical test counts are not proof of the current deployment's readiness.
 
 ## Next safe steps
 
