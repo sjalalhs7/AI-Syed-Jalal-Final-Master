@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { AGENT_TOOLS } from '../../frontend/functions/agent-runtime.mjs';
+import { PAGE_INVENTORY } from '../../frontend/functions/page-inventory.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,11 +77,10 @@ test('every page opens and closes cleanly and declares its language', () => {
 });
 
 test('the page inventory matches the files on disk', () => {
-  const source = readFileSync(join(frontend, 'functions/agent-routes.mjs'), 'utf8');
-  const listed = [...source.matchAll(/\{ file: '([a-z0-9.-]+\.html)'/g)].map(match => match[1]);
-  assert.ok(listed.length >= 14, 'the inventory should list every shipped page');
-  const absent = listed.filter(file => !existsSync(join(frontend, file)));
-  assert.deepEqual(absent, [], `inventory lists files that do not exist:\n${absent.join('\n')}`);
+  assert.ok(PAGE_INVENTORY.length >= 14, 'the inventory should list the primary pages');
+  const absent = PAGE_INVENTORY.filter(page => !existsSync(join(frontend, page.file)));
+  assert.deepEqual(absent, [], `inventory lists files that do not exist: ${absent.map(page => page.file).join(', ')}`);
+  for (const page of PAGE_INVENTORY) assert.ok(read(page.file).includes(page.marker), `${page.file} must contain its probe marker`);
 });
 
 test('the service worker never caches a private shell', () => {

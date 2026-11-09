@@ -16,7 +16,8 @@
 import { localAssistant, calculate } from './assistant-core.mjs';
 import { JUDGE, judgeVerdict } from './arena.mjs';
 import { AGENT_TOOLS, planFor } from './agent-runtime.mjs';
-import { VOICE_SURFACES, surfaceShipsContract } from './voice-surfaces.mjs';
+import { VOICE_SURFACES } from './voice-surfaces.mjs';
+import { REQUIRED_TABLES } from './schema-bundle.mjs';
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -73,11 +74,9 @@ export function builtInChecks() {
       async run({ db }) {
         const rows = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
         const names = new Set(rows.map(row => String(row.table_name)));
-        // Must match the readiness list in frontend/functions/api/[[path]].js exactly.
-        const required = ['app_users', 'sessions', 'records', 'audit_events', 'record_history', 'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks', 'assistant_notes', 'platform_conversations', 'platform_messages', 'agent_skills', 'agent_self_checks', 'arena_battles', 'arena_responses', 'arena_artifacts', 'arena_ratings', 'agent_runs', 'expert_reviews'];
-        const missing = required.filter(name => !names.has(name));
-        if (missing.length) throw new Error(`Missing tables: ${missing.join(', ')}`);
-        return `${required.length}/${required.length} required tables present (${names.size} total)`;
+        const missing = REQUIRED_TABLES.filter(name => !names.has(name));
+        if (missing.length) throw new Error(`Missing required table names: ${missing.join(', ')}`);
+        return `${REQUIRED_TABLES.length}/${REQUIRED_TABLES.length} required table names present (${names.size} total); columns, data and migration history were not checked` ;
       }
     }),
     defineCheck({
@@ -266,29 +265,28 @@ export function builtInChecks() {
       }
     }),
     defineCheck({
-      id: 'voice.surfaces', title: 'Every voice surface shares one preference and states its limits', group: 'honesty', weight: 5,
-      async run({ pages }) {
-        // The console, the assistant, the studio and the dock must all resolve
-        // their voice through the same module, or the preference silently breaks.
-        const missing = VOICE_SURFACES.filter(surface => !pages.some(page => page.file === surface.file && page.exists));
-        if (missing.length) throw new Error(`Voice surface page missing: ${missing.map(s => s.file).join(', ')}`);
-        const jarvis = pages.find(page => page.file === 'jarvis.html');
-        if (!jarvis?.exists) throw new Error('The JARVIS voice console is not shipped');
-        if (VOICE_SURFACES.length < 4) throw new Error('A voice surface was removed from the contract');
-        for (const surface of VOICE_SURFACES) {
-          if (!surface.element || !surface.speak || !surface.listen) throw new Error(`${surface.file} does not declare its voice controls`);
-        }
-        return `${VOICE_SURFACES.length} voice surfaces share one remembered voice (${VOICE_SURFACES.map(s => s.label).join(', ')}); JARVIS states that audio never reaches the server`;
+      id: 'voice.surfaces', title: 'Voice pages declare the shared preference controls', group: 'honesty', weight: 5,
+      async run({ pages = [] }) {
+        const unknown = VOICE_SURFACES.filter(surface => !pages.some(page => page.file === surface.file && page.exists !== null && page.exists !== undefined));
+        if (unknown.length) throw new Error(`Voice pages could not be checked on this host: ${unknown.map(s => s.file).join(', ')}`);
+        const missing = VOICE_SURFACES.filter(surface => !pages.some(page => page.file === surface.file && page.exists === true));
+        if (missing.length) throw new Error(`Expected voice page content unavailable: ${missing.map(s => s.file).join(', ')}`);
+        const invalid = VOICE_SURFACES.filter(surface => !pages.find(page => page.file === surface.file)?.voiceContract?.ok);
+        if (invalid.length) throw new Error(`Shared voice controls were not found in: ${invalid.map(s => s.file).join(', ')}`);
+        return `${VOICE_SURFACES.length} voice pages declare a shared preference module and selector; physical speech and device voices are not tested`;
       }
     }),
     defineCheck({
-      id: 'ui.pages', title: 'Every shipped page is present and self-contained', group: 'application', weight: 4,
-      async run({ pages }) {
-        const missing = pages.filter(page => !page.exists);
-        if (missing.length) throw new Error(`Missing page files: ${missing.map(page => page.file).join(', ')}`);
+      id: 'ui.pages', title: 'Expected pages return their own HTML', group: 'application', weight: 4,
+      async run({ pages = [] }) {
+        if (!pages.length) throw new Error('Page availability could not be checked on this host');
+        const unknown = pages.filter(page => page.exists === null || page.exists === undefined);
+        if (unknown.length) throw new Error(`Page availability could not be checked: ${unknown.map(page => page.file).join(', ')}`);
+        const missing = pages.filter(page => page.exists === false);
+        if (missing.length) throw new Error(`Expected page content unavailable: ${missing.map(page => page.file).join(', ')}`);
         const broken = pages.filter(page => page.exists && !page.closesHtml);
         if (broken.length) throw new Error(`Pages without a closing </html>: ${broken.map(page => page.file).join(', ')}`);
-        return `${pages.length} application pages present and well-formed`;
+        return `${pages.length} page responses contain their expected marker and a closing HTML tag; workflows are not tested`;
       }
     })
   ];

@@ -88,3 +88,18 @@ footer { margin-top: 22px !important; }
 }
 @media (max-width: 440px) { .topbar nav a.btn { display: inline-flex; } .session-steps { gap: 6px 14px; padding: 12px; } .console-head { padding: 14px; } .mic-indicator { font-size: 10px; } }
 @media (prefers-reduced-motion: reduce) { .core[data-state] span, .wave[data-state] i { animation: none !important; } }
+
+/* Keep the conversation controls together and ahead of the chat on phones. */
+.session-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.session-options .field { margin: 0 0 8px; }
+#customLanguageField small { display: block; color: var(--muted); }
+#conversationBtn { border-color: #f4ca70; color: #231804; background: linear-gradient(135deg,#ffe38c,#f4bd52); }
+#conversationBtn[aria-pressed="true"] { color: #c4f6dc; border-color: #79e4b2; background: #163c31; }
+@media (max-width:760px) { .console .composer { order: 1; } .console .chatlog { order: 2; } }
+@media (max-width:360px) { .session-options { gap: 6px; } }
+@media (max-width:760px) {
+  .intro { padding: 12px 0 10px; }
+  .console-head { padding: 10px 14px; }
+  .wave { height: 18px; }
+  .session-steps { padding: 7px 12px; }
+}

@@ -15,7 +15,7 @@ test('all entry pages load the opening welcome once and retain shared speech pre
   for (const page of pages) {
     const html = read(page);
     assert.equal((html.match(/<script\s+[^>]*src="assets\/jarvis-welcome\.js\?v=157"/g) || []).length, 1, `${page}: greeting module`);
-    assert.equal((html.match(/<script\s+[^>]*src="assets\/speech-preferences\.js"/g) || []).length, 1, `${page}: shared voice preferences`);
+    assert.equal((html.match(/<script\s+[^>]*src="assets\/speech-preferences\.js\?v=164"/g) || []).length, 1, `${page}: shared voice preferences`);
     assert.ok(html.includes('assets/jarvis-welcome.css?v=156'), `${page}: welcome styles`);
   }
   // A redirect should not start and immediately cut off the greeting.
@@ -41,7 +41,7 @@ test('the recorded voice and versioned assets are available offline', () => {
   assert.equal(createHash('sha256').update(audio).digest('hex'), 'da3d9fea1b3762ad162454439886cd66f8bff67109f8fdaaa1a74a8c3d29b8d3', 'keep the actual recording selected by the owner');
   const sw = read('sw.js');
   for (const asset of ['jarvis-welcome-ur-pk.mp3?v=157', 'jarvis-welcome.js?v=157', 'jarvis-welcome.css?v=156']) assert.ok(sw.includes(asset), `${asset}: not precached`);
-  assert.ok(sw.includes("const CACHE='aj-v163-media-studio'"));
+  assert.ok(sw.includes("const CACHE='aj-v164-voice-health'"));
   assert.ok(sw.includes("'./assets/guide.js?v=159'"));
   assert.ok(read('guide.html').includes('assets/guide.js?v=159'));
   assert.ok(sw.includes("k.startsWith('aj-v')&&k!==CACHE"));

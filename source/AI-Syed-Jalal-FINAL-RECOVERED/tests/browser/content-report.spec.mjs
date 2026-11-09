@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 
 test('a user reviews and submits a reply and an Admin can safely review it', async ({ page }) => {
   test.setTimeout(90000);
@@ -22,7 +23,8 @@ test('a user reviews and submits a reply and an Admin can safely review it', asy
   await reply.getByRole('button', { name: 'Report this AI reply' }).click();
   const malicious = '<img src=x onerror="window.__reportXSS=true">';
   await dialog.locator('textarea[name=excerpt]').fill(malicious);
-  await dialog.locator('textarea[name=details]').fill('Example report for a safe review test');
+  const context = `Safe review test ${randomUUID()}`;
+  await dialog.locator('textarea[name=details]').fill(context);
   await dialog.locator('select[name=category]').selectOption('unsafe');
   await dialog.getByRole('button', { name: 'Submit report' }).click();
   await expect(dialog.locator('[role=status]')).toContainText('Report submitted');
@@ -32,15 +34,17 @@ test('a user reviews and submits a reply and an Admin can safely review it', asy
   await page.goto('/workspace.html#operations');
   await page.locator('.side [data-nav="operations"]').click();
   const list = page.locator('#contentReportsList');
-  await expect(list).toContainText('Example report for a safe review test');
+  await expect(list).toContainText(context);
   await expect(list).toContainText(malicious);
   await expect(list.locator('img')).toHaveCount(0);
   expect(await page.evaluate(() => window.__reportXSS)).not.toBeTruthy();
-  const card = list.locator('.card').filter({ hasText: 'Example report for a safe review test' });
+  const card = list.locator('.card').filter({ hasText: context });
   await expect(card).toContainText('OPEN');
   page.once('dialog', dialog => dialog.accept());
+  const reviewed = page.waitForResponse(response => response.request().method() === 'POST' && /\/api\/admin\/content-reports\/[^/]+\/review$/.test(response.url()));
   await card.getByRole('button', { name: 'Mark reviewed' }).click();
-  await expect(card).toContainText('REVIEWED');
+  expect((await reviewed).status()).toBe(200);
+  await expect(card).toContainText('REVIEWED', { timeout: 30000 });
 });
 
 test('reporting is available in Agent Studio and Arena without sending automatically', async ({ page }) => {
@@ -77,4 +81,33 @@ test('Agent Studio and Arena attach a report action to generated replies', async
   const content = await card.locator('.card-body').textContent();
   await card.getByRole('button', { name: 'Report this AI reply' }).click();
   await expect(page.locator('.aj-report-dialog textarea[name=excerpt]')).toHaveValue(content.slice(0, 5000));
+});
+
+test('a stale reports refresh cannot undo a newer queue result', async ({ page }) => {
+  await page.goto('/jalalai.html'); await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.goto('/workspace.html#operations');
+  await expect(page.locator('#contentReportsList')).not.toContainText('Loading reports');
+  await page.waitForLoadState('networkidle');
+  let release, started, calls = 0;
+  const held = new Promise(resolve => { started = resolve; });
+  const wait = new Promise(resolve => { release = resolve; });
+  const report = status => ({ id:'01234567-89ab-4cde-8fab-0123456789ab', status, category:'other', surface:'jarvis', username:'test', created_at:'2026-11-07T00:00:00Z', excerpt:'Example text', details:'Unique report for ordering' });
+  await page.route('**/api/admin/content-reports', async route => {
+    if (++calls === 1) { started(); await wait; return route.fulfill({ json:{ reports:[report('open')] } }).catch(() => {}); }
+    return route.fulfill({ json:{ reports:[report('reviewed')] } });
+  });
+  try {
+    await page.locator('#contentReportsRefreshBtn').click(); await held;
+    await page.locator('#contentReportsRefreshBtn').click();
+    await expect(page.locator('#contentReportsList')).toContainText('REVIEWED');
+    release(); await page.waitForLoadState('networkidle');
+    await expect(page.locator('#contentReportsList')).toContainText('REVIEWED');
+    await expect(page.locator('#contentReportsList')).not.toContainText('OPEN');
+    await page.unroute('**/api/admin/content-reports');
+    await page.route('**/api/admin/content-reports', route => route.fulfill({ json:{ reports:'invalid' } }));
+    await page.locator('#contentReportsRefreshBtn').click();
+    await expect(page.locator('#contentReportsList')).toContainText('Reports unavailable');
+    await expect(page.locator('#contentReportsList')).not.toContainText('No reports');
+  } finally { release(); }
 });

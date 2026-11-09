@@ -27,7 +27,7 @@
     $('verdict').hidden = false;
     $('scoreValue').textContent = String(data.score);
     $('verdictLabel').textContent = `Verdict · ${data.verdict.replace('-', ' ')} · engine ${data.engine}`;
-    $('verdictTitle').textContent = data.verdict === 'ready' ? 'Ready to call production'
+    $('verdictTitle').textContent = data.verdict === 'ready' ? 'No critical findings in these limited checks'
       : data.verdict === 'conditional' ? 'Conditional — fix the critical items first'
       : 'Not ready — do not claim production';
     $('verdictSummary').textContent = data.generated?.summary || '';
@@ -38,7 +38,7 @@
       const item = document.createElement('li');
       item.className = 'count ' + severity;
       item.innerHTML = '';
-      const strong = document.createElement('strong'); strong.textContent = String(counts[severity] ?? 0);
+      const strong = document.createElement('strong'); strong.textContent = String((severity === 'observation' ? counts.observations : counts[severity]) ?? 0);
       const label = document.createElement('span'); label.textContent = severity + (severity === 'observation' ? '' : 's');
       item.append(strong, label);
       list.appendChild(item);
@@ -131,7 +131,7 @@
   async function runReview() {
     $('runBtn').disabled = true;
     setState('Reviewing…');
-    message('Reading stored evidence: audit events, agent runs, self-checks, Arena responses and shipped surfaces.');
+    message('Reading the connected database and, where available, checking page responses.');
     try {
       const data = await api('/assistant/critic/review', { method: 'POST', body: '{}' });
       setState(`Reviewed · ${data.findings.length} finding(s)`, data.verdict);
@@ -140,7 +140,7 @@
       loadHistory();
     } catch (error) {
       setState('Review failed', 'bad');
-      message(error.status === 401 ? 'Sign in to run a review: findings are stored on your account.'
+      message(error.status === 401 ? 'Sign in to run a review. Storage also requires the review table to be available.'
         : error.status === 429 ? 'Reviews are rate limited. Wait a minute and run it again.'
         : error.message);
     } finally {
@@ -153,13 +153,13 @@
       const data = await api('/assistant/critic/review');
       if (data.review) {
         setState(`Last review: ${data.review.verdict} (${data.review.score}/100)`);
-        show({ ...data.review, generated: { summary: 'Latest stored review. Run the review again to refresh the evidence.' }, limits: [] });
+        show({ ...data.review, engine: data.engine, weakest: [...(data.review.dimensions || [])].sort((a, b) => a.score - b.score).slice(0, 2), generated: { summary: 'Latest stored review. Run the review again to refresh the evidence.' }, limits: [] });
       } else {
         setState('No review stored yet');
-        message('Run the review once; the result is stored so this verdict can be audited later.');
+        message('Run the review to examine the available evidence. Saving requires review storage to be available.');
       }
       loadHistory();
-    } catch { /* fall through to sign-in state */ }
+    } catch { setState('Review history unavailable', 'warn'); message('Stored reviews could not be read. You can try running a review; check Audit & Health if it also fails.'); }
   }
 
   async function start() {
@@ -175,7 +175,7 @@
       csrf = session.csrfToken || '';
       if (!session.authenticated) {
         setState('Sign in required', 'warn');
-        message('Sign in with your account to run and store a review.');
+        message('Sign in with your account to run a review. Storage requires the review table.');
         $('accountBtn').textContent = 'Sign in';
         $('accountBtn').onclick = () => { location.href = 'index.html?next=critic.html'; };
         await loadHistory().catch(() => {});

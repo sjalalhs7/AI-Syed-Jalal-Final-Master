@@ -31,6 +31,9 @@
     const micPending = starting || listening;
     $('sendBtn').disabled = !user || busy || micPending || cloudStatusUnknown() || !$('prompt').value.trim();
     $('talkBtn').disabled = !user || busy;
+    $('conversationBtn').disabled = !user || (busy && !conversationActive);
+    $('conversationBtn').textContent = conversationActive ? 'End conversation' : 'Start conversation';
+    $('conversationBtn').setAttribute('aria-pressed', String(conversationActive));
     $('speakBtn').disabled = !lastReply || busy || micPending;
     $('stopBtn').disabled = !busy && !micPending && !speaking && !conversationActive && !resumeTimer;
     $('talkBtn').textContent = micPending ? 'Stop listening' : 'Start listening';
@@ -70,6 +73,35 @@
     return support;
   }
 
+  // The selected tag is only a request to the browser/provider, not a claim
+  // that the device has a matching recognizer or voice installed.
+  function speechLanguage() {
+    const raw = ($('speechLanguage').value === 'custom' ? $('customLanguage').value : $('speechLanguage').value).trim();
+    if (!raw || raw.length > 35) return null;
+    try { return Intl.getCanonicalLocales(raw)[0] || null; } catch { return null; }
+  }
+
+  function describeLanguage() {
+    const custom = $('speechLanguage').value === 'custom';
+    const lang = speechLanguage();
+    $('customLanguageField').hidden = !custom;
+    $('customLanguage').setAttribute('aria-invalid', String(custom && !lang));
+    $('languageHelp').textContent = lang ? 'Language tag accepted; speech availability still depends on your browser and device.' : 'Enter a valid language tag, for example fr-CA.';
+    const preferred = window.AJSpeech?.preferredId();
+    const voice = preferred && window.AJSpeech?.list().find(item => window.AJSpeech.voiceId(item) === preferred);
+    const hint = $('voiceLanguageHint');
+    if (!lang) hint.textContent = 'Enter a valid speech language before starting the microphone or read-aloud.';
+    else if (preferred && !voice) hint.textContent = 'Your saved voice is not currently available on this device. It remains saved; another compatible voice or the browser default may be used.';
+    else if (voice && voice.lang.toLowerCase().split('-')[0] !== lang.toLowerCase().split('-')[0]) hint.textContent = `Recognition requests ${lang}, but your saved voice speaks ${voice.lang}. Your voice choice is preserved; choose a matching voice or system default for this language.`;
+    else hint.textContent = `Recognition requests ${lang}. Voice and recognition availability depend on your device; the language setting does not guarantee translation.`;
+  }
+
+  function requireSpeechLanguage() {
+    const lang = speechLanguage();
+    if (!lang) { describeLanguage(); setStatus('Enter a valid speech language code, for example fr-CA.'); }
+    return lang;
+  }
+
   function clearContext() { cloudTurns = []; contextVersion++; }
 
   function endConversation() {
@@ -103,6 +135,8 @@
   function speak(text, onComplete) {
     window.AJWelcome?.interruptForAssistant();
     if (!text) { onComplete?.(false); return; }
+    const lang = requireSpeechLanguage();
+    if (!lang) { onComplete?.(false); return; }
     if (!voiceSupport().speak) {
       setStatus('This browser cannot speak the reply. It stays available as text.');
       onComplete?.(false);
@@ -112,7 +146,6 @@
     const previousStatus = $('status').textContent;
     const full = String(text), clipped = full.length > 4000;
     const next = new window.SpeechSynthesisUtterance(full.slice(0, 4000));
-    const lang = $('speechLanguage').value || 'en-US';
     if (window.AJSpeech) window.AJSpeech.apply(next, { lang });
     else next.lang = lang;
     utterance = next; speaking = true; updateControls();
@@ -161,12 +194,14 @@
     if (!Speech) { endConversation(); setStatus('Voice input is not supported in this browser (try Chrome or Edge). Type the command instead.'); return; }
     if (!user) { endConversation(); setStatus('Sign in first, then press Start listening.'); return; }
     if (window.isSecureContext === false) { endConversation(); setStatus('Microphone access requires HTTPS or localhost. Open the secure application or type instead.'); return; }
+    const lang = requireSpeechLanguage();
+    if (!lang) { endConversation(); return; }
     stopSpeaking(); stopListening();
     const base = $('prompt').value.trim();
     let session;
     try { session = new Speech(); } catch { endConversation(); setStatus('The browser could not create a speech session. You can still type.'); return; }
     recognition = session; starting = true;
-    session.lang = $('speechLanguage').value || 'en-US';
+    session.lang = lang;
     session.interimResults = true; session.continuous = false;
     setStatus('Starting the microphone. Allow access if your browser asks.'); updateControls();
     recognitionTimer = setTimeout(() => {
@@ -284,7 +319,8 @@
   function speechText(result, displayedOutput) {
     if (result.cloudError) return displayedOutput;
     if (Array.isArray(result.steps)) {
-      return result.steps.map(step => step.ok ? step.observation : `A step failed: ${step.observation}`).join('\n') + (result.action ? ' Please review and confirm before saving.' : '');
+      const observations = result.steps.map(step => step.ok ? step.observation : `A step failed: ${step.observation}`).join('\n');
+      return (observations || displayedOutput) + (result.action ? ' Please review and confirm before saving.' : '');
     }
     return displayedOutput;
   }
@@ -301,6 +337,7 @@
     text = String(text || $('prompt').value).trim();
     if (!user) { setStatus('Sign in first.'); return; }
     if (busy || !text) return;
+    if ($('mode').value === 'cloud' && !requireSpeechLanguage()) return;
     const destination = destinationFor(text);
     if (destination) {
       endConversation(); stopListening(); stopSpeaking();
@@ -321,6 +358,7 @@
     // 'Jarvis, ...' is a spoken command prefix, not an always-on wake word.
     const command = text.replace(/^(?:hey\s+)?jarvis(?:\s*[,!:]\s*|\s+)/i, '').trim() || text;
     const payload = { message: command, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value };
+    if (mode === 'cloud') payload.language = speechLanguage();
     const rememberAtSend = mode === 'cloud' && $('rememberContext').checked;
     const requestContextVersion = contextVersion;
     if (rememberAtSend) payload.history = cloudTurns;
@@ -411,13 +449,14 @@
       $('provider').value = first || '';
     }
     const cloud = $('mode').querySelector('option[value="cloud"]');
-    if (cloud) cloud.textContent = state.cloudConfigured === true ? 'Cloud AI (server key configured)' : state.cloudConfigured === false ? 'Cloud AI (not configured)' : 'Cloud AI (status unknown)';
+    if (cloud) cloud.textContent = state.cloudConfigured === true ? 'Cloud AI — key configured (not live-tested)' : state.cloudConfigured === false ? 'Cloud AI — not configured' : 'Cloud AI — status unknown';
     updateProviderStatus(); updateModeLabel();
   }
 
   function updateModeLabel() {
     const mode = $('mode').value;
     $('cloudOptions').hidden = mode !== 'cloud';
+    $('engineHelp').textContent = mode === 'cloud' ? 'Open-ended replies send text to this provider. A configured key is not a successful connection; provider charges may apply.' : 'Agent and local modes use limited tools or structured templates, not general AI chat. Cloud AI needs a working provider and may incur charges.';
     $('voiceMode').textContent = mode === 'agent' ? `Agent mode · ${state.tools?.length || 'bounded'} tools with trace`
       : mode === 'research' ? 'Research · live Wikipedia with cited links'
       : mode === 'cloud' ? 'Cloud AI · sends text to the selected provider'
@@ -449,6 +488,20 @@
     if (button.dataset.mode) { $('mode').value = button.dataset.mode; updateModeLabel(); }
     $('prompt').value = button.dataset.prompt; updateControls(); runCommand(button.dataset.prompt);
   });
+  // A deliberate click is the permission to send final transcripts and reopen
+  // the mic after a spoken reply. Nothing starts merely by opening this page.
+  $('conversationBtn').onclick = () => {
+    if (conversationActive) {
+      endConversation(); stopListening(); stopSpeaking();
+      const wasRunning = cancelRunning();
+      setStatus(wasRunning ? 'Stopped waiting; the server may still finish the request. Microphone off.' : 'Conversation stopped. Microphone off.');
+      return;
+    }
+    $('conversationMode').checked = true;
+    $('handsFree').checked = true;
+    conversationActive = true;
+    startListening();
+  };
   $('talkBtn').onclick = () => {
     if (starting || listening) { endConversation(); stopListening(); setStatus('Microphone stopped. Nothing is listening.'); return; }
     conversationActive = $('conversationMode').checked;
@@ -481,6 +534,9 @@
   };
   $('provider').onchange = () => { providerTouched = true; clearContext(); updateProviderStatus(); updateControls(); setStatus('Provider changed; previous cloud context was cleared from this page.'); };
   $('mode').onchange = updateModeLabel;
+  $('speechLanguage').onchange = describeLanguage;
+  $('customLanguage').addEventListener('input', describeLanguage);
+  window.addEventListener('aj-speech-voice-change', describeLanguage);
   $('demoBtn').onclick = async () => {
     $('demoBtn').disabled = true;
     try { await api('/demo', { method: 'POST' }); await signIn(); }
@@ -489,8 +545,8 @@
   };
 
   if (window.AJSpeech) { window.AJSpeech.populate($('voice')); window.AJSpeech.refresh(); }
-  describeSupport();
-  if (window.speechSynthesis) window.speechSynthesis.addEventListener?.('voiceschanged', describeSupport);
+  describeSupport(); describeLanguage();
+  if (window.speechSynthesis) window.speechSynthesis.addEventListener?.('voiceschanged', () => { describeSupport(); describeLanguage(); });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden || (!conversationActive && !starting && !listening && !speaking)) return;
     endConversation(); stopListening(); stopSpeaking();

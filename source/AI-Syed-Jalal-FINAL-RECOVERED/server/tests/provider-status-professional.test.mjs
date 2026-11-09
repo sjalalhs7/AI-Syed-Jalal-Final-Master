@@ -160,6 +160,44 @@ test('all provider surfaces report unreadable settings without sending cloud req
     const recovered = await admin('/ai/capabilities');
     assert.equal(recovered.data.providers.find(item => item.id === 'gemini').configured, true);
     assert.deepEqual((await db.query("SELECT value FROM app_settings WHERE key='provider_keys'")).rows[0].value, { gemini: storedKey });
+
+    // Mock the provider rather than spending money or using live credentials.
+    // Gemini 2.5 does not accept the Gemini 3-only thinkingLevel field.
+    let geminiRequest;
+    globalThis.fetch = async (url, options) => {
+      providerCalls++;
+      geminiRequest = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
+      return Response.json({ candidates: [{ content: { parts: [{ text: 'Mocked Gemini answer' }] } }] });
+    };
+    const gemini = await admin('/assistant/chat', 'POST', { message: 'Tell me about this project', mode: 'cloud', provider: 'gemini', language: 'ur-PK' }, token);
+    assert.equal(gemini.status, 200);
+    assert.equal(gemini.data.output, 'Mocked Gemini answer');
+    assert.match(geminiRequest.url, /gemini-2\.5-flash:generateContent/);
+    assert.equal(geminiRequest.headers['x-goog-api-key'], storedKey);
+    assert.deepEqual(geminiRequest.body.generationConfig, { maxOutputTokens: 2048 });
+    assert.match(geminiRequest.body.contents[0].parts[0].text, /requested language \(ur-PK\)/);
+    assert.ok(!JSON.stringify(gemini.data).includes(storedKey));
+
+    const callsBeforeUnsupported = providerCalls;
+    const unsupported = await admin('/ai/run', 'POST', { prompt: 'Test', provider: 'gemini', thinking: true }, token);
+    assert.equal(unsupported.status, 400);
+    assert.equal(unsupported.data.code, 'THINKING_CONTROL_UNAVAILABLE');
+    assert.equal(providerCalls, callsBeforeUnsupported);
+
+    // An upstream error can echo a key. Neither the response nor run history
+    // should contain provider-supplied error text or the credential.
+    globalThis.fetch = async () => Response.json({ error: { message: 'Rejected secret ' + storedKey, status: storedKey } }, { status: 401 });
+    const rejected = await admin('/ai/run', 'POST', { prompt: 'Test rejected key', provider: 'gemini' }, token);
+    assert.equal(rejected.status, 502);
+    assert.equal(rejected.data.code, 'PROVIDER_ACCESS_REJECTED');
+    assert.match(rejected.data.error, /rejected credentials or model access/i);
+    assert.ok(!JSON.stringify(rejected.data).includes(storedKey));
+    const recorded = await db.query('SELECT output,trace FROM ai_runs WHERE id=$1', [rejected.data.traceId]);
+    assert.ok(!JSON.stringify(recorded.rows).includes(storedKey));
+    const fallback = await admin('/assistant/chat', 'POST', { message: 'Tell me a story', mode: 'cloud', provider: 'gemini' }, token);
+    assert.match(fallback.data.cloudError, /rejected credentials or model access/i);
+    assert.ok(!JSON.stringify(fallback.data).includes(storedKey));
+
     await db.query("UPDATE app_settings SET value='[\"invalid\"]'::jsonb WHERE key='provider_keys'");
     const malformed = await admin('/ai/capabilities');
     assert.equal(malformed.data.providers.find(item => item.id === 'gemini').configured, null);

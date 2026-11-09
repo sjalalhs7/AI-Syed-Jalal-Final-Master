@@ -1,56 +1,12 @@
 import { builtInChecks, runChecks, searchSkills, verdictFor } from './self-check-core.mjs';
 import { AGENT_TOOLS } from './agent-runtime.mjs';
 import { providerConfiguration } from './provider-settings.mjs';
+import { pageStatus } from './page-inventory.mjs';
 import skillIndex from '../config/agent-skill-index.json';
 
 // V133/V134 agent routes: skill library + durable self-check evidence.
 // Every response is account-scoped, rate limited and audited by the caller.
 const POLICY_VERSION = 'V150';
-
-function pageInventory() {
-  // Pages are listed explicitly so a missing file is a check failure, not a 404 surprise.
-  return [
-    { file: 'index.html', label: 'Homepage + login' },
-    { file: 'ai-hub.html', label: 'AI Hub discovery' },
-    { file: 'agent.html', label: 'Agent Studio' },
-    { file: 'jalalai.html', label: 'JalalAi assistant' },
-    { file: 'workspace.html', label: 'Workspace' },
-    { file: 'dashboard.html', label: 'Dashboard' },
-    { file: 'guide.html', label: 'Start here guide' },
-    { file: 'agent-lab.html', label: 'Agent Lab self-check' },
-    { file: 'arena.html', label: 'Arena battles' },
-    { file: 'jarvis.html', label: 'JARVIS voice console' },
-    { file: 'critic.html', label: 'Expert Critic review' },
-    { file: 'refactor-plan.html', label: 'Architecture and merge decisions' },
-    { file: 'allinone.html', label: 'All-in-one specialist panel' },
-    { file: 'toolbench.html', label: 'Toolbench — twelve tools' },
-    { file: 'pagebuilder.html', label: 'Page Builder — downloadable HTML' },
-    { file: 'notes.html', label: 'Quick Notes — shortcut, widget and file-handler target' },
-    { file: 'share-target.html', label: 'Shared content — web share target' },
-    { file: 'protocol.html', label: 'Link review — protocol handler' },
-    { file: 'capabilities.html', label: 'App capabilities — live OS integration probe' }
-  ];
-}
-
-async function pageStatus(env) {
-  // Cloudflare Pages Functions have no filesystem. When ASSETS is bound we can
-  // probe it; otherwise the static validation gate covers the files at build time.
-  if (env?.ASSETS && typeof env.ASSETS.fetch === 'function') {
-    const origin = 'https://assets.local';
-    const pages = [];
-    for (const page of pageInventory()) {
-      try {
-        const response = await env.ASSETS.fetch(new Request(origin + '/' + page.file));
-        const html = response.ok ? await response.text() : '';
-        pages.push({ ...page, exists: response.ok, closesHtml: /<\/html>\s*$/i.test(html) });
-      } catch {
-        pages.push({ ...page, exists: false, closesHtml: false });
-      }
-    }
-    return pages;
-  }
-  return pageInventory().map(page => ({ ...page, exists: true, closesHtml: true, source: 'build-time static gate' }));
-}
 
 async function syncSkills(db) {
   const rows = skillIndex.skills.slice(0, 4000);

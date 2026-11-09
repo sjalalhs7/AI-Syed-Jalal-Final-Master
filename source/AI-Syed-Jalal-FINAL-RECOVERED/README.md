@@ -20,16 +20,17 @@ local Node server.
   Review the recognized words and press **Run command**. Examples: “calculate
   six times seven”, “show my tasks”, “add task: Review my project”, “save note:
   an idea”, and “open guide”.
-- To send final transcripts and listen again after each reply, opt in to
-  **Continue the conversation** before starting. **Stop**, hiding the tab, or
-  leaving it ends the voice session. Stop cannot guarantee a request already
+- Press **Start conversation** to send final transcripts and listen again after
+  each spoken reply. This deliberately opens the microphone; use **End
+  conversation** or **Stop** to end it. Hiding or leaving the tab also ends it. Stop cannot guarantee a request already
   received by the server is cancelled.
 - Agent and Local modes use bounded tools and structured guidance, not a general
   AI model. Task and note saves require explicit confirmation. Research uses
   Wikipedia and requires a network connection. Cloud AI gives open-ended
   answers only after a server-side provider is configured and actually works.
-- Voice support, Urdu recognition and available voices vary by browser/device.
-  Speech-language selection controls recognition/pronunciation, not translation.
+- Choose a speech language, including Urdu or a custom language tag. Cloud AI
+  is asked to answer in that language when possible; this does not guarantee
+  translation or recognition accuracy. Available voices vary by browser/device.
   The browser speech service may process audio online, and some read-aloud
   voices may use an online service. The app does not receive microphone audio.
 - Agent and Research prompts/traces may be stored in the account. Optional

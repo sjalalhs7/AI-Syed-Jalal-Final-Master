@@ -11,10 +11,10 @@ async function controlledSpeech(page) {
     window.__speechMode = 'normal';
     window.__deferStart = false;
     const synth = {
-      getVoices: () => [{ name: 'Test voice', lang: 'en-US', default: true, localService: true, voiceURI: 'test' }],
+      getVoices: () => [{ name: 'Test voice', lang: 'en-US', default: true, localService: true, voiceURI: 'test' }, { name: 'Urdu voice', lang: 'ur-PK', localService: true, voiceURI: 'urdu' }],
       addEventListener() {}, removeEventListener() {}, cancel() {},
       speak(u) {
-        window.__spoken.push({ text: u.text, micActive: window.__recognitions.some(r => r.active) });
+        window.__spoken.push({ text: u.text, lang: u.lang, micActive: window.__recognitions.some(r => r.active) });
         if (window.__speechMode === 'error') { setTimeout(() => u.onerror?.({ error: 'synthesis-failed' }), 0); return; }
         if (window.__speechMode === 'never') return;
         u.onstart?.();
@@ -212,6 +212,8 @@ test('cloud provider selection and opt-in context are scoped to the selected pro
 test('fixed app navigation, branded mobile navigation, and sign-in return work', async ({ page }) => {
   await controlledSpeech(page);
   await page.setViewportSize({ width: 390, height: 844 });
+  // A first-run panel makes the sign-in dialog taller than a phone viewport.
+  await page.route('**/api/bootstrap/status', route => route.fulfill({ json: { available: true, users: 0, admins: 0, completed: false } }));
   await page.goto('/index.html');
   await expect(page.locator('.acts a[href="jarvis.html"]')).toBeVisible();
   await page.goto('/index.html?next=jarvis.html');
@@ -257,4 +259,70 @@ test('the device voice test keeps a real browser error visible', async ({ page }
   // The timeout must not overwrite a more precise, already-reported error.
   await page.waitForTimeout(2200);
   await expect(page.locator('#voiceTestResult')).toContainText('audio-busy');
+});
+
+test('the prominent conversation control sends and speaks multiple Urdu cloud turns only after a click', async ({ page }) => {
+  await controlledSpeech(page);
+  const payloads = [];
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudConfigured = true;
+    data.cloudProviders = { gemini: true, openai: false, anthropic: false, deepseek: false };
+    await route.fulfill({ response, json: data });
+  });
+  await page.route('**/api/assistant/chat', async route => {
+    payloads.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ok: true, mode: 'cloud', provider: 'gemini', output: payloads.length === 1 ? 'وعلیکم السلام، میں آپ کی کیسے مدد کر سکتا ہوں؟' : 'جی، میں سن رہا ہوں۔' } });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openConsole(page);
+  const button = page.locator('#conversationBtn');
+  const box = await button.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  await expect(page.locator('#engineHelp')).toContainText('limited tools');
+  await page.locator('#mode').selectOption('cloud');
+  await page.locator('#speechLanguage').selectOption('ur-PK');
+  await page.locator('#voice').selectOption('Urdu voice|ur-PK');
+  await page.locator('#rememberContext').check();
+  await button.click();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__recognitions.at(-1).lang)).toBe('ur-PK');
+  await emit(page, 'آپ کیسے ہیں؟');
+  await expect.poll(() => payloads.length).toBe(1);
+  expect(payloads[0]).toMatchObject({ mode: 'cloud', provider: 'gemini', language: 'ur-PK', message: 'آپ کیسے ہیں؟', history: [] });
+  await expect.poll(() => page.evaluate(() => window.__spoken.at(-1)?.text)).toContain('وعلیکم السلام');
+  expect(await page.evaluate(() => window.__spoken.at(-1))).toMatchObject({ lang: 'ur-PK', micActive: false });
+  await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(2);
+  await emit(page, 'اب کیا کریں؟');
+  await expect.poll(() => payloads.length).toBe(2);
+  expect(payloads[1].history).toEqual([{ role: 'user', content: 'آپ کیسے ہیں؟' }, { role: 'assistant', content: 'وعلیکم السلام، میں آپ کی کیسے مدد کر سکتا ہوں؟' }]);
+  await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(3);
+  await button.click();
+  await expect(page.locator('#micIndicator')).toHaveText('Mic off');
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__recognitions.some(r => r.active))).toBe(false);
+});
+
+test('custom language codes are validated and a mismatched saved voice is not replaced', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  await page.locator('#voice').selectOption('Test voice|en-US');
+  await page.locator('#speechLanguage').selectOption('ur-PK');
+  await expect(page.locator('#voiceLanguageHint')).toContainText('Recognition requests ur-PK');
+  await expect(page.locator('#voiceLanguageHint')).toContainText('saved voice speaks en-US');
+  await page.locator('#speechLanguage').selectOption('custom');
+  await page.locator('#customLanguage').fill('bad tag!');
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#status')).toContainText('valid speech language');
+  await expect(page.locator('#customLanguage')).toHaveAttribute('aria-invalid', 'true');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  await page.locator('#customLanguage').fill('fr-CA');
+  await expect(page.locator('#customLanguage')).toHaveAttribute('aria-invalid', 'false');
+  await page.locator('#conversationBtn').click();
+  expect(await page.evaluate(() => window.__recognitions.at(-1).lang)).toBe('fr-CA');
+  await emit(page, 'calculate six times seven');
+  await expect.poll(() => page.evaluate(() => window.__spoken.at(-1)?.text)).toContain('42');
+  expect(await page.evaluate(() => window.__spoken.at(-1).lang)).toBe('en-US');
+  expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Test voice|en-US');
+  await page.locator('#stopBtn').click();
 });

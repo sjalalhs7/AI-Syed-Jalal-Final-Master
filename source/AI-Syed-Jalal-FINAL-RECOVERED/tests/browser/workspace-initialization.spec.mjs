@@ -85,7 +85,10 @@ test('Operations does not keep stale green status when telemetry or readiness fa
   await expect(page.locator('#schemaRepairTag')).toHaveText('INCOMPLETE');
   await expect(page.locator('#opsDb')).toHaveText('INCOMPLETE');
   await expect(page.locator('#opsApi')).toHaveText('ONLINE');
-  await expect(page.locator('#opsSnapshot')).not.toContainText('Active records');
+  await expect(page.locator('#opsRecords')).toHaveText('—');
+  await expect(page.locator('#opsSnapshot')).toContainText('Active records');
+  await expect(page.locator('#opsTelemetry')).toContainText('AI runs (24h)');
+  await expect(page.locator('#opsMessage')).toContainText('record statistics');
   await page.unroute('**/api/ready');
   await page.route('**/api/ready', route => route.fulfill({ status:503, json:{ error:'database unavailable' } }));
   await page.route('**/api/health', route => route.abort('failed'));
@@ -129,8 +132,11 @@ test('an Operations telemetry timeout is shown as unavailable rather than stale'
   await expect(page.locator('#opsSnapshot')).toContainText('Active records');
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => {
+    const nativeFetch = window.fetch.bind(window);
     const timeout = AbortSignal.timeout.bind(AbortSignal);
-    AbortSignal.timeout = ms => timeout(ms === 15000 ? 300 : ms);
+    // Shorten only the statistics deadline, not the other five endpoints.
+    window.fetch = (url, options = {}) => nativeFetch(url,
+      String(url).endsWith('/api/stats') ? { ...options, signal: timeout(300) } : options);
   });
   let release;
   const blocked = new Promise(resolve => { release = resolve; });
@@ -140,9 +146,47 @@ test('an Operations telemetry timeout is shown as unavailable rather than stale'
   });
   try {
     await page.locator('#opsRefreshBtn').click();
-    await expect(page.locator('#opsSnapshot')).toHaveText('Current data unavailable.');
+    await expect(page.locator('#opsMessage')).toContainText('record statistics');
+    await expect(page.locator('#opsSnapshot')).toContainText('Active records');
     await expect(page.locator('#opsRecords')).toHaveText('—');
     await expect(page.locator('#opsDb')).toHaveText('PRESENT');
     await expect(page.locator('#opsApi')).toHaveText('ONLINE');
   } finally { release(); }
+});
+
+test('Operations renders independent results before a slow statistics request completes', async ({ page }) => {
+  await page.goto('/jalalai.html'); await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.goto('/workspace.html#operations');
+  await expect(page.locator('#opsSnapshot')).toContainText('Active records');
+  await page.waitForLoadState('networkidle');
+  let release, started;
+  const held = new Promise(resolve => { started = resolve; });
+  const wait = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/stats', async route => { started(); await wait; return route.fulfill({ json: { total: 7 } }).catch(() => {}); });
+  try {
+    await page.locator('#opsRefreshBtn').click(); await held;
+    await expect(page.locator('#opsSnapshot')).toContainText('Active records');
+    await expect(page.locator('#opsTelemetry')).toContainText('AI runs (24h)');
+    await expect(page.locator('#opsRecords')).toHaveText('—');
+    release();
+    await expect(page.locator('#opsRecords')).toHaveText('7');
+  } finally { release(); }
+});
+
+test('Operations clears malformed user and snapshot data while preserving independent statistics', async ({ page }) => {
+  await page.goto('/jalalai.html'); await page.locator('#demoBtn').click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.goto('/workspace.html#operations');
+  await expect(page.locator('#opsSnapshot')).toContainText('Active records');
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/admin/users', route => route.fulfill({ json: { users: [{ active: 'true' }] } }));
+  await page.route('**/api/admin/system-snapshot', route => route.fulfill({ json: { records: { active: '<script>bad</script>', deleted: 0 } } }));
+  await page.locator('#opsRefreshBtn').click();
+  await expect(page.locator('#opsUsers')).toHaveText('—');
+  await expect(page.locator('#opsSnapshot')).toHaveText('Current data unavailable.');
+  await expect(page.locator('#opsDistribution')).toHaveText('Current data unavailable.');
+  await expect(page.locator('#opsRecords')).toHaveText(/\d+/);
+  await expect(page.locator('#opsMessage')).toContainText('system snapshot');
+  expect(await page.locator('#opsSnapshot script').count()).toBe(0);
 });

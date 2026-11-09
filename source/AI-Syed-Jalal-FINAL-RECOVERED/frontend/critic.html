@@ -12,8 +12,8 @@
 <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/app-icons/favicon-32.png" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="assets/critic.css">
-<script src="assets/critic.js" defer></script>
-<link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><script src="assets/speech-preferences.js"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
+<script src="assets/critic.js?v=164" defer></script>
+<link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><script src="assets/speech-preferences.js?v=164"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
 <body>
 <a class="skip-link" href="#report">Skip to the report</a>
 <div class="shell">
@@ -36,7 +36,7 @@
       <div>
         <p class="eyebrow">PROFESSIONAL · EVIDENCE-BASED · REPRODUCIBLE</p>
         <h1>What a critic would say about this build</h1>
-        <p class="lede">Seven dimensions, graded from the evidence this deployment actually stores — audit events, agent runs, self-checks, Arena responses, table coverage and the shipped surfaces. Every finding names its evidence and the fix. Nothing is scored from a template.</p>
+        <p class="lede">Seven dimensions use a fixed, deterministic rubric over the connected database and available page probes. A result is limited by the evidence it can read; it is not an independent human or AI audit.</p>
       </div>
       <div class="hero-actions">
         <button class="btn primary" id="runBtn" type="button">Run the review</button>
@@ -49,7 +49,7 @@
         <h2 id="runTitle">Review run</h2>
         <span class="pill" id="runState" role="status">Not run yet</span>
       </header>
-      <p class="hint" id="runHint">The review reads the local database and the shipped files. It stores the result on your account so the verdict can be audited later. It cannot see production logs, billing or your CDN.</p>
+      <p class="hint" id="runHint">The review reads the database connected to this deployment and checks page responses only when an asset binding is available. Saving needs the review table. It cannot see CDN logs, billing or physical devices.</p>
       <p class="hint" id="runMessage" role="status" aria-live="polite"></p>
     </section>
 
@@ -92,10 +92,10 @@
     <section class="panel limits" aria-labelledby="limitsTitle">
       <h2 id="limitsTitle">What this review does not do</h2>
       <ul id="limits">
-        <li>It does not see your production database, CDN logs, cost dashboard or browser telemetry — only what this deployment stores.</li>
+        <li>It reads only the database connected to this deployment and limited runtime information. It cannot see CDN logs, billing, browser telemetry or device audio.</li>
         <li>It is not a penetration test, a load test, a legal review or a compliance audit.</li>
         <li>A high score means “no finding was produced from the available evidence”. It is not a certificate.</li>
-        <li>The written review and the graded self-check are different things: Agent Lab proves behaviour, this page judges the whole delivery.</li>
+        <li>Agent Lab runs selected checks; this page applies a fixed rubric. Neither verifies every feature or certifies production readiness.</li>
       </ul>
       <p class="hint"><a href="agent-lab.html">Run the behavioural self-check →</a> · <a href="refactor-plan.html">Read the architecture decisions →</a></p>
     </section>

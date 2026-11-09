@@ -13,7 +13,7 @@ import { builtInChecks } from '../../frontend/functions/self-check-core.mjs';
 import { REVIEW_DIMENSIONS, SEVERITIES, finding, runReview, summarizeReview } from '../../frontend/functions/expert-critic.mjs';
 
 const PAGES = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html', 'critic.html', 'refactor-plan.html']
-  .map(file => ({ file, exists: true, closesHtml: true }));
+  .map(file => ({ file, exists: true, closesHtml: true, voiceContract: { ok: true } }));
 
 /** A database double where every table query returns a supplied count. */
 function fakeDb(counts = {}, rows = {}) {
@@ -29,7 +29,7 @@ function fakeDb(counts = {}, rows = {}) {
         if (sql.includes(`FROM ${table}`)) return [{ n: value }];
       }
       if (sql.includes('information_schema')) return [{ n: 0 }];
-      return [];
+      return /SELECT count\(\*\)/i.test(sql) ? [{ n: 0 }] : [];
     }
   };
 }
@@ -102,7 +102,7 @@ test('the generated prose cannot claim more than the findings support', async ()
   assert.doesNotMatch(empty.generated.summary, /certified|guaranteed|100% secure/i);
   assert.match(summarizeReview(empty), /Open findings:/);
   // A missing page is a real finding, not silently absorbed.
-  const partial = await runReview({ db: fakeDb({}), me, env: {}, pages: PAGES.filter(page => page.file !== 'jarvis.html'), runtime: {} });
+  const partial = await runReview({ db: fakeDb({}), me, env: {}, pages: PAGES.map(page => page.file === 'jarvis.html' ? { ...page, exists: false } : page), runtime: {} });
   assert.ok(partial.findings.some(item => /voice surface is missing/i.test(item.title)));
   // The statically-known refactor page must be graded as current, not stale.
   assert.ok(!partial.findings.some(item => /describes the pre-merge state/i.test(item.title)));

@@ -38,7 +38,10 @@ const truncate = (value, max = 200) => {
 
 const count = async (db, sql, params = []) => {
   const rows = await db.query(sql, params);
-  return Number(rows[0]?.n ?? 0);
+  const raw = rows[0]?.n;
+  const value = Number(raw);
+  if (raw == null || !Number.isSafeInteger(value) || value < 0) throw new Error('Review evidence query returned an invalid count');
+  return value;
 };
 
 /** Normalises one finding so the UI and the stored evidence agree. */
@@ -84,9 +87,9 @@ export async function runReview(context) {
   /* ---------------- security & access control ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const auditCount = await count(db, 'SELECT count(*)::int AS n FROM audit_events').catch(() => 0);
+    const auditCount = await count(db, 'SELECT count(*)::int AS n FROM audit_events');
     const sessions = await count(db, 'SELECT count(*)::int AS n FROM sessions');
-    const rateLimits = await count(db, 'SELECT count(*)::int AS n FROM auth_rate_limits').catch(() => 0);
+    const rateLimits = await count(db, 'SELECT count(*)::int AS n FROM auth_rate_limits');
     let score = 55;
     observations.push(`${auditCount} audit event(s) recorded; ${sessions} session row(s); ${rateLimits} rate-limit bucket(s) in use.`);
     if (auditCount === 0) {
@@ -104,7 +107,7 @@ export async function runReview(context) {
       dimensionFindings.push(finding({
         dimension: 'security', severity: 'critical',
         title: 'No rate-limit evidence',
-        evidence: 'auth_rate_limits has no rows, so throttling has never been triggered on this deployment.',
+        evidence: 'auth_rate_limits currently has no rows; expired or removed buckets cannot show past throttling.',
         fix: 'Confirm the limiter in front of /api/demo, /api/assistant/* and /api/arena/* with a burst test.'
       }));
     } else {
@@ -130,9 +133,9 @@ export async function runReview(context) {
   /* ---------------- reliability & error handling ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const runs = await count(db, 'SELECT count(*)::int AS n FROM agent_runs').catch(() => 0);
-    const failedRuns = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE failures > 0').catch(() => 0);
-    const aiRuns = await count(db, 'SELECT count(*)::int AS n FROM ai_runs').catch(() => 0);
+    const runs = await count(db, 'SELECT count(*)::int AS n FROM agent_runs');
+    const failedRuns = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE failures > 0');
+    const aiRuns = await count(db, 'SELECT count(*)::int AS n FROM ai_runs');
     let score = 50;
     observations.push(`${runs} stored agent run(s), ${failedRuns} with a recorded failure; ${aiRuns} provider run row(s).`);
     if (runs === 0) {
@@ -147,7 +150,7 @@ export async function runReview(context) {
       observations.push('Runs are persisted with their step trace, so a failure can be reproduced rather than guessed.');
       if (failedRuns > 0) {
         score += 10;
-        observations.push(`${failedRuns} run(s) recorded a tool failure and still returned an honest answer — the failure path is exercised, not theoretical.`);
+        observations.push(`${failedRuns} run(s) recorded a tool failure; their answers were not examined by this review.`);
       } else {
         observations.push('No failed run was recorded yet, so the failure path has not been observed in production data.');
       }
@@ -169,9 +172,9 @@ export async function runReview(context) {
   /* ---------------- honesty & evidence ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks').catch(() => 0);
-    const battles = await count(db, 'SELECT count(*)::int AS n FROM arena_battles').catch(() => 0);
-    const scoresWithoutAnswer = await count(db, "SELECT count(*)::int AS n FROM arena_responses WHERE status <> 'ok' AND score > 0").catch(() => 0);
+    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks');
+    const battles = await count(db, 'SELECT count(*)::int AS n FROM arena_battles');
+    const scoresWithoutAnswer = await count(db, "SELECT count(*)::int AS n FROM arena_responses WHERE status <> 'ok' AND score > 0");
     let score = 45;
     observations.push(`${selfChecks} stored self-check run(s); ${battles} Arena battle(s); ${scoresWithoutAnswer} non-answer(s) scored above zero.`);
     if (selfChecks === 0) {
@@ -197,9 +200,9 @@ export async function runReview(context) {
       observations.push('No non-answer has been given a positive score in Arena.');
     }
     // The published tool list is a claim; it must match the code.
-    if (AGENT_TOOLS.length === 4 && AGENT_TOOLS.every(tool => tool.id && tool.label)) {
+    if (AGENT_TOOLS.length > 0 && AGENT_TOOLS.every(tool => tool.id && tool.label) && new Set(AGENT_TOOLS.map(tool => tool.id)).size === AGENT_TOOLS.length) {
       score += 10;
-      observations.push(`Exactly ${AGENT_TOOLS.length} agent tools are published: ${AGENT_TOOLS.map(tool => tool.id).join(', ')}.`);
+      observations.push(`The runtime lists ${AGENT_TOOLS.length} uniquely named tools: ${AGENT_TOOLS.map(tool => tool.id).join(', ')}. This review did not execute each tool.`);
     } else {
       dimensionFindings.push(finding({
         dimension: 'honesty', severity: 'critical',
@@ -215,32 +218,24 @@ export async function runReview(context) {
   {
     const observations = [], dimensionFindings = [];
     const tables = ['app_users', 'records', 'agent_runs', 'agent_self_checks', 'arena_battles', 'assistant_tasks', 'expert_reviews'];
-    // Ask the catalogue, not the row count: an empty table is healthy, a missing
-    // table is not, and a query that returns nothing proves neither.
-    let present = 0;
-    try {
-      const rows = await db.query(
-        "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN (" + tables.map(t => `'${t}'`).join(',') + ')'
-      );
-      const found = new Set(rows.map(row => row.table_name));
-      present = tables.filter(table => found.has(table)).length;
-    } catch {
-      // No catalogue access: fall back to probing, which cannot overstate.
-      for (const table of tables) {
-        try { await db.query(`SELECT count(*)::int AS n FROM ${table}`); present += 1; } catch { /* reported below */ }
-      }
-    }
+    // An unavailable catalogue is not evidence that a table is missing. Let
+    // the route report that evidence is unavailable rather than inventing rows.
+    const rows = await db.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN (" + tables.map(t => `'${t}'`).join(',') + ')'
+    );
+    const found = new Set(rows.map(row => row.table_name));
+    const present = tables.filter(table => found.has(table)).length;
     let score = Math.round((present / tables.length) * 60);
     observations.push(`${present} of ${tables.length} core tables exist in the catalogue.`);
     if (present < tables.length) {
       dimensionFindings.push(finding({
         dimension: 'data', severity: 'critical',
         title: 'A core table is missing',
-        evidence: `Only ${present}/${tables.length} core tables answered a query.`,
-        fix: 'Apply the outstanding migrations (001–012) before serving traffic.'
+        evidence: `Only ${present}/${tables.length} core table names were visible in the catalogue; columns and data were not checked.`,
+        fix: 'First verify a restorable full backup and rehearse on an isolated database. An authorized operator can then assess the missing migrations.'
       }));
     }
-    const orphans = await count(db, 'SELECT count(*)::int AS n FROM agent_runs r LEFT JOIN app_users u ON u.id = r.user_id WHERE u.id IS NULL').catch(() => 0);
+    const orphans = await count(db, 'SELECT count(*)::int AS n FROM agent_runs r LEFT JOIN app_users u ON u.id = r.user_id WHERE u.id IS NULL');
     if (orphans > 0) {
       dimensionFindings.push(finding({
         dimension: 'data', severity: 'critical',
@@ -252,39 +247,50 @@ export async function runReview(context) {
       score += 20;
       observations.push('Every stored agent run belongs to an existing account.');
     }
-    const scoped = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE user_id = $1', [me.id]).catch(() => 0);
+    const scoped = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE user_id = $1', [me.id]);
     score += 20;
-    observations.push(`Owner scoping is enforced: this account can read ${scoped} of its own run(s).`);
+    observations.push(`A query filtered to this account returned ${scoped} run(s); endpoint authorization was not tested.`);
     push(REVIEW_DIMENSIONS[3], { score, evidenced: present > 0, observations, findings: dimensionFindings });
   }
 
   /* ---------------- voice & accessibility ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const missing = VOICE_SURFACES.filter(surface => !pages.some(page => page.file === surface.file && page.exists));
+    const status = file => pages.find(page => page.file === file);
+    const missing = VOICE_SURFACES.filter(surface => status(surface.file)?.exists === false);
+    const unknown = VOICE_SURFACES.filter(surface => status(surface.file)?.exists !== true && status(surface.file)?.exists !== false);
+    const present = VOICE_SURFACES.filter(surface => status(surface.file)?.exists === true);
+    const invalid = present.filter(surface => !status(surface.file)?.voiceContract?.ok);
     let score = 50;
-    observations.push(`${VOICE_SURFACES.length - missing.length} of ${VOICE_SURFACES.length} voice surfaces are shipped: ${VOICE_SURFACES.map(surface => surface.label).join(', ')}.`);
-    if (missing.length) {
-      dimensionFindings.push(finding({
-        dimension: 'voice', severity: 'major',
-        title: 'A voice surface is missing',
-        evidence: `Not shipped: ${missing.map(surface => surface.file).join(', ')}.`,
-        fix: 'Ship the page with the shared speech-preferences module, or remove it from the contract.'
-      }));
-    } else {
+    observations.push(`${present.length} of ${VOICE_SURFACES.length} voice page responses had their expected marker; ${unknown.length} could not be checked.`);
+    if (missing.length) dimensionFindings.push(finding({
+      dimension: 'voice', severity: 'major', title: 'A voice surface is missing',
+      evidence: `Expected page content unavailable: ${missing.map(surface => surface.file).join(', ')}.`,
+      fix: 'Check the deployed asset paths and publish the expected page, or remove the broken link.'
+    }));
+    if (unknown.length) dimensionFindings.push(finding({
+      dimension: 'voice', severity: 'major', title: 'Voice pages could not be verified',
+      evidence: `The asset probe could not check: ${unknown.map(surface => surface.file).join(', ')}.`,
+      fix: 'Check the deployed pages and their voice controls in a browser; retry the asset probe when available.'
+    }));
+    if (invalid.length) dimensionFindings.push(finding({
+      dimension: 'voice', severity: 'major', title: 'Shared voice controls not declared',
+      evidence: `The expected shared selector or module was not found on: ${invalid.map(surface => surface.file).join(', ')}.`,
+      fix: 'Restore the shared speech preference controls and test them in supported browsers.'
+    }));
+    if (!missing.length && !unknown.length && !invalid.length) {
       score += 35;
-      observations.push('Every read-aloud surface loads the shared voice module, so one remembered voice is honoured everywhere.');
+      observations.push('The HTML responses declare the shared voice selector and preference module; this does not test playback.');
     }
-    score += 10;
-    observations.push('Unsupported browsers get a typed fallback and an explicit message instead of silent failure.');
-    push(REVIEW_DIMENSIONS[4], { score, evidenced: missing.length === 0, observations, findings: dimensionFindings });
+    observations.push('Physical microphones, speakers, recognition accuracy and installed voices were not tested.');
+    push(REVIEW_DIMENSIONS[4], { score, evidenced: !missing.length && !unknown.length && !invalid.length, observations, findings: dimensionFindings });
   }
 
   /* ---------------- performance & cost control ---------------- */
   {
     const observations = [], dimensionFindings = [];
     let score = 55;
-    const durations = await db.query('SELECT duration_ms FROM agent_runs ORDER BY created_at DESC LIMIT 50').catch(() => []);
+    const durations = await db.query('SELECT duration_ms FROM agent_runs ORDER BY created_at DESC LIMIT 50');
     const values = durations.map(row => Number(row.duration_ms)).filter(value => Number.isFinite(value));
     const median = values.length ? values.sort((a, b) => a - b)[Math.floor(values.length / 2)] : null;
     observations.push(values.length ? `Median agent run: ${median} ms across the last ${values.length} run(s).` : 'No agent run timings stored yet.');
@@ -309,51 +315,47 @@ export async function runReview(context) {
   /* ---------------- usability & documentation ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks').catch(() => 0);
+    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks');
     const required = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html'];
-    const missing = required.filter(file => !pages.some(page => page.file === file && page.exists));
-    // Pages existing is wiring, not evidence that anything was used. Wire-proof
-    // alone caps the dimension below "strong"; using the product is what raises it.
+    const status = file => pages.find(page => page.file === file)?.exists;
+    const missing = required.filter(file => status(file) === false);
+    const unknown = required.filter(file => status(file) !== true && status(file) !== false);
+    const present = required.filter(file => status(file) === true);
     let score = 40;
-    observations.push(`${required.length - missing.length} of ${required.length} primary pages are shipped.`);
-    if (missing.length) {
-      dimensionFindings.push(finding({
-        dimension: 'usability', severity: 'major',
-        title: 'A primary page is missing',
-        evidence: `Not shipped: ${missing.join(', ')}.`,
-        fix: 'Ship the page or remove the navigation entry that promises it.'
-      }));
-    } else {
+    observations.push(`${present.length} of ${required.length} primary page responses had their expected marker; ${unknown.length} could not be checked.`);
+    if (missing.length) dimensionFindings.push(finding({
+      dimension: 'usability', severity: 'major', title: 'A primary page is missing',
+      evidence: `Expected page content unavailable: ${missing.join(', ')}.`,
+      fix: 'Check the deployment paths and restore the page or remove the navigation entry.'
+    }));
+    if (unknown.length) dimensionFindings.push(finding({
+      dimension: 'usability', severity: 'major', title: 'Primary pages could not be verified',
+      evidence: `The asset probe could not check: ${unknown.join(', ')}.`,
+      fix: 'Check these pages on the deployed site and rerun the probe when an asset binding is available.'
+    }));
+    if (!missing.length && !unknown.length) {
       score += 20;
-      observations.push('Every navigation target exists, so no menu item leads to a 404.');
+      observations.push('These page responses contain expected markers. Links, controls and accessibility still require separate testing.');
     }
     if (selfChecks > 0) {
       score += 20;
-      observations.push(`Someone has used the product: ${selfChecks} self-check run(s) are stored.`);
+      observations.push(`${selfChecks} self-check run(s) are stored; that alone does not establish usability.`);
     } else {
       dimensionFindings.push(finding({
-        dimension: 'usability', severity: 'minor',
-        title: 'No proof anyone has used this build',
-        evidence: 'agent_self_checks is empty, so documentation quality is judged from the files alone.',
-        fix: 'Run Agent Lab once; stored usage is the difference between "shipped" and "used".'
+        dimension: 'usability', severity: 'minor', title: 'No stored self-check evidence',
+        evidence: 'agent_self_checks has no stored runs; this does not establish whether anyone used other parts of the site.',
+        fix: 'Run the self-check when the required tables are available, then separately test key journeys.'
       }));
     }
-    if (pages.some(page => page.file === 'refactor-plan.html')) {
+    if (status('refactor-plan.html') === true) {
       score += 10;
-      observations.push('Architecture decisions are published with what merged, what stayed separate and what duplication remains.');
-    } else {
-      dimensionFindings.push(finding({
-        dimension: 'usability', severity: 'minor',
-        title: 'No architecture record',
-        evidence: 'refactor-plan.html is not part of the shipped inventory.',
-        fix: 'Publish the merge decisions alongside the product so the duplication is stated, not discovered.'
-      }));
+      observations.push('The architecture page returned its expected marker; its accuracy was not checked.');
     }
-    if (pages.some(page => page.file === 'critic.html')) {
+    if (status('critic.html') === true) {
       score += 10;
-      observations.push('This review is published as a page, so the verdict is visible to the people who use the product.');
+      observations.push('The review page returned its expected marker; its controls were not tested here.');
     }
-    push(REVIEW_DIMENSIONS[6], { score, evidenced: missing.length === 0, observations, findings: dimensionFindings });
+    push(REVIEW_DIMENSIONS[6], { score, evidenced: !missing.length && !unknown.length, observations, findings: dimensionFindings });
   }
 
   /* ---------------- verdict ---------------- */
@@ -397,7 +399,7 @@ export async function runReview(context) {
       summary: buildSummary({ score, verdict, blockers, criticals, findings, dimensions, weakest })
     },
     limits: [
-      'This review reads stored evidence and in-process contracts. It cannot see your production database, CDN logs or billing.',
+      'This review reads the database connected to this deployment and limited in-process contracts. It cannot see CDN logs, billing or physical devices.',
       'It does not run penetration tests, load tests or legal/compliance review.',
       'A high score means "no finding was produced from the evidence available", not "certified safe".'
     ]
@@ -406,10 +408,10 @@ export async function runReview(context) {
 
 function buildSummary({ score, verdict, blockers, criticals, findings, dimensions, weakest }) {
   const opener = verdict === 'ready'
-    ? `Verdict: ready (score ${score}/100). No blocker or critical finding was produced from the evidence available.`
+    ? `Verdict: ready within these limited checks (score ${score}/100). No blocker or critical finding was produced; this is not production approval.`
     : verdict === 'conditional'
       ? `Verdict: conditional (score ${score}/100). Ship only after the critical items below are closed.`
-      : `Verdict: not ready (score ${score}/100). ${blockers} blocker(s) forbid a production claim.`;
+      : `Verdict: not ready (score ${score}/100). ${blockers} blocker(s), ${criticals} critical finding(s); this is not production approval.`;
   const strongest = [...dimensions].sort((a, b) => b.score - a.score)[0];
   const lines = [opener];
   if (strongest) lines.push(`Strongest area: ${strongest.label} (${strongest.score}/100).`);

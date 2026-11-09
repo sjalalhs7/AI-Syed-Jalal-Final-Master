@@ -127,12 +127,16 @@ test('changing the voice persists it and syncs every other selector', () => {
   assert.equal(second.value, 'Samantha|en-US');
 });
 
-test('a remembered voice that this device no longer exposes is cleared safely', () => {
+test('an unavailable remembered voice is retained and can return later', () => {
   const select = new FakeSelect();
   const { store, api } = harness({ voices: VOICES, stored: { [KEY]: 'Removed|en-US' }, selects: [select] });
-  assert.equal(select.value, '');
-  assert.equal(store.get(KEY), '');
-  assert.equal(api.preferredId(), '');
+  assert.equal(select.value, 'Removed|en-US');
+  assert.equal(store.get(KEY), 'Removed|en-US');
+  assert.equal(api.preferredId(), 'Removed|en-US');
+  assert.match(select.options.at(-1).textContent, /unavailable/i);
+  assert.equal(api.resolve('ur-PK').name, 'Aisha');
+  select.change('');
+  assert.equal(store.get(KEY), '', 'only an explicit choice clears the preference');
 });
 
 test('voices that arrive asynchronously are picked up without a page reload', () => {
@@ -148,7 +152,8 @@ test('a saved voice survives an initially empty browser voice list', () => {
   const select = new FakeSelect();
   const { api, store, state, speechListeners } = harness({ voices: [], stored: { [KEY]: 'Aisha|ur-PK' }, selects: [select] });
   assert.equal(store.get(KEY), 'Aisha|ur-PK');
-  assert.equal(select.value, '');
+  assert.equal(select.value, 'Aisha|ur-PK');
+  assert.match(select.options.at(-1).textContent, /unavailable/i);
   state.voices = VOICES;
   for (const handler of speechListeners.voiceschanged || []) handler();
   assert.equal(select.value, 'Aisha|ur-PK');

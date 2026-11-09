@@ -19,9 +19,13 @@ before(async () => {
 });
 after(async () => { await db?.close(); });
 
+const assets = { fetch: async request => {
+  try { return new Response(await readFile(resolve(root, 'frontend', new URL(request.url).pathname.slice(1)), 'utf8')); }
+  catch { return new Response('', { status: 404 }); }
+}};
 function client(cookie = '') {
   return async (path, method = 'GET', body, token = '') => {
-    const response = await onRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.30', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env: { DB_ADAPTER: { query: async (sql, params = []) => (await db.query(sql, params)).rows }, LOCAL_PREVIEW: 'true', CSRF_SECRET: 'agent-test-secret-at-least-32-characters-long', COOKIE_SECURE: 'false' } });
+    const response = await onRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.30', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env: { DB_ADAPTER: { query: async (sql, params = []) => (await db.query(sql, params)).rows }, LOCAL_PREVIEW: 'true', CSRF_SECRET: 'agent-test-secret-at-least-32-characters-long', COOKIE_SECURE: 'false', ASSETS: assets } });
     return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || '' };
   };
 }

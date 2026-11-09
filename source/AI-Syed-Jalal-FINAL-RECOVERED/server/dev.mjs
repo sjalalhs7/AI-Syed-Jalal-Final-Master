@@ -28,6 +28,14 @@ const { onRequest } = await import('../.data/api.mjs');
 const env = { ...process.env, LOCAL_PREVIEW: 'true', DATABASE_URL: 'local-pglite', CSRF_SECRET: localSecret, COOKIE_SECURE: 'false' };
 const adapter = { query: async (sql, params = []) => (await db.query(sql, params)).rows };
 const frontend = resolve(root, 'frontend');
+// The local preview probes the files it actually serves, not a hard-coded
+// "present" list. Production uses its own asset binding when available.
+const localAssets = { async fetch(request) {
+  const name = new URL(request.url).pathname.slice(1);
+  if (!/^[a-z0-9-]+\.html$/i.test(name)) return new Response('', { status: 404 });
+  try { return new Response(await readFile(resolve(frontend, name), 'utf8'), { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); }
+  catch (error) { if (error.code === 'ENOENT') return new Response('', { status: 404 }); throw error; }
+}};
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.xml': 'application/xml; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2' };
 const server = http.createServer(async (req, res) => {
   try {
@@ -40,7 +48,7 @@ const server = http.createServer(async (req, res) => {
       for await (const chunk of req) { size += chunk.length; if (size > 25 * 1024 * 1024) { res.writeHead(413); res.end('Request too large'); return; } chunks.push(chunk); }
       const body = Buffer.concat(chunks);
       const request = new Request('http://localhost' + req.url, { method: req.method, headers, ...(body.length ? { body } : {}) });
-      const response = await onRequest({ request, env: { ...env, DB_ADAPTER: adapter } });
+      const response = await onRequest({ request, env: { ...env, DB_ADAPTER: adapter, ASSETS: localAssets } });
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(Buffer.from(await response.arrayBuffer()));
       return;
