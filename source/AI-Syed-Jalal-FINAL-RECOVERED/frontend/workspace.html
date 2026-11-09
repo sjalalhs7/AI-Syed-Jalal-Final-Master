@@ -186,6 +186,10 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
 .local-assistant-actions{display:flex;flex-wrap:wrap;gap:9px}
 .local-assistant-actions>.btn{display:inline-flex;align-items:center;justify-content:center;flex:1 1 160px;min-width:0;min-height:44px;max-width:100%;line-height:1.35;text-align:center;text-decoration:none;white-space:normal;overflow-wrap:anywhere}
 @media(max-width:780px){
+  /* A perspective on the root makes fixed controls follow the document rather
+     than the phone viewport. Individual 3D effects still have their own transforms. */
+  html{perspective:none}
+  body.aj-workspace{--aj-dock-max:45vh}
   .topbar{gap:8px}.brand{flex:1 1 auto;min-width:0}.brand strong{font-size:14px}
   .top-actions{flex:0 0 auto;gap:6px}
   /* The legacy mobile rule hid every non-primary action, including Exit. */
@@ -198,9 +202,15 @@ html[data-theme="light"] .aj-voice-choice{background:#fff;color:#17263a;border-c
   /* Keep welcome, theme and chat controls in separate touchable areas. */
   body.aj-workspace .aj-theme-studio{left:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px))}
   body.aj-workspace .aj-welcome-notice{bottom:calc(140px + env(safe-area-inset-bottom,0px));max-height:min(480px,max(44px,calc(100vh - 220px - env(safe-area-inset-bottom,0px))))}
-  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-studio{left:auto;right:12px;bottom:calc(45vh + 86px + env(safe-area-inset-bottom,0px))}
-  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-menu{max-height:max(100px,calc(55vh - 222px - env(safe-area-inset-bottom,0px)))}
-  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-welcome-notice{bottom:calc(45vh + 142px + env(safe-area-inset-bottom,0px));max-height:min(480px,max(44px,calc(55vh - 222px - env(safe-area-inset-bottom,0px))))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-studio{left:auto;right:12px;bottom:calc(var(--aj-dock-max) + 86px + env(safe-area-inset-bottom,0px))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-menu{max-height:max(100px,calc(100vh - var(--aj-dock-max) - 222px - env(safe-area-inset-bottom,0px)))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-welcome-notice{bottom:calc(var(--aj-dock-max) + 142px + env(safe-area-inset-bottom,0px));max-height:min(480px,max(44px,calc(100vh - var(--aj-dock-max) - 222px - env(safe-area-inset-bottom,0px))))}
+}
+@media(max-width:780px) and (max-height:500px){
+  /* Landscape phones need a shorter, scrollable composer and a menu that
+     opens inside the visible screen instead of above its top edge. */
+  body.aj-workspace{--aj-dock-max:max(56px,calc(100vh - 210px - env(safe-area-inset-bottom,0px)))}
+  body.aj-workspace:has(#ajDockToggle[aria-expanded="true"]) .aj-theme-menu{position:fixed;top:68px;left:12px;right:12px;width:auto;max-height:max(80px,calc(100vh - 154px - env(safe-area-inset-bottom,0px)));margin:0}
 }
 </style></head>
 <body class="aj-workspace" data-final-ui="v56-complete-motion">
@@ -357,11 +367,11 @@ body:has(#ajDockToggle[aria-expanded="false"]) #view-data{padding-bottom:12px}
 #ajDockBody[hidden]{display:none}
 #ajUniversalDock .aj-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}#ajUniversalDock button,#ajUniversalDock label{font:inherit;font-size:12px;padding:8px 10px;border:1px solid #42647e;border-radius:9px;background:#10263b;color:#eef6ff;cursor:pointer}#ajUniversalDock button:disabled{opacity:.5;cursor:wait}#ajUniversalDock #ajDockReply{white-space:pre-wrap;overflow-wrap:anywhere;max-height:130px;overflow:auto;margin-top:8px;font-size:13px}#ajDockFiles{max-width:100%;font-size:11px}#ajDockStatus{font-size:11px;color:#a9c2d5;display:block;margin-top:6px}
 @media(max-width:780px){
- #ajUniversalDock{right:8px;bottom:calc(76px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px);max-height:45vh;padding:10px}
+ #ajUniversalDock{right:8px;bottom:calc(76px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px);max-height:var(--aj-dock-max,45vh);padding:10px}
  #ajUniversalDock.is-collapsed{width:auto;padding:5px}
  #ajUniversalDock.is-collapsed .aj-dock-title,#ajUniversalDock.is-collapsed [data-ai-report-open]{display:none}
  #ajUniversalDock.is-collapsed #ajDockToggle{min-height:44px}
- #ajUniversalDock textarea{min-height:48px}#view-data{padding-bottom:calc(45vh + 150px + env(safe-area-inset-bottom,0px))}.data-pagination{scroll-margin-bottom:calc(45vh + 150px + env(safe-area-inset-bottom,0px))}
+ #ajUniversalDock textarea{min-height:48px}#view-data{padding-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}.data-pagination{scroll-margin-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}
 }
 </style>
 <aside id="ajUniversalDock" aria-label="Universal AI chat">

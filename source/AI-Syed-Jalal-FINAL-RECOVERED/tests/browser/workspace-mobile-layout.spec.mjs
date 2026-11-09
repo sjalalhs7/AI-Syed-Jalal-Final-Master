@@ -98,13 +98,23 @@ test('welcome, themes and chat stay usable together on phones and small tablets'
   for (const width of [320,375,390,650,651,760,780]) {
     await page.setViewportSize({ width, height:width <= 390 ? 568 : 844 });
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    const [welcomeBox, toggleBox, themeBox] = await Promise.all([welcome.boundingBox(), toggle.boundingBox(), theme.boundingBox()]);
-    expect(welcomeBox && toggleBox && themeBox, `all controls visible at ${width}px`).toBeTruthy();
+    const [welcomeBox, toggleBox, themeBox, navBox] = await Promise.all([welcome.boundingBox(), toggle.boundingBox(), theme.boundingBox(), page.locator('#mobileNav').boundingBox()]);
+    expect(welcomeBox && toggleBox && themeBox && navBox, `all controls visible at ${width}px`).toBeTruthy();
+    const height = await page.evaluate(() => innerHeight);
+    for (const [name, box] of Object.entries({ welcomeBox, toggleBox, themeBox, navBox })) {
+      expect(box.y, `${name} above viewport at ${width}px`).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height, `${name} below viewport at ${width}px`).toBeLessThanOrEqual(height + 1);
+    }
     expect(overlaps(welcomeBox, toggleBox), `welcome covers chat at ${width}px`).toBe(false);
     expect(overlaps(welcomeBox, themeBox), `welcome covers themes at ${width}px`).toBe(false);
     expect(overlaps(themeBox, toggleBox), `themes cover chat at ${width}px`).toBe(false);
   }
   await page.setViewportSize({ width:320, height:568 });
+  const fixedBefore = await Promise.all([toggle.boundingBox(), theme.boundingBox(), page.locator('#mobileNav').boundingBox()]);
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const fixedAfter = await Promise.all([toggle.boundingBox(), theme.boundingBox(), page.locator('#mobileNav').boundingBox()]);
+  for (let i = 0; i < fixedBefore.length; i++) expect(Math.abs(fixedBefore[i].y - fixedAfter[i].y), 'floating control moved while scrolling').toBeLessThanOrEqual(1);
   await page.locator('#aj-welcome-notice summary').click();
   await expect(welcome).toContainText('Assalamualaikum');
   await page.locator('#aj-welcome-notice summary').click();
@@ -118,6 +128,23 @@ test('welcome, themes and chat stay usable together on phones and small tablets'
   await expect(page.locator('#aj-theme-menu')).toBeVisible();
   await page.locator('#aj-theme-menu [data-theme-choice="ice"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-aj-theme', 'ice');
+  await page.keyboard.press('Escape');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  // Short landscape screens must keep the expanded dock, theme trigger and
+  // scrollable theme menu on screen without covering the Exit button.
+  await page.setViewportSize({ width:568, height:320 });
+  await toggle.click();
+  const [landscapeTheme, landscapeDock, exitBox] = await Promise.all([theme.boundingBox(), page.locator('#ajUniversalDock').boundingBox(), page.locator('#logoutBtn').boundingBox()]);
+  expect(overlaps(landscapeTheme, landscapeDock)).toBe(false);
+  expect(overlaps(landscapeTheme, exitBox)).toBe(false);
+  await theme.click();
+  const menuBox = await page.locator('#aj-theme-menu').boundingBox();
+  expect(menuBox.y).toBeGreaterThanOrEqual(0);
+  expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(320);
+  await page.locator('#aj-theme-menu [data-theme-choice="water"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-aj-theme', 'water');
   await page.keyboard.press('Escape');
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
