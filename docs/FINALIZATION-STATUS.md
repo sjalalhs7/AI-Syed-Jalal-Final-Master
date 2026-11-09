@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-01. **Status:** verified historical recovery artifact; application production finalization remains incomplete.
 
-Read `docs/AUDIT-2026-11-01.md` for exact revisions, test results and open findings. Historical claims below are not blanket claims about the latest application branch.
+Read `docs/AUDIT-2026-11-01.md` for exact revisions, test results and findings **at that time**. Historical claims below are not blanket claims about the latest application branch; the later state and production blockers are in [CURRENT-STATUS.md](CURRENT-STATUS.md).
 
 ## Source and design boundaries
 
