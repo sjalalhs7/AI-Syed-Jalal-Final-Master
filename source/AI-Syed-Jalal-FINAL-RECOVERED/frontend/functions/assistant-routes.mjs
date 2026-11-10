@@ -9,7 +9,7 @@ import { answerAll, routePrompt, specialistCatalogue } from './all-in-one.mjs';
 
 // Cloud context is optional and transient. Bound it independently of the UI,
 // include only plain user/assistant text, and never truncate the current request.
-export function cloudPrompt(message, profile, history = [], language = undefined) {
+export function cloudPrompt(message, profile, history = [], language = undefined, voice = false) {
   if (!Array.isArray(history) || history.length > 6 || history.some(turn =>
     !turn || !['user', 'assistant'].includes(turn.role) || typeof turn.content !== 'string' || turn.content.length > 1200
   )) throw Object.assign(new Error('Conversation context must contain at most six short user or assistant messages.'), { status: 400 });
@@ -19,7 +19,8 @@ export function cloudPrompt(message, profile, history = [], language = undefined
     try { requestedLanguage = Intl.getCanonicalLocales(language.trim())[0] || ''; }
     catch { throw Object.assign(new Error('Choose a valid response language tag.'), { status: 400 }); }
   }
-  const intro = `You are JalalAi, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services.` +
+  const intro = `You are ${voice === true ? 'JARVIS' : 'JalalAi'}, a careful ${profile} assistant. Be concise, truthful and explicit about uncertainty. Do not claim to access email, devices, accounts or external services.` +
+    (voice === true ? ' This is a spoken conversation: use natural, clear language suitable for being read aloud. Never claim an action was completed unless there is evidence.' : '') +
     (requestedLanguage ? ` When possible, answer in the requested language (${requestedLanguage}); keep quoted text and code intact.` : '');
   const current = `\n\nCurrent user request:\n${message}`;
   let included = [];
@@ -206,7 +207,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     const headers = new Headers(request.headers); headers.delete('content-length'); headers.set('content-type', 'application/json');
     const target = new URL(request.url); target.pathname = '/api/ai/run';
     let prepared;
-    try { prepared = cloudPrompt(message, profile, body.history ?? [], body.language); }
+    try { prepared = cloudPrompt(message, profile, body.history ?? [], body.language, body.voice === true); }
     catch (error) { return reply({ error: error.message }, error.status || 400); }
     const response = await onRequest({ request: new Request(target, { method: 'POST', headers, body: JSON.stringify({ prompt: prepared.prompt, provider, agentId: profile === 'critic' || profile === 'planner' ? 'analysis' : profile, privacyMode: true }) }), env });
     const data = await response.json();

@@ -8,6 +8,7 @@ test('a user reviews and submits a reply and an Admin can safely review it', asy
   await page.goto('/jarvis.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#handsFree').uncheck();
   await page.locator('#prompt').fill('calculate 6*7');
   await page.locator('#sendBtn').click();

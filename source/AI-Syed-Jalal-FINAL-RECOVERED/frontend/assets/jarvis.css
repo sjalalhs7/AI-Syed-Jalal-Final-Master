@@ -103,3 +103,46 @@ footer { margin-top: 22px !important; }
   .wave { height: 18px; }
   .session-steps { padding: 7px 12px; }
 }
+
+/* A focused voice surface: keep the primary actions visible and group secondary
+   destinations and settings without deleting their underlying capabilities. */
+.jarvis-page .topbar nav { overflow: visible !important; position: relative; margin-left: auto; }
+.jarvis-more { position: relative; flex: none; }
+.jarvis-more > summary { list-style: none; cursor: pointer; }
+.jarvis-more > summary::-webkit-details-marker { display: none; }
+.jarvis-more > summary::after { content: '⌄'; margin-left: 2px; }
+.jarvis-more-links { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; width: 220px; max-height: min(65vh, 480px); overflow-y: auto; padding: 8px; border: 1px solid var(--aj-line, #32443f); border-radius: 14px; background: var(--aj-solid, #102033); box-shadow: 0 14px 40px #0003; }
+.jarvis-page .topbar nav .jarvis-more-links a { display: block; padding: 9px 10px; border-radius: 8px; color: var(--aj-ink, #edf5ff); text-decoration: none; font-size: 13px; }
+.jarvis-page .topbar nav .jarvis-more-links a:hover, .jarvis-page .topbar nav .jarvis-more-links a:focus-visible { background: var(--aj-soft, #263c54); }
+.jarvis-page .topbar nav .jarvis-more-links .mobile-workspace { display: none; }
+.side-panel > summary { cursor: pointer; color: var(--aj-ink, #edf5ff); font-weight: 750; }
+.side-panel[open] > summary { margin-bottom: 14px; }
+#cloudOptions { padding: 1px 0 8px; }
+#cloudOptions .field { margin: 8px 0 4px; }
+#cloudOptions .hint { margin-top: 4px; }
+#cloudOptions .context-choice { margin: 8px 0 0; }
+#cloudOptions .context-choice small { margin-top: 2px; }
+#stopBtn:disabled { display: none; }
+.jarvis-grid .chatlog { height: 280px; border-top: 1px solid var(--line); }
+.jarvis-page .aj-welcome-notice { left: auto; right: 28px; top: 92px; bottom: auto; transform: none; }
+@media (max-width: 760px) {
+  .jarvis-page .topbar { flex-wrap: nowrap; gap: 8px; padding: 8px 0; }
+  .jarvis-page .topbar nav { order: 0; width: auto; margin: 0 0 0 auto; padding: 0; }
+  .jarvis-page .topbar .brand { min-width: 0; }
+  .jarvis-page .topbar .brand img { width: 40px; height: 40px; }
+  .jarvis-page .intro { padding: 10px 0 12px; gap: 7px; }
+  .jarvis-page .intro h1 { margin: 2px 0; font-size: 29px; }
+  .jarvis-page .intro p { font-size: 13px; line-height: 1.45; }
+  .jarvis-page .status-pill { padding: 5px 10px; }
+  .jarvis-page .console .composer, .jarvis-page .console .chatlog { order: initial; }
+  .jarvis-page .chatlog { height: 220px; }
+  .jarvis-page .aj-welcome-notice { top: calc(8px + env(safe-area-inset-top, 0px)); right: 8px; width: min(330px, calc(100vw - 16px)); }
+}
+@media (max-width: 440px) {
+  .jarvis-page .topbar nav .nav-workspace { display: none; }
+  .jarvis-page .topbar nav .jarvis-more-links .mobile-workspace { display: block; }
+}
+.cloud-settings { border: 1px solid var(--aj-line, #32443f); border-radius: 10px; padding: 9px 11px !important; margin: 8px 0 12px; }
+.cloud-settings > summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--aj-ink, #edf5ff); }
+.cloud-settings > summary span { color: var(--aj-muted, #a5b8cc); font-weight: 500; }
+.voice-preflight { margin: 0 0 9px; line-height: 1.4; }

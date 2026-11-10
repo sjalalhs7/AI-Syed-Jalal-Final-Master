@@ -56,7 +56,7 @@ test('dashboard local tools, library, homepage login and mobile layout', async (
   await page.goto('/jalalai.html'); await page.locator('#demoBtn').click(); await expect(page.locator('#connectionStatus')).toContainText('Connected'); await page.goto('/workspace.html'); await expect(page.locator('#app')).toBeVisible();
   await page.goto('/dashboard.html#run'); await expect(page.locator('#go')).toBeEnabled(); await page.locator('nav [data-v="run"]').click({ force: true }); await page.locator('#p').fill('calculate 8*9'); await page.locator('#go').click(); await expect(page.locator('#res')).toContainText('72');
   await page.locator('nav [data-v="lib"]').click(); await page.locator('#ls').fill('python'); await expect(page.locator('#lib')).not.toBeEmpty();
-  await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.goto('/'); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.locator('#u').fill('not-an-account'); await page.locator('#p').fill('Wrong-password-123'); await page.locator('#go').click(); await expect(page.locator('#err')).toContainText('Invalid credentials');
   await page.locator('#close').click(); await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/jalalai.html');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
