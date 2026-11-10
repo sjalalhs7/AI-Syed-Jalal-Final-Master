@@ -6,9 +6,8 @@
  * call returned*. Everything the agent says it did is in the trace.
  *
  * Rules:
- *  - Only the four tools listed here exist. No shell, no filesystem, no eval,
- *    no network address other than the Wikipedia endpoint and this app's own
- *    recipe/calculation code.
+ *  - Only the tools published in AGENT_TOOLS are planned here. No shell,
+ *    filesystem or eval; research uses the documented Wikipedia endpoint.
  *  - Every step records `ok`, `ms` and an observation, so a failed step is
  *    visible instead of being smoothed over.
  *  - The agent never claims an action it did not perform. If a tool fails, the
@@ -25,8 +24,8 @@ export const AGENT_TOOLS = [
   { id: 'research', label: 'Wikipedia research', kind: 'network', detail: 'Live search against the Wikipedia API; returns titles, snippets and links with attribution.' },
   { id: 'records', label: 'Workspace records', kind: 'database', detail: 'Read-only search of the records you are allowed to see.' },
   { id: 'tasks', label: 'Tasks and notes', kind: 'database', detail: 'Read your saved tasks and notes. Writes always need explicit confirmation.' },
-  // V140: eight deterministic tools that replace a browser tab each. Same rules:
-  // local, bounded, reproducible from the input alone, no filesystem or shell.
+  // Toolbox entries share bounded local implementations; clock and generated
+  // identifier results can change between runs. No filesystem or shell.
   ...TOOLBOX_TOOLS.map(tool => ({ ...tool }))
 ];
 
@@ -145,7 +144,7 @@ export function planFor(prompt, profile = 'general') {
 
 /**
  * Runs a plan. Each step is isolated: a thrown or slow tool becomes a recorded
- * failure with its message, and the run continues so the user still gets answers
+ * failure with a safe observation, and the run continues so the user gets answers
  * from the steps that worked.
  */
 export async function runAgent({ prompt, db, me, env, profile = 'general', timeoutMs = 9000 }) {
@@ -172,9 +171,16 @@ export async function runAgent({ prompt, db, me, env, profile = 'general', timeo
         ...(files.length ? { artifacts: files.map(file => ({ language: file.language, kind: file.kind, bytes: file.bytes })) } : {})
       });
     } catch (error) {
+      // Database and network exceptions can include connection details. Keep
+      // failures visible without returning or storing their raw messages.
+      const observation = ['records', 'tasks'].includes(item.tool)
+        ? 'Account data could not be read. Check database connectivity and required tables.'
+        : item.tool === 'research'
+          ? 'Wikipedia research is unavailable. Retry when the service is reachable.'
+          : truncate(error?.message || 'The tool failed.', 400);
       steps.push({
         id: item.id, title: item.title, tool: item.tool, ok: false,
-        ms: Date.now() - at, observation: truncate(error?.message || 'The tool failed.', 400)
+        ms: Date.now() - at, observation
       });
     } finally {
       clearTimeout(timer);
@@ -185,19 +191,26 @@ export async function runAgent({ prompt, db, me, env, profile = 'general', timeo
   // reported as a failure, never counted as evidence.
   const usedTools = steps.filter(item => item.ok && item.tool !== 'none' && !item.noTool);
   const failed = steps.filter(item => !item.ok);
+  const attempted = steps.filter(item => item.tool !== 'none').length;
   // A local answer or prepared action can be useful without an external tool.
   // Only say a provider is needed when the step explicitly says so or all tools fail.
-  const needsProvider = steps.some(item => item.needsProvider)
+  const needsGeneratedAnswer = steps.some(item => item.needsProvider);
+  // Keep the existing needsProvider flag for callers that treat an all-failed
+  // run as incomplete, but do not claim a model fixes an unavailable tool.
+  const needsProvider = needsGeneratedAnswer
     || (failed.length > 0 && steps.every(item => item.tool === 'none' || !item.ok));
 
   const header = usedTools.length
-    ? `Agent run — ${plan.length} step(s), ${usedTools.length} tool call(s), ${failed.length} failure(s).`
-    : 'Agent run — no external tool applied, answered locally.';
+    ? `Agent run — ${plan.length} step(s), ${attempted} attempted, ${usedTools.length} successful tool result(s), ${failed.length} failure(s).`
+    : failed.length ? `Agent run — ${plan.length} step(s), no successful tool calls, ${failed.length} failure(s).`
+      : attempted ? `Agent run — ${attempted} tool attempt(s), no usable tool result.`
+        : 'Agent run — no tool was needed; see the local answer or save proposal.';
 
   const body = steps.map((item, index) => `Step ${index + 1} · ${item.title}\n${item.ok ? item.observation : `FAILED: ${item.observation}`}`).join('\n\n');
   const footer = [
-    'What this run does not prove: it used only the tools listed above, each call is shown with its result, and nothing was executed outside this application except the Wikipedia request when present.',
-    needsProvider ? 'This question needs a cloud model for a generated answer. Switch to Cloud AI and select a configured provider; no model output was invented in this run.' : ''
+    'The trace shows the attempted tools and their results. No shell, device control or arbitrary external action was performed; research may query Wikipedia and account data comes from the configured database.',
+    needsGeneratedAnswer ? 'The local result may not answer the full request. Cloud AI can generate prose, but no model was called in this run.'
+      : failed.length ? 'Review failed steps before retrying; no model was called in this run.' : ''
   ].filter(Boolean).join('\n');
 
   return {
@@ -210,7 +223,7 @@ export async function runAgent({ prompt, db, me, env, profile = 'general', timeo
     trace: {
       tools: [...new Set(usedTools.map(item => item.tool))],
       toolCalls: usedTools.length,
-      attempted: steps.filter(item => item.tool !== 'none').length,
+      attempted,
       failures: failed.length,
       totalMs: Date.now() - started,
       bounded: true,

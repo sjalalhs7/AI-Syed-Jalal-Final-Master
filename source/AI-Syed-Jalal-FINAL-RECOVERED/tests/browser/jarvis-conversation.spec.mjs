@@ -227,7 +227,7 @@ test('fixed app navigation, branded mobile navigation, and sign-in return work',
   expect(action.y + action.height).toBeLessThanOrEqual(844);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.locator('#prompt').fill('open https://example.invalid'); await page.locator('#sendBtn').click();
-  await expect(page.locator('#chatlog')).toContainText('no model output was invented');
+  await expect(page.locator('#chatlog')).toContainText('no model was called in this run');
   await expect(page).toHaveURL(/jarvis\.html$/);
   await page.locator('#prompt').fill('open notes'); await page.locator('#sendBtn').click();
   await expect(page).toHaveURL(/notes\.html$/);
@@ -325,4 +325,25 @@ test('custom language codes are validated and a mismatched saved voice is not re
   expect(await page.evaluate(() => window.__spoken.at(-1).lang)).toBe('en-US');
   expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Test voice|en-US');
   await page.locator('#stopBtn').click();
+});
+
+test('JARVIS distinguishes a failed tool from a request for generated prose', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  await page.locator('#handsFree').uncheck();
+  await page.route('**/api/assistant/chat', async route => {
+    const { message } = route.request().postDataJSON();
+    const failed = message === 'show my tasks';
+    return route.fulfill({ json: {
+      mode: 'agent', output: failed ? 'The account read failed.' : 'The local answer is limited.', needsProvider: true,
+      trace: { attempted: failed ? 1 : 0, toolCalls: 0, failures: failed ? 1 : 0, totalMs: 1 },
+      steps: [{ title: failed ? 'Read tasks' : 'Local answer', tool: failed ? 'tasks' : 'none', ok: !failed, ms: 1, observation: 'Example' }]
+    } });
+  });
+  await page.locator('#prompt').fill('show my tasks'); await page.locator('#sendBtn').click();
+  await expect(page.locator('#traceNote')).toContainText('tool step failed');
+  await expect(page.locator('#traceNote')).not.toContainText('generated answer needs');
+  await expect(page.locator('#lastTrace')).toContainText('1 attempted');
+  await expect(page.locator('#lastTrace')).toContainText('0 successful tool result');
+  await page.locator('#prompt').fill('open question'); await page.locator('#sendBtn').click();
+  await expect(page.locator('#traceNote')).toContainText('Some requests may need Cloud AI');
 });

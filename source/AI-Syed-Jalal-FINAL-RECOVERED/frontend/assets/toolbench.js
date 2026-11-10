@@ -3,12 +3,12 @@
  * Toolbench.
  *
  * This page does not re-implement any tool. It renders the catalogue the agent
- * runtime plans from, and every run goes through the one agent endpoint — so the
- * trace shown here is the same trace stored as evidence for an agent run.
+ * runtime plans from, and every run goes through the agent endpoint. The UI
+ * reports whether the returned run history was saved; proposals are not stored.
  */
 (() => {
   const $ = id => document.getElementById(id);
-  let user = null, csrf = '', busy = false, controller = null, tools = [];
+  let user = null, csrf = '', busy = false, tools = [];
 
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
@@ -95,7 +95,8 @@
     const summary = document.createElement('p');
     summary.className = 'answer-summary';
     const toolCalls = result.trace?.toolCalls ?? 0;
-    summary.textContent = `${result.plan.length} planned step(s) · ${toolCalls} tool call(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms · no external model called.`;
+    const attempted = result.trace?.attempted ?? toolCalls;
+    summary.textContent = `${result.plan.length} planned step(s) · ${attempted} attempted · ${toolCalls} successful tool result(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms · no external model called.`;
     host.appendChild(summary);
 
     for (const step of result.steps) {
@@ -112,7 +113,11 @@
       if (window.AJReport) card.appendChild(window.AJReport.button(body.textContent, 'toolbench'));
       if (step.noTool) {
         const note = document.createElement('p'); note.className = 'needs';
-        note.textContent = 'No tool fitted this request, so the local profile answered instead. That is labelled here rather than passed off as a tool result.';
+        note.textContent = result.action
+          ? 'This is an unsaved proposal, not a tool result. Toolbench cannot confirm it; use JalalAi or JARVIS to prepare and confirm the save.'
+          : step.tool === 'none'
+            ? 'No tool fitted this request, so the local profile answered instead. That is labelled here rather than passed off as a tool result.'
+            : 'The tool was attempted but did not return a usable result; see the observation above.';
         card.appendChild(note);
       }
       host.appendChild(card);
@@ -121,11 +126,16 @@
     const foot = document.createElement('ul');
     foot.className = 'panel-limits';
     const lines = [
-      `Tools actually used: ${result.trace?.tools?.join(', ') || 'none'}.`,
-      'The full trace is stored with the run, so this output can be audited later.',
+      `Tools with usable results: ${result.trace?.tools?.join(', ') || 'none'}.`,
+      result.action
+        ? 'This proposal and its trace were not stored. No task or note was saved.'
+        : result.id
+          ? 'The agent-run history entry was saved for this account.'
+          : 'Run history could not be confirmed. Check history when available; the save may have happened even if its response was lost.',
       result.needsProvider
-        ? 'Part of this request needs a cloud model for generated prose; no provider key is configured, so nothing was invented.'
-        : 'Everything above was computed locally or fetched from the one documented endpoint.'
+        ? result.trace?.failures ? 'A tool step failed; review it before retrying. No cloud model was called in this run.'
+          : 'The run may not answer the full request. A cloud model can generate prose. No cloud model was called in this run.'
+        : 'The steps identify whether results came from local tools, account data or Wikipedia.'
     ];
     for (const line of lines) { const li = document.createElement('li'); li.textContent = line; foot.appendChild(li); }
     host.appendChild(foot);
@@ -138,16 +148,20 @@
     if (busy || !prompt) return;
     busy = true; update(); $('result').replaceChildren();
     setStatus('Running the same agent the app uses…');
-    controller = new AbortController();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     try {
       const result = await api('/assistant/chat', { method: 'POST', body: JSON.stringify({ message: prompt, mode: 'agent', profile: 'general' }), signal: controller.signal });
       render(result);
-      setStatus(result.trace?.failures ? `Finished with ${result.trace.failures} failed step(s) — see the cards.` : 'Finished. Every result above came from a tool.');
+      setStatus(result.trace?.failures ? `Finished with ${result.trace.failures} failed step(s) — see the cards.`
+        : (result.trace?.attempted ?? result.trace?.toolCalls) ? 'Finished. Review the steps and their sources.'
+          : 'Finished without a tool call; review the explanation.');
     } catch (error) {
-      if (error.name === 'AbortError') setStatus('Stopped.');
-      else setStatus(error.status === 429 ? 'That is a lot of runs — wait a minute and try again.' : error.message, 'fail');
+      if (error.name === 'AbortError') setStatus('Stopped waiting. The server may still finish the request.');
+      else setStatus(error.status === 429 ? 'That is a lot of runs — wait a minute and try again.'
+        : `Run result could not be confirmed. ${error.message} Check history before retrying.`, 'fail');
     } finally {
-      busy = false; controller = null; update();
+      clearTimeout(timeout); busy = false; update();
     }
   }
 
@@ -167,7 +181,7 @@
     // On the static host there is no API to ask, so stop before trying.
     if (staticHostStop()) { update(); return; }
     $('runForm').addEventListener('submit', run);
-    $('clearBtn').addEventListener('click', () => { $('prompt').value = ''; $('result').replaceChildren(); update(); setStatus('Cleared. Nothing was sent.'); });
+    $('clearBtn').addEventListener('click', () => { $('prompt').value = ''; $('result').replaceChildren(); update(); setStatus(busy ? 'Cleared the display. The server may still finish the request.' : 'Cleared the display. This does not erase run history.'); });
     $('prompt').addEventListener('input', update);
     try {
       const health = await api('/health');
@@ -181,7 +195,7 @@
       } else {
         $('loginBanner').hidden = false;
         $('demoBtn').hidden = !health.localPreview;
-        $('loginMessage').textContent = health.localPreview ? 'Disposable preview: use test data only.' : 'Sign in to run tools against your records.';
+        $('loginMessage').textContent = health.localPreview ? 'Disposable preview: use test data only.' : 'Sign in to use workspace records and your own tasks.';
         setStatus(health.localPreview ? 'Choose “Try the local preview” to start.' : 'Sign in to begin.');
       }
       $('demoBtn').addEventListener('click', async () => {

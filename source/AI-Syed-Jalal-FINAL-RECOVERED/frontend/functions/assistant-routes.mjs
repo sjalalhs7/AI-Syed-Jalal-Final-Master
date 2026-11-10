@@ -119,7 +119,12 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       await db.query('INSERT INTO expert_reviews(id,user_id,mode,score,verdict,dimensions,findings,counts,duration_ms) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9)',
         [id, me.id, 'full', review.score, review.verdict, JSON.stringify(review.dimensions), JSON.stringify(review.findings), JSON.stringify(review.counts), review.durationMs]);
       review.id = id;
-    } catch { review.id = null; }
+      review.storageStatus = 'confirmed';
+    } catch {
+      // An interrupted response does not prove that an INSERT was rolled back.
+      review.id = null;
+      review.storageStatus = 'unconfirmed';
+    }
     await audit(db, me, 'ASSISTANT_EXPERT_REVIEW', `${review.verdict} (${review.score}/100), ${review.findings.length} finding(s)`, request);
     return reply(review);
   }
@@ -140,13 +145,25 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     // Saving is always an explicit proposal, even when Research is selected.
     if (body.mode === 'research' && proposedAssistantAction(message)) return reply(localAssistant(message, profile));
 
-    // Agent mode: a bounded, multi-step tool run whose trace is stored as evidence.
+    // Agent mode: a bounded, multi-step tool run. History is best effort.
     if (body.mode === 'agent') {
       if (!await consumeRateLimit(db, 'assistant-agent', me.id, 12, 5)) return reply({ error: 'Agent runs are limited to twelve per minute.' }, 429, { 'Retry-After': '60' });
       const run = await runAgent({ prompt: message, db, me, env, profile });
       // A cancelled task/note proposal must not leave its contents in agent
       // history before the user has explicitly confirmed saving it.
-      try { run.id = run.action ? null : await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
+      if (run.action) {
+        run.id = null;
+        run.historyStatus = 'not-attempted';
+      } else {
+        try {
+          run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' });
+          run.historyStatus = 'confirmed';
+        } catch {
+          // The write might have committed even when its response was lost.
+          run.id = null;
+          run.historyStatus = 'unconfirmed';
+        }
+      }
       await audit(db, me, 'ASSISTANT_AGENT_RUN', `${run.steps.length} step(s), tools: ${run.trace.tools.join(',') || 'none'}`, request);
       return reply(run);
     }
@@ -217,7 +234,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     return reply({ error: 'Unsupported action. No external action was executed.' }, 400);
   }
   if (path === '/api/assistant/agent/tools' && method === 'GET') {
-    return reply({ ok: true, tools: AGENT_TOOLS, limits: { maxSteps: 7, timeoutMs: 9000, perMinute: 12 }, note: 'These are the only tools that exist, all deterministic. Writes (tasks, notes) always require an explicit confirmation call. The same list is runnable by hand at /toolbench.html.' });
+    return reply({ ok: true, tools: AGENT_TOOLS, limits: { maxSteps: 7, timeoutMs: 9000, perMinute: 12 }, note: 'These are the bounded agent tools. Some read the database or Wikipedia; time and generated IDs can change. Task and note saves require explicit confirmation. Toolbench sends requests to the same agent runtime.' });
   }
   if (path === '/api/assistant/agent/runs' && method === 'GET') {
     const rows = await db.query('SELECT id,prompt,surface,steps,tools,failures,duration_ms AS "durationMs",needs_provider AS "needsProvider",created_at AS "createdAt" FROM agent_runs WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20', [me.id]);

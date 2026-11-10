@@ -157,11 +157,17 @@ test('a search hit is not mistaken for an answer on a host with internet', async
   // Whatever the network did, an open-ended question still needs a model, and the
   // run must not claim Wikipedia answered it.
   assert.equal(run.data.needsProvider, true);
-  assert.match(run.data.output, /no model output was invented/i);
+  assert.match(run.data.output, /no model was called in this run/i);
   if (run.data.steps[0].ok) {
     assert.match(run.data.steps[0].observation, /Sources found/i);
     assert.doesNotMatch(run.data.steps[0].observation, /^Wikipedia returned/);
   }
+  // Exercise the successful lookup path even when the test host is offline.
+  const { runAgent } = await import('../../frontend/functions/agent-runtime.mjs');
+  const connected = await runAgent({ prompt: 'explain the philosophy of mind', db: {}, me: { id: 'u1' }, env: { FETCH_IMPL: liveWikipedia() } });
+  assert.equal(connected.needsProvider, true);
+  assert.match(connected.steps[0].observation, /Sources found/i);
+  assert.match(connected.output, /no model was called in this run/i);
 });
 
 test('a specific lookup does let the found source stand on its own', async () => {
@@ -173,12 +179,13 @@ test('a specific lookup does let the found source stand on its own', async () =>
   assert.match(result.steps[0].observation, /en\.wikipedia\.org\/wiki\//);
 });
 
-test('an unconfigured provider is reported, never faked, inside an agent run', async () => {
+test('an open-ended local fallback does not claim a provider response', async () => {
   const { c, token } = await account();
-  const run = await c('/assistant/chat', 'POST', { message: 'explain the philosophy of mind', mode: 'agent' }, token);
+  const run = await c('/assistant/chat', 'POST', { message: 'tell me a story', mode: 'agent' }, token);
   assert.equal(run.status, 200);
   assert.equal(run.data.needsProvider, true);
-  assert.match(run.data.output, /no model output was invented/i);
+  assert.match(run.data.output, /no model was called in this run/i);
+  assert.doesNotMatch(run.data.output, /no provider key is configured/i);
 });
 
 test('repeated agent runs are rate limited rather than unbounded', async () => {

@@ -15,13 +15,13 @@ test('JalalAi agent mode runs real tools and shows the trace, including failures
   // Two tools in one run: deterministic arithmetic plus the saved tasks reader.
   await page.locator('#prompt').fill('calculate (1200 + 350) * 15% * 3 and show my tasks');
   await page.locator('#sendBtn').click();
-  await expect(page.locator('.agent-trace-head').first()).toContainText('2 tool call(s)', { timeout: 30000 });
+  await expect(page.locator('.agent-trace-head').first()).toContainText('2 successful tool result(s)', { timeout: 30000 });
   await expect(page.locator('.agent-trace-head').first()).toContainText('0 failure(s)');
   await expect(page.locator('.agent-step')).toHaveCount(2);
   await expect(page.locator('.agent-step').first()).toContainText('= 697.5');
   await expect(page.locator('.agent-step').nth(1)).toContainText('No tasks saved yet.');
   await expect(page.locator('.agent-trace .hint')).toContainText('explicit confirmation');
-  await expect(page.locator('#status')).toContainText('2 tool call(s)');
+  await expect(page.locator('#status')).toContainText('2 successful tool result(s)');
 
   // A tool that cannot reach the network must say it failed, not invent an answer.
   await page.locator('#prompt').fill('research the history of the printing press');
@@ -39,4 +39,20 @@ test('JalalAi agent mode runs real tools and shows the trace, including failures
   }
 
   expect(errors).toEqual([]);
+});
+
+test('JalalAi stops waiting without claiming the server was cancelled', async ({ page }) => {
+  await page.goto('/jalalai.html');
+  await page.getByRole('button', { name: /Try the local preview/ }).click();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected');
+  await page.route('**/api/assistant/chat', async route => {
+    await new Promise(resolve => setTimeout(resolve, 350));
+    await route.fulfill({ json: { mode: 'local', output: 'Late response' } }).catch(() => {});
+  });
+  await page.locator('#prompt').fill('a slow request');
+  await page.locator('#sendBtn').click();
+  await page.locator('#stopBtn').click();
+  await expect(page.locator('#status')).toContainText('server may still finish');
+  await page.waitForTimeout(500);
+  await expect(page.locator('#chatlog')).not.toContainText('Late response');
 });

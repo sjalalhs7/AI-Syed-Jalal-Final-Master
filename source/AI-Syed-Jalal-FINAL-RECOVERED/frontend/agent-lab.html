@@ -12,7 +12,7 @@
 <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/app-icons/favicon-32.png" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="assets/agent-lab.css">
-<script src="assets/agent-lab.js?v=162" defer></script>
+<script src="assets/agent-lab.js?v=165" defer></script>
 <link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><script src="assets/speech-preferences.js?v=164"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
 <body>
 <a class="skip-link" href="#runPanel">Skip to self-check</a>
@@ -35,8 +35,8 @@
   <section class="hero">
     <div>
       <p class="eyebrow">SELF-CHECK ENGINE · V135</p>
-      <h1>Ask the application to prove it works.</h1>
-      <p class="lede">One button runs a graded suite of 19 checks against this deployment: API health, the real database, security boundaries, agent behaviour, honesty labels, the 3,500-skill library and the page inventory. Every result shows what was observed — and what it did <em>not</em> prove.</p>
+      <h1>Check what this deployment can verify.</h1>
+      <p class="lede">Run a bounded suite of checks against this deployment, including API health, database table names, selected security probes, local agent behavior and page availability. The results are evidence, not a certificate.</p>
     </div>
     <div class="score-card" id="scoreCard" aria-live="polite">
       <span class="score-label">Latest score</span>
@@ -51,6 +51,7 @@
       <div>
         <h2 id="runTitle">Run the self-check</h2>
         <p class="hint" id="runHint">Signed out? Use “Try the local preview” on Agent Studio or sign in from the homepage. Results are stored per account.</p>
+        <p class="hint" id="selfCheckEffects"><strong>Before running:</strong> The check attempts to create, read and delete a test audit entry, may update the skill index, and attempts to store its result. A failed or interrupted run may leave a test entry. Run only where you are authorized to make these changes.</p>
       </div>
       <div class="run-actions">
         <label class="field"><span>Engine</span>
@@ -104,7 +105,7 @@
   <section class="panel honesty" aria-labelledby="honestyTitle">
     <h2 id="honestyTitle">What this page does and does not prove</h2>
     <div class="honesty-grid">
-      <div><h3>Proven by a passing run</h3><ul><li>The API answers and the database has every required table.</li><li>Writes persist and can be removed; sessions use hardened headers and CSRF.</li><li>Local agent behaviour is correct and never auto-saves without confirmation.</li><li>Unconfigured cloud engines are labelled instead of simulated.</li><li>The skill catalogue is complete and searchable.</li></ul></div>
+      <div><h3>What a full passing run checks</h3><ul><li>The API responds and required table names are present; columns and data are not checked.</li><li>One test audit entry can be written, read and deleted; one unconfirmed CSRF-less request is rejected.</li><li>Selected local agent and confirmation examples behave as expected.</li><li>The local fallback is labelled and the indexed skill catalogue can be searched.</li></ul></div>
       <div><h3>Not proven by any run here</h3><ul><li>That a cloud provider key produces a correct live answer.</li><li>Physical microphone, camera, speaker or Android device behaviour.</li><li>Production load, pen-test results, backups or disaster recovery.</li><li>Legal, medical or financial compliance.</li></ul></div>
     </div>
   </section>

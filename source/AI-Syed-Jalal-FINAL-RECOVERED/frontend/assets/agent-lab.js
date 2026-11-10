@@ -210,7 +210,11 @@
       if (error.data?.code === 'PROVIDER_NOT_CONFIGURED' || error.data?.code === 'PROVIDER_STATUS_UNKNOWN') {
         setStatus(error.message, 'warn');
         $('engine').value = 'local'; syncEngineControls();
-      } else setStatus(error.message, 'fail');
+      } else if (error.status === 401 || error.status === 429) {
+        setStatus(error.message, 'fail');
+      } else {
+        setStatus('The self-check response could not be confirmed. Checks may still have run or been stored; check history before retrying.', 'warn');
+      }
     }
   }
 

@@ -276,16 +276,17 @@
     }
     box.className = 'agent-trace'; box.replaceChildren();
     const head = document.createElement('div'); head.className = 'agent-trace-head';
-    head.textContent = `${result.steps.length} step(s) · ${result.trace?.toolCalls ?? 0} tool call(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms`;
+    head.textContent = `${result.steps.length} step(s) · ${result.trace?.attempted ?? result.trace?.toolCalls ?? 0} attempted · ${result.trace?.toolCalls ?? 0} successful tool result(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms`;
     box.appendChild(head);
     for (const step of result.steps) {
       const row = document.createElement('div'); row.className = 'agent-step' + (step.ok ? '' : ' failed');
       const title = document.createElement('strong'); title.textContent = `${step.ok ? '✓' : '✕'} ${step.title} · ${step.tool} · ${step.ms} ms`;
-      const body = document.createElement('p'); body.textContent = step.observation;
+      const body = document.createElement('p'); body.textContent = step.ok ? step.observation : `FAILED: ${step.observation}`;
       row.append(title, body); box.appendChild(row);
     }
-    $('traceNote').textContent = result.needsProvider
-      ? 'A generated answer needs Cloud AI. This agent run did not use a model.'
+    $('traceNote').textContent = result.trace?.failures
+      ? 'A tool step failed. Review the trace before retrying; this agent run did not use a cloud model.'
+      : result.needsProvider ? 'This agent run did not use a model. Some requests may need Cloud AI for generated prose.'
       : 'Agent prompts and traces may be saved to your account. Writes require your explicit confirmation.';
   }
 
@@ -371,11 +372,11 @@
         cloudTurns = [...cloudTurns, { role: 'user', content: text.slice(0, 1200) }, { role: 'assistant', content: String(result.output || '').slice(0, 1200) }].slice(-6);
       }
       const label = result.cloudError ? 'JARVIS · local fallback (cloud unavailable)'
-        : result.mode === 'agent' ? `JARVIS · agent runtime (${result.trace?.toolCalls ?? 0} tool call(s))`
+        : result.mode === 'agent' ? `JARVIS · agent runtime (${result.trace?.toolCalls ?? 0} successful tool result(s))`
         : result.mode === 'cloud' ? `JARVIS · cloud ${result.provider}` : 'JARVIS · local tools';
       const output = result.cloudError ? `${result.cloudError}\n\nLocal response:\n${result.output}` : String(result.output || 'No reply was returned.');
       if (result.cloudError) setStatus(result.cloudError);
-      else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Finished with ${result.trace.failures} failed step(s) — read the trace.` : `Finished · ${result.trace?.toolCalls ?? 0} tool call(s) in ${result.trace?.totalMs ?? 0} ms.`);
+      else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Finished with ${result.trace.failures} failed step(s) — read the trace.` : `Finished · ${result.trace?.toolCalls ?? 0} successful tool result(s) in ${result.trace?.totalMs ?? 0} ms.`);
       else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Reply ready.');
       addMessage(output, 'assistant', label); renderTrace(result);
       if (result.action) {

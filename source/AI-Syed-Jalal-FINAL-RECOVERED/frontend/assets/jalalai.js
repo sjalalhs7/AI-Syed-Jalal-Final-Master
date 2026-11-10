@@ -105,7 +105,7 @@
     box.className = 'agent-trace';
     const head = document.createElement('div');
     head.className = 'agent-trace-head';
-    head.textContent = `Agent trace · ${result.steps.length} step(s) · ${result.trace?.toolCalls ?? 0} tool call(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms`;
+    head.textContent = `Agent trace · ${result.steps.length} step(s) · ${result.trace?.attempted ?? result.trace?.toolCalls ?? 0} attempted · ${result.trace?.toolCalls ?? 0} successful tool result(s) · ${result.trace?.failures ?? 0} failure(s) · ${result.trace?.totalMs ?? 0} ms`;
     box.appendChild(head);
     for (const step of result.steps) {
       const row = document.createElement('div');
@@ -113,7 +113,7 @@
       const title = document.createElement('strong');
       title.textContent = `${step.ok ? '✓' : '✕'} ${step.title} · ${step.tool} · ${step.ms} ms`;
       const body = document.createElement('p');
-      body.textContent = step.observation;
+      body.textContent = step.ok ? step.observation : `FAILED: ${step.observation}`;
       row.append(title, body);
       box.appendChild(row);
     }
@@ -144,15 +144,17 @@
     if (busy || !text) return;
     if (cloudStatusUnknown()) { setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.'); return; }
     stopVoice(); busy = true; $('prompt').value = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Working… Stop cancels waiting for the reply.');
-    requestController = new AbortController();
+    const currentRequest = new AbortController(); requestController = currentRequest;
+    const timeout = setTimeout(() => currentRequest.abort(), 60000);
     try {
-      const result = await api('/assistant/chat', { method: 'POST', signal: requestController.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value }) });
+      const result = await api('/assistant/chat', { method: 'POST', signal: currentRequest.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value }) });
+      if (currentRequest.signal.aborted) return;
       const label = result.mode === 'agent' ? 'JalalAi · agent runtime (real tool trace)'
         : result.mode === 'cloud' ? `JalalAi · cloud ${result.provider}`
         : result.mode === 'local-fallback' ? 'JalalAi · local fallback (cloud unavailable)'
         : 'JalalAi · local tools / guidance';
       if (result.cloudError) setStatus(result.cloudError);
-      else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Agent finished with ${result.trace.failures} failed step(s) — see the trace.` : `Agent finished · ${result.trace?.toolCalls ?? 0} tool call(s) in ${result.trace?.totalMs ?? 0} ms.`);
+      else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Agent finished with ${result.trace.failures} failed step(s) — see the trace.` : `Agent finished · ${result.trace?.toolCalls ?? 0} successful tool result(s) in ${result.trace?.totalMs ?? 0} ms.`);
       else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Local tools completed the request.');
       const node = addMessage(result.output, 'assistant', label, result);
       if (result.mode === 'agent' && Array.isArray(result.steps)) node.appendChild(agentTrace(result));
@@ -160,9 +162,9 @@
       if ($('voiceReply').checked) speak(result.output);
     } catch (error) {
       const cancelled = error.name === 'AbortError';
-      setStatus(cancelled ? 'Request cancelled. Check your tasks before retrying a saved action.' : error.message);
+      setStatus(cancelled ? 'Stopped waiting. The server may still finish; check history or saved actions before retrying.' : error.message);
       if (!cancelled) addMessage(error.message, 'assistant error', 'Request could not complete');
-    } finally { busy = false; requestController = null; updateControls(); }
+    } finally { clearTimeout(timeout); busy = false; requestController = null; updateControls(); }
   }
   async function signIn() {
     const session = await api('/me'); csrf = session.csrfToken;
@@ -215,7 +217,7 @@
     try { recognition.start(); } catch { stopVoice(); setStatus('The microphone could not start. Try again or type your message.'); }
   };
   $('readBtn').onclick = () => speak(lastReply);
-  $('stopBtn').onclick = () => { stopVoice(); if (requestController) requestController.abort(); setStatus('Stopped.'); };
+  $('stopBtn').onclick = () => { stopVoice(); if (requestController) { requestController.abort(); setStatus('Stopped waiting. The server may still finish; check history or saved actions before retrying.'); } else setStatus('Stopped.'); };
   $('clearChat').onclick = () => { if (busy || !window.confirm('Clear this chat? Saved tasks and notes are kept.')) return; stopVoice(); lastReply = ''; $('chatlog').replaceChildren(); addMessage('Chat cleared. Your saved tasks and notes are unchanged.', 'assistant', 'JalalAi · session reset'); };
   $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST' }); await signIn(); } catch (error) { setStatus(error.message); } finally { $('demoBtn').disabled = false; } };
   $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=jalalai.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; lastReply = ''; state = { tasks: [], notes: [] }; $('chatlog').replaceChildren(); for (const id of ['tasks', 'notes']) $(id).replaceChildren(); stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
