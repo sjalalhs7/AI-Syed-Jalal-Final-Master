@@ -56,7 +56,7 @@
           <p class="hint" id="engineHelp">Agent mode runs bounded tools, not general AI chat. Choose Cloud AI for open-ended conversation; a working provider is required and provider charges may apply.</p>
           <details id="cloudOptions" class="cloud-settings" hidden>
             <summary>AI provider &amp; follow-up memory <span id="contextSummary">· memory off</span></summary>
-            <div class="field"><label for="provider">Cloud provider</label><select id="provider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic Claude</option><option value="deepseek">DeepSeek</option></select></div>
+            <div class="field"><label for="provider">Cloud provider</label><select id="provider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic Claude</option><option value="deepseek">DeepSeek</option><option value="omniroute">OmniRoute</option></select></div>
             <p class="hint" id="cloudStatus">Checking provider configuration…</p>
             <label class="check context-choice"><input type="checkbox" id="rememberContext"><span><strong>Remember AI chat for follow-ups</strong><small>Optional: up to 3 recent cloud exchanges are sent to this provider with the next cloud request. They stay on this page until cleared, switched off, the provider or engine changes, or you leave.</small></span></label>
           </details>
@@ -125,6 +125,6 @@
   </main>
   <footer class="hint">AI-Syed Jalal · JARVIS voice assistant · Your microphone and saved actions remain under your control.</footer>
 </div>
-<script type="module" src="assets/jarvis.js?v=169"></script>
+<script type="module" src="assets/jarvis.js?v=170"></script>
 </body>
 </html>

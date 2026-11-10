@@ -45,7 +45,13 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]),
       db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id])
     ]);
-    const cloudProviders = Object.fromEntries(['gemini', 'openai', 'anthropic', 'deepseek'].map(id => [id, providerConfiguration(env, id)]));
+    // Older assistant clients choose the first configured ID without checking
+    // whether they have a matching option. Only advertise the additional
+    // provider to clients that explicitly support it, including older open tabs
+    // during deployment. OmniRoute is configured solely via the environment.
+    const providerIds = ['gemini', 'openai', 'anthropic', 'deepseek'];
+    if (url.searchParams.get('includeOmniRoute') === '1') providerIds.push('omniroute');
+    const cloudProviders = Object.fromEntries(providerIds.map(id => [id, providerConfiguration(env, id)]));
     return reply({ ok: true, tasks, notes, tools: AGENT_TOOLS, critic: { engine: 'sj-expert-critic', dimensions: 7, route: '/api/assistant/critic/review' }, voiceSurfaces: VOICE_SURFACES.map(surface => ({ file: surface.file, label: surface.label })), cloudProviders, cloudConfigured: aggregateProviderConfiguration(Object.values(cloudProviders)), privacy: 'Local and cloud chat are transient; agent and research runs store their prompts and traces on your account. Tasks and notes require your confirmation.' });
   }
   // V139 — all-in-one panel: every specialist that can serve the prompt, with

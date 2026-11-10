@@ -4,7 +4,7 @@
  * no wake word, OS control, hidden listening, or unconfirmed save. */
 (() => {
   const $ = id => document.getElementById(id);
-  const PROVIDER_NAMES = Object.freeze({ gemini: 'Google Gemini', openai: 'OpenAI', anthropic: 'Anthropic Claude', deepseek: 'DeepSeek' });
+  const PROVIDER_NAMES = Object.freeze({ gemini: 'Google Gemini', openai: 'OpenAI', anthropic: 'Anthropic Claude', deepseek: 'DeepSeek', omniroute: 'OmniRoute' });
   // Exact, fixed app destinations only: never turn dictated text into a URL.
   const DESTINATIONS = Object.freeze({
     'home': 'index.html', 'homepage': 'index.html', 'guide': 'guide.html', 'start here': 'guide.html',
@@ -215,7 +215,10 @@
     if (conversationActive && $('mode').value === 'cloud' && state.cloudProviders?.[$('provider').value] !== true) {
       const knownMissing = state.cloudProviders?.[$('provider').value] === false;
       endConversation();
-      setStatus(knownMissing ? 'This AI provider has no server key configured. Choose local tools or ask an administrator to configure a provider.' : 'AI provider configuration is unknown. Choose local tools or retry when settings are available.');
+      const missingMessage = $('provider').value === 'omniroute'
+        ? 'OmniRoute needs both a server key and endpoint. Choose local tools or ask an administrator to configure them.'
+        : 'This AI provider has no server key configured. Choose local tools or ask an administrator to configure a provider.';
+      setStatus(knownMissing ? missingMessage : 'AI provider configuration is unknown. Choose local tools or retry when settings are available.');
       return;
     }
     const lang = requireSpeechLanguage();
@@ -491,27 +494,38 @@
   function updateProviderStatus() {
     const selected = $('provider').value;
     const configured = state.cloudProviders?.[selected];
-    $('cloudStatus').textContent = configured === true
-      ? `${PROVIDER_NAMES[selected]} has a server key configured. A real response still requires a successful provider request.`
-      : configured === false ? `No server key is configured for ${PROVIDER_NAMES[selected]}. Choose a configured provider or ask an administrator to set one up.`
-      : 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
+    const omni = selected === 'omniroute';
+    let text = 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
+    if (configured === true) text = omni
+      ? 'OmniRoute has a server key and endpoint configured. A real response still requires a successful provider request.'
+      : `${PROVIDER_NAMES[selected]} has a server key configured. A real response still requires a successful provider request.`;
+    else if (configured === false) text = omni
+      ? 'OmniRoute needs both a server key and endpoint. Choose local tools or ask an administrator to configure them.'
+      : `No server key is configured for ${PROVIDER_NAMES[selected]}. Choose a configured provider or ask an administrator to set one up.`;
+    $('cloudStatus').textContent = text;
   }
 
   async function refreshState() {
-    state = await api('/assistant/state?metadata=1');
+    state = await api('/assistant/state?metadata=1&includeOmniRoute=1');
     const providers = state.cloudProviders || {};
-    for (const option of $('provider').options) {
+    const options = Array.from($('provider').options);
+    for (const option of options) {
       const value = providers[option.value];
-      option.textContent = `${PROVIDER_NAMES[option.value]}${value === true ? ' · key configured' : value === false ? ' · not configured' : ' · status unknown'}`;
+      const configuredLabel = option.value === 'omniroute' ? ' · key & endpoint configured' : ' · key configured';
+      option.textContent = `${PROVIDER_NAMES[option.value]}${value === true ? configuredLabel : value === false ? ' · not configured' : ' · status unknown'}`;
       option.disabled = value !== true && value !== false;
     }
     const selected = providers[$('provider').value];
     if ((!providerTouched && selected !== true) || (selected !== true && selected !== false)) {
-      const first = Object.keys(PROVIDER_NAMES).find(id => providers[id] === true) || Object.keys(PROVIDER_NAMES).find(id => providers[id] === false);
-      $('provider').value = first || '';
+      // Only select options this page actually has. An older cached HTML page or
+      // a future provider in the response must not select a nonexistent value.
+      const first = options.find(option => providers[option.value] === true) || options.find(option => providers[option.value] === false);
+      $('provider').value = first?.value || '';
     }
+    const values = options.map(option => providers[option.value]);
+    const supportedCloud = values.includes(true) ? true : values.every(value => value === false) ? false : null;
     const cloud = $('mode').querySelector('option[value="cloud"]');
-    if (cloud) cloud.textContent = state.cloudConfigured === true ? 'Cloud AI — key configured (not live-tested)' : state.cloudConfigured === false ? 'Cloud AI — not configured' : 'Cloud AI — status unknown';
+    if (cloud) cloud.textContent = supportedCloud === true ? 'Cloud AI — provider configured (not live-tested)' : supportedCloud === false ? 'Cloud AI — not configured' : 'Cloud AI — status unknown';
     // Prefer open-ended chat only when a specific provider has a known key.
     // Nothing is sent until the user speaks or submits, and an explicit engine
     // choice made while metadata was loading is never overridden.
@@ -524,11 +538,16 @@
     $('cloudOptions').hidden = mode !== 'cloud';
     const provider = PROVIDER_NAMES[$('provider').value] || 'the selected provider';
     const configured = state.cloudProviders?.[$('provider').value];
-    $('engineHelp').textContent = mode !== 'cloud'
-      ? 'Agent and local modes use limited tools, not general AI chat. Cloud AI needs a working provider and may incur charges.'
-      : configured === true ? `AI chat sends text to ${provider}. A key does not prove a response; provider charges may apply.`
-      : configured === false ? `${provider} has no server key configured. Choose local tools or ask an administrator to configure it.`
-      : 'AI provider configuration is unknown. Choose local tools or retry when settings are available.';
+    const omni = $('provider').value === 'omniroute';
+    let help = 'AI provider configuration is unknown. Choose local tools or retry when settings are available.';
+    if (mode !== 'cloud') help = 'Agent and local modes use limited tools, not general AI chat. Cloud AI needs a working provider and may incur charges.';
+    else if (configured === true) help = omni
+      ? 'AI chat sends text to the configured OmniRoute endpoint, which may forward it. Configuration does not prove a response; charges may apply.'
+      : `AI chat sends text to ${provider}. A key does not prove a response; provider charges may apply.`;
+    else if (configured === false) help = omni
+      ? 'OmniRoute needs both a server key and endpoint. Choose local tools or ask an administrator to configure them.'
+      : `${provider} has no server key configured. Choose local tools or ask an administrator to configure it.`;
+    $('engineHelp').textContent = help;
     $('contextSummary').textContent = $('rememberContext').checked ? '· memory on' : '· memory off';
     $('voiceMode').textContent = mode === 'agent' ? `Agent mode · ${state.tools?.length || 'bounded'} tools with trace`
       : mode === 'research' ? 'Research · live Wikipedia with cited links'

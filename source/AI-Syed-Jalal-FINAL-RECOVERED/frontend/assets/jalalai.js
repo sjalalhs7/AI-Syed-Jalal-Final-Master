@@ -66,7 +66,7 @@
     return node;
   }
   async function refreshState() {
-    state = await api('/assistant/state');
+    state = await api('/assistant/state?includeOmniRoute=1');
     for (const [id, items, kind] of [['tasks', state.tasks, 'task'], ['notes', state.notes, 'note']]) {
       const list = $(id); list.replaceChildren();
       if (!items.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = `No ${id} yet.`; list.appendChild(empty); }
@@ -79,25 +79,37 @@
     }
     $('taskCount').textContent = state.tasks.filter(t => t.status === 'open').length;
     const providers = state.cloudProviders || {};
-    for (const option of $('provider').options) {
+    const options = Array.from($('provider').options);
+    for (const option of options) {
       option.dataset.label ||= option.textContent;
       const value = providers[option.value];
-      option.textContent = option.dataset.label + (value === true ? ' · key configured' : value === false ? ' · not configured' : ' · status unknown');
+      const configuredLabel = option.value === 'omniroute' ? ' · key & endpoint configured' : ' · key configured';
+      option.textContent = option.dataset.label + (value === true ? configuredLabel : value === false ? ' · not configured' : ' · status unknown');
       option.disabled = value !== true && value !== false;
     }
     const selected = providers[$('provider').value];
     if ((!providerTouched && selected !== true) || (selected !== true && selected !== false)) {
-      const first = Object.keys(providers).find(id => providers[id] === true) || Object.keys(providers).find(id => providers[id] === false);
-      $('provider').value = first || '';
+      // Never select a provider that this page's HTML cannot display.
+      const first = options.find(option => providers[option.value] === true) || options.find(option => providers[option.value] === false);
+      $('provider').value = first?.value || '';
     }
-    $('mode').querySelector('option[value="cloud"]').textContent = state.cloudConfigured === true ? 'Cloud AI (server key configured)' : state.cloudConfigured === false ? 'Cloud AI (not configured)' : 'Cloud AI (status unknown)';
+    const values = options.map(option => providers[option.value]);
+    const supportedCloud = values.includes(true) ? true : values.every(value => value === false) ? false : null;
+    $('mode').querySelector('option[value="cloud"]').textContent = supportedCloud === true ? 'Cloud AI (provider configured; not live-tested)' : supportedCloud === false ? 'Cloud AI (not configured)' : 'Cloud AI (status unknown)';
     updateProviderStatus(); updateControls();
   }
   function updateProviderStatus() {
-    const value = state.cloudProviders?.[$('provider').value];
-    $('cloudStatus').textContent = value === true ? 'The selected provider has a server key. A successful live request is still required.'
-      : value === false ? 'No key is configured for the selected provider. Local tools work without a key.'
-      : 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
+    const selected = $('provider').value;
+    const value = state.cloudProviders?.[selected];
+    const omni = selected === 'omniroute';
+    let text = 'Provider configuration is unknown. Retry when settings are available or choose local tools.';
+    if (value === true) text = omni
+      ? 'OmniRoute has a server key and endpoint configured. Cloud text goes to that endpoint, which may forward it; charges may apply. A successful live request is still required.'
+      : 'The selected provider has a server key. A successful live request is still required.';
+    else if (value === false) text = omni
+      ? 'OmniRoute needs both a server key and endpoint. Local tools work without them.'
+      : 'No key is configured for the selected provider. Local tools work without a key.';
+    $('cloudStatus').textContent = text;
   }
   function agentTrace(result) {
     // Renders the real tool trace: what ran, how long, and what it returned.

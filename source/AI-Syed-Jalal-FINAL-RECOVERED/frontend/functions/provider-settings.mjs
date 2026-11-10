@@ -23,7 +23,11 @@ const SETTINGS_READABLE = Symbol('provider settings readable');
 
 export function providerConfiguration(env, provider) {
   // OmniRoute is configured through deployment environment only, not app_settings.
-  if (provider === 'omniroute') return Boolean((env?.OMNIROUTE_API_KEY || env?.OMNIROUTE_KEY) && (env?.OMNIROUTE_BASE_URL || env?.OMNIROUTE_URL));
+  if (provider === 'omniroute') {
+    const key = String(env?.OMNIROUTE_API_KEY || env?.OMNIROUTE_KEY || '').trim();
+    const endpoint = String(env?.OMNIROUTE_BASE_URL || env?.OMNIROUTE_URL || '').trim();
+    return Boolean(key && endpoint);
+  }
   const name = ENV_KEYS[provider];
   if (!name) return false;
   if (env?.[name]) return true;
