@@ -53,7 +53,10 @@
     const signal = options.signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([options.signal, timeout]) : (options.signal || timeout);
     const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
+    if (!response.ok) {
+      const error = new Error(data.error || `Request failed (${response.status})`);
+      error.status = response.status; error.code = data.code; throw error;
+    }
     return data;
   }
 
@@ -662,8 +665,16 @@
     setStatus('Open the secure app or local preview to talk to JARVIS.'); updateControls();
   } else {
     signIn().catch(error => {
-      user = null; $('connectionStatus').textContent = 'Connection unavailable'; setStatus(error.message);
-      $('loginBanner').hidden = false; $('loginMessage').textContent = 'The server could not be reached. Reload once the application server is running.'; updateControls();
+      user = null;
+      const missingDatabase = error.code === 'DATABASE_NOT_CONFIGURED';
+      $('connectionStatus').textContent = missingDatabase ? 'Database not configured' : error.status ? 'Sign-in unavailable' : 'Connection unavailable';
+      setStatus(error.message);
+      $('loginBanner').hidden = false;
+      $('loginMessage').textContent = missingDatabase
+        ? 'This deployment’s database is not configured. Sign-in and the voice assistant are unavailable here. Ask the site owner to configure it; no password was checked.'
+        : error.status ? 'The application responded, but could not start a session. Try again or contact the site owner.'
+        : 'The server could not be reached. Reload once the application server is running.';
+      updateControls();
     });
   }
 })();

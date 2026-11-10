@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v168-voice-conversation'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v169-voice-conversation'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -251,7 +251,7 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).not.toContain('aj-v156-jarvis-welcome');
   expect(names).not.toContain('aj-v157-selected-voice');
   expect(names).not.toContain('aj-v165-agent-evidence');
-  expect(names).toContain('aj-v168-voice-conversation');
+  expect(names).toContain('aj-v169-voice-conversation');
   expect(await page.evaluate(async () => (await (await caches.open('other-app-test-cache')).match('/other-app-data')).text())).toBe('preserve this');
   expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
 });

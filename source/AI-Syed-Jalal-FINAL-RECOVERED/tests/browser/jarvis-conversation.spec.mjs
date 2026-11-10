@@ -570,3 +570,30 @@ test('a recognition session that never returns any result is stopped after its i
   await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => window.__recognitions.some(r => r.active))).toBe(false);
 });
+
+test('JARVIS distinguishes an unconfigured database, server error and network failure before sign-in', async ({ page }) => {
+  await controlledSpeech(page);
+  let failure = 'missing';
+  await page.route('**/api/me', route => {
+    if (failure === 'network') return route.abort('failed');
+    return route.fulfill(failure === 'missing'
+      ? { status: 503, json: { code: 'DATABASE_NOT_CONFIGURED', error: 'Neon DATABASE_URL is not configured' } }
+      : { status: 500, json: { code: 'INTERNAL_ERROR', error: 'Session lookup failed' } });
+  });
+  await page.goto('/jarvis.html');
+  await expect(page.locator('#connectionStatus')).toHaveText('Database not configured');
+  await expect(page.locator('#loginMessage')).toContainText('database is not configured');
+  await expect(page.locator('#loginMessage')).toContainText('no password was checked');
+  await expect(page.locator('#status')).toContainText('DATABASE_URL is not configured');
+  await expect(page.locator('#conversationBtn')).toBeDisabled();
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  failure = 'server'; await page.reload();
+  await expect(page.locator('#connectionStatus')).toHaveText('Sign-in unavailable');
+  await expect(page.locator('#loginMessage')).toContainText('application responded');
+  await expect(page.locator('#status')).toHaveText('Session lookup failed');
+  failure = 'network'; await page.reload();
+  await expect(page.locator('#connectionStatus')).toHaveText('Connection unavailable');
+  await expect(page.locator('#loginMessage')).toContainText('server could not be reached');
+  await expect(page.locator('#conversationBtn')).toBeDisabled();
+});
