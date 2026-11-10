@@ -60,6 +60,7 @@ async function openConsole(page) {
   await page.goto('/jarvis.html');
   await page.locator('#demoBtn').click();
   await expect(page.locator('#connectionStatus')).toContainText('Connected', { timeout: 20000 });
+  await page.locator('#voiceSettings > summary').click();
 }
 
 test('JARVIS: every option works — voice in, real tools, voice out, trace and limits', async ({ page }) => {

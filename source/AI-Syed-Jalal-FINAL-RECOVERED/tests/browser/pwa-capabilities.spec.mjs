@@ -145,10 +145,12 @@ test('the capability report measures support and admits what it cannot measure',
 
 test('Quick Notes and the capability report are reachable from the guide and the homepage', async ({ page }) => {
   await page.goto('/guide.html?static=1');
+  await page.locator('.aj-compact-menu > summary').click();
   for (const link of ['notes.html', 'share-target.html', 'capabilities.html']) {
     await expect(page.locator(`a[href="${link}"]`).first()).toBeVisible();
   }
   await page.goto('/index.html?static=1');
+  await page.locator('.nav-more > summary').click();
   await expect(page.locator('a[href="notes.html"]').first()).toBeVisible();
 });
 

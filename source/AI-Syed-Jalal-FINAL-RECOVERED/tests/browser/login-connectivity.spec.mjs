@@ -13,7 +13,7 @@ test('unconfigured Cloudflare preview explains the password was not checked and 
     return route.fulfill({ status: 200, contentType: url.pathname.endsWith('.css') ? 'text/css' : 'application/javascript', body: '' });
   });
   await page.goto('https://preview.ai-syed-jalal-live.pages.dev/');
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#authConnection')).toContainText('cannot check your password');
   await expect(page.locator('#go')).toBeDisabled();
   await expect(page.locator('#authLiveLink')).toBeVisible();
@@ -27,7 +27,7 @@ test('unconfigured Cloudflare preview explains the password was not checked and 
 
 test('unconfigured production or other hosts never direct credentials to a different origin', async ({ page }) => {
   await page.route('**/api/health', route => route.fulfill({ status: 503, json: { code: 'DATABASE_NOT_CONFIGURED' } }));
-  await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.goto('/'); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#authConnection')).toContainText('cannot check your password');
   await expect(page.locator('#authLiveLink')).toBeHidden(); await expect(page.locator('#go')).toBeDisabled();
 });
@@ -44,7 +44,7 @@ test('connection retry restores sign-in and first-run state without sending cred
   });
   await page.goto('/');
   const firstBootstrap = page.waitForResponse('**/api/bootstrap/status');
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#authConnection')).toContainText('cannot check your password');
   await firstBootstrap; await expect(page.locator('#firstRun')).toBeHidden();
   connected = true; await page.getByRole('button', { name: 'Check again' }).click();
@@ -55,7 +55,7 @@ test('connection retry restores sign-in and first-run state without sending cred
 test('a database configuration error after preflight also gives a truthful message, not a wrong-password claim', async ({ page }) => {
   await page.route('**/api/health', route => route.fulfill({ json: { databaseConnected: true } }));
   await page.route('**/api/auth/login', route => route.fulfill({ status: 503, json: { code: 'DATABASE_NOT_CONFIGURED' } }));
-  await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.goto('/'); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.locator('#u').fill('example'); await page.locator('#p').fill('Dummy-password-123'); await page.locator('#go').click();
   await expect(page.locator('#authConnection')).toContainText('cannot check your password');
   await expect(page.locator('#go')).toBeDisabled();
@@ -64,12 +64,12 @@ test('a database configuration error after preflight also gives a truthful messa
 
 test('registration and password sign-in still work on the isolated local database', async ({ page }) => {
   const username = `localtest${Date.now()}`, password = 'Local-test-password-123';
-  await page.goto('/'); await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.goto('/'); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('button', { name: 'Create an account' }).click();
   await page.locator('#u').fill(username); await page.locator('#p').fill(password); await page.locator('#confirm-p').fill(password); await page.locator('#go').click();
   await expect(page).toHaveURL(/dashboard\.html/); await expect(page.locator('#uname')).toHaveText(username);
   await Promise.all([page.waitForURL(/\/$/), page.locator('#out').click()]);
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.locator('#u').fill(username); await page.locator('#p').fill(password); await page.locator('#go').click();
   await expect(page).toHaveURL(/dashboard\.html/);
 });

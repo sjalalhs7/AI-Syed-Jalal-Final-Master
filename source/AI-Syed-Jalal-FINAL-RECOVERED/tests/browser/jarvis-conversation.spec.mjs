@@ -8,11 +8,12 @@ async function controlledSpeech(page) {
     window.__recognitions = [];
     window.__spoken = [];
     window.__aborts = 0;
+    window.__speechCancels = 0;
     window.__speechMode = 'normal';
     window.__deferStart = false;
     const synth = {
       getVoices: () => [{ name: 'Test voice', lang: 'en-US', default: true, localService: true, voiceURI: 'test' }, { name: 'Urdu voice', lang: 'ur-PK', localService: true, voiceURI: 'urdu' }],
-      addEventListener() {}, removeEventListener() {}, cancel() {},
+      addEventListener() {}, removeEventListener() {}, cancel() { window.__speechCancels++; },
       speak(u) {
         window.__spoken.push({ text: u.text, lang: u.lang, micActive: window.__recognitions.some(r => r.active) });
         if (window.__speechMode === 'error') { setTimeout(() => u.onerror?.({ error: 'synthesis-failed' }), 0); return; }
@@ -76,9 +77,8 @@ test('one-shot voice preserves typed text, lets the user review, and speaks a re
 
 test('opt-in conversation alternates microphone and speech, and stops for an explicit save', async ({ page }) => {
   await controlledSpeech(page); await openConsole(page);
-  await page.locator('#conversationMode').check();
-  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0); // checkbox alone never opens the mic
-  await page.locator('#talkBtn').click();
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0); // opening the page never opens the mic
+  await page.locator('#conversationBtn').click();
   await emit(page, 'calculate six times seven');
   await expect(page.locator('#lastTrace')).toContainText('= 42');
   await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(2);
@@ -95,6 +95,7 @@ test('opt-in conversation alternates microphone and speech, and stops for an exp
   await expect(page.locator('#chatlog')).toContainText('Saved task: Verify the voice flow');
   const after = await page.evaluate(async () => (await (await fetch('/api/assistant/tasks')).json()).tasks);
   expect(after.map(task => task.title)).toContain('Verify the voice flow');
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#handsFree').uncheck();
   await page.locator('#mode').selectOption('local');
   await page.locator('#prompt').fill('show my tasks'); await page.locator('#sendBtn').click();
@@ -113,6 +114,7 @@ test('opt-in conversation alternates microphone and speech, and stops for an exp
 test('stop works while permission is pending and ignores a late final transcript', async ({ page }) => {
   await controlledSpeech(page); await openConsole(page);
   let chats = 0; page.on('request', request => { if (request.url().includes('/api/assistant/chat')) chats++; });
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#autoRun').check();
   await page.evaluate(() => { window.__deferStart = true; });
   await page.locator('#talkBtn').click();
@@ -147,7 +149,7 @@ test('stop discards a late server response without claiming the server was cance
 
 test('a hidden tab and a speech failure stop the opt-in conversation', async ({ page }) => {
   await controlledSpeech(page); await openConsole(page);
-  await page.locator('#conversationMode').check(); await page.locator('#talkBtn').click();
+  await page.locator('#conversationBtn').click();
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -155,7 +157,7 @@ test('a hidden tab and a speech failure stop the opt-in conversation', async ({ 
   await expect(page.locator('#micIndicator')).toHaveText('Mic off');
   await expect(page.locator('#status')).toContainText('tab was hidden');
   await page.evaluate(() => { delete document.hidden; window.__speechMode = 'error'; });
-  await page.locator('#talkBtn').click(); await emit(page, 'calculate six times seven');
+  await page.locator('#conversationBtn').click(); await emit(page, 'calculate six times seven');
   await expect(page.locator('#lastTrace')).toContainText('42');
   await expect(page.locator('#status')).toContainText('could not speak');
   await expect(page.locator('#status')).toContainText('Conversation stopped');
@@ -178,8 +180,10 @@ test('cloud provider selection and opt-in context are scoped to the selected pro
     await route.fulfill({ json: { ok: true, mode: 'cloud', provider: payload.provider, output: `Answer ${payloads.length}` } });
   });
   await openConsole(page);
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#handsFree').uncheck();
-  await page.locator('#mode').selectOption('cloud');
+  await expect(page.locator('#mode')).toHaveValue('cloud');
+  await page.locator('#cloudOptions > summary').click();
   await expect(page.locator('#provider')).toHaveValue('openai');
   await expect(page.locator('#cloudStatus')).toContainText('key configured');
   await page.locator('#rememberContext').check();
@@ -280,10 +284,12 @@ test('the prominent conversation control sends and speaks multiple Urdu cloud tu
   const box = await button.boundingBox();
   expect(box.y + box.height).toBeLessThanOrEqual(844);
   expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
-  await expect(page.locator('#engineHelp')).toContainText('limited tools');
-  await page.locator('#mode').selectOption('cloud');
+  await expect(page.locator('#mode')).toHaveValue('cloud');
+  await expect(page.locator('#engineHelp')).toContainText('sends text to Google Gemini');
   await page.locator('#speechLanguage').selectOption('ur-PK');
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#voice').selectOption('Urdu voice|ur-PK');
+  await page.locator('#cloudOptions > summary').click();
   await page.locator('#rememberContext').check();
   await button.click();
   await expect(button).toHaveAttribute('aria-pressed', 'true');
@@ -306,6 +312,7 @@ test('the prominent conversation control sends and speaks multiple Urdu cloud tu
 
 test('custom language codes are validated and a mismatched saved voice is not replaced', async ({ page }) => {
   await controlledSpeech(page); await openConsole(page);
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#voice').selectOption('Test voice|en-US');
   await page.locator('#speechLanguage').selectOption('ur-PK');
   await expect(page.locator('#voiceLanguageHint')).toContainText('Recognition requests ur-PK');
@@ -329,6 +336,7 @@ test('custom language codes are validated and a mismatched saved voice is not re
 
 test('JARVIS distinguishes a failed tool from a request for generated prose', async ({ page }) => {
   await controlledSpeech(page); await openConsole(page);
+  await page.locator('#voiceSettings > summary').click();
   await page.locator('#handsFree').uncheck();
   await page.route('**/api/assistant/chat', async route => {
     const { message } = route.request().postDataJSON();
@@ -346,4 +354,219 @@ test('JARVIS distinguishes a failed tool from a request for generated prose', as
   await expect(page.locator('#lastTrace')).toContainText('0 successful tool result');
   await page.locator('#prompt').fill('open question'); await page.locator('#sendBtn').click();
   await expect(page.locator('#traceNote')).toContainText('Some requests may need Cloud AI');
+});
+
+test('a known configured provider is selected transparently while AI context remains opt-in', async ({ page }) => {
+  await controlledSpeech(page);
+  const payloads = [];
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudConfigured = true;
+    data.cloudProviders = { gemini: false, openai: true, anthropic: false, deepseek: false };
+    await route.fulfill({ response, json: data });
+  });
+  await page.route('**/api/assistant/chat', async route => {
+    payloads.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ok: true, mode: 'cloud', provider: 'openai', output: `Answer ${payloads.length}` } });
+  });
+  await openConsole(page);
+  await expect(page.locator('#mode')).toHaveValue('cloud');
+  await expect(page.locator('#engineHelp')).toContainText('sends text to OpenAI');
+  await expect(page.locator('#engineHelp')).toContainText('charges may apply');
+  await expect(page.locator('#contextSummary')).toContainText('memory off');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  expect(payloads).toEqual([]);
+  await page.locator('#voiceSettings > summary').click();
+  await page.locator('#handsFree').uncheck();
+  await page.locator('#prompt').fill('First question'); await page.locator('#sendBtn').click();
+  await expect(page.locator('.message.assistant').last()).toContainText('Answer 1');
+  expect(payloads[0].history).toBeUndefined();
+  await page.locator('#cloudOptions > summary').click();
+  await page.locator('#rememberContext').check();
+  await expect(page.locator('#contextSummary')).toContainText('memory on');
+  await page.locator('#prompt').fill('Second question'); await page.locator('#sendBtn').click();
+  await expect(page.locator('.message.assistant').last()).toContainText('Answer 2');
+  expect(payloads[1].history).toEqual([]); // opt-in starts with the next exchange
+  await page.locator('#prompt').fill('A follow-up'); await page.locator('#sendBtn').click();
+  await expect(page.locator('.message.assistant').last()).toContainText('Answer 3');
+  expect(payloads[2].history).toEqual([{ role: 'user', content: 'Second question' }, { role: 'assistant', content: 'Answer 2' }]);
+  await page.locator('#mode').selectOption('agent');
+  await page.locator('#mode').selectOption('cloud');
+  await page.locator('#prompt').fill('After switching engines'); await page.locator('#sendBtn').click();
+  await expect(page.locator('.message.assistant').last()).toContainText('Answer 4');
+  expect(payloads[3].history).toEqual([]);
+});
+
+test('a manual engine choice made while provider metadata loads is not overwritten', async ({ page }) => {
+  await controlledSpeech(page);
+  let release, markStarted;
+  const gate = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudConfigured = true;
+    data.cloudProviders = { gemini: true, openai: false, anthropic: false, deepseek: false };
+    markStarted(); await gate;
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto('/jarvis.html');
+  await page.locator('#demoBtn').click();
+  await started;
+  await page.locator('#mode').selectOption('local');
+  release();
+  await expect(page.locator('#connectionStatus')).toContainText('Connected', { timeout: 20000 });
+  await expect(page.locator('#mode')).toHaveValue('local');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+});
+
+test('continuous AI voice does not open the microphone for an unconfigured provider', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  await expect(page.locator('#mode')).toHaveValue('agent');
+  await page.locator('#mode').selectOption('cloud');
+  await expect(page.locator('#engineHelp')).toContainText('no server key');
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#status')).toContainText('no server key');
+  await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  await page.locator('#mode').selectOption('agent');
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#micIndicator')).toHaveText('Mic on');
+  await page.locator('#stopBtn').click();
+});
+
+test('interrupting a spoken answer stops speech before listening and ignores a late end event', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  await page.evaluate(() => { window.__speechMode = 'hold'; });
+  await page.locator('#conversationBtn').click(); await emit(page, 'calculate six times seven');
+  await expect(page.locator('#lastTrace')).toContainText('42');
+  await expect(page.locator('#talkBtn')).toHaveText('Interrupt & speak');
+  await page.evaluate(() => { window.__oldSpeechEnd = window.__heldUtterance.onend; });
+  const cancellations = await page.evaluate(() => window.__speechCancels);
+  await page.locator('#talkBtn').click();
+  await expect(page.locator('#micIndicator')).toHaveText('Mic on');
+  expect(await page.evaluate(() => window.__speechCancels)).toBeGreaterThan(cancellations);
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(2);
+  await page.evaluate(() => window.__oldSpeechEnd?.());
+  await page.waitForTimeout(450);
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(2);
+  await emit(page, 'calculate six times eight');
+  await expect(page.locator('#lastTrace')).toContainText('48');
+  expect(await page.evaluate(() => window.__spoken.every(item => !item.micActive))).toBe(true);
+  await page.evaluate(() => window.__heldUtterance.onend?.());
+  await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(3);
+  await page.locator('#stopBtn').click();
+});
+
+test('a draft is never silently appended to an automatically sent voice turn', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  let chats = 0;
+  await page.route('**/api/assistant/chat', async route => {
+    chats++;
+    await route.fulfill({ json: { ok: true, mode: 'local', output: 'A short reply.' } });
+  });
+  await page.locator('#prompt').fill('A private unsent draft');
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#status')).toContainText('send or clear your draft');
+  await expect(page.locator('#prompt')).toHaveValue('A private unsent draft');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  expect(chats).toBe(0);
+  await page.locator('#prompt').clear();
+  await page.evaluate(() => { window.__speechMode = 'hold'; });
+  await page.locator('#conversationBtn').click(); await emit(page, 'First question');
+  await expect(page.locator('#status')).toContainText('Speaking the reply');
+  await page.locator('#prompt').fill('Draft written while listening to the reply');
+  await page.evaluate(() => window.__heldUtterance.onend?.());
+  await expect(page.locator('#status')).toContainText('send or clear your draft');
+  await expect(page.locator('#prompt')).toHaveValue('Draft written while listening to the reply');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(1);
+  expect(chats).toBe(1);
+});
+
+test('silence is retried once, and an oversized transcript is never automatically sent', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  let chats = 0; page.on('request', request => { if (request.url().includes('/api/assistant/chat')) chats++; });
+  await page.locator('#conversationBtn').click();
+  await page.evaluate(() => window.__recognitions.at(-1).onerror?.({ error: 'no-speech' }));
+  await expect(page.locator('#status')).toContainText('Trying once more');
+  await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(2);
+  await page.evaluate(() => window.__recognitions.at(-1).onerror?.({ error: 'no-speech' }));
+  await expect(page.locator('#status')).toContainText('No speech was detected');
+  await expect(page.locator('#micIndicator')).toHaveText('Mic off');
+  await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#conversationBtn').click();
+  await emit(page, 'x'.repeat(2001));
+  await expect(page.locator('#status')).toContainText('shortened');
+  await expect(page.locator('#status')).toContainText('Nothing was sent');
+  expect((await page.locator('#prompt').inputValue()).length).toBe(2000);
+  expect(chats).toBe(0);
+});
+
+test('changing AI provider during a turn stops the microphone and ignores the old response', async ({ page }) => {
+  await controlledSpeech(page);
+  let release, markStarted;
+  const gate = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudConfigured = true;
+    data.cloudProviders = { gemini: true, openai: true, anthropic: false, deepseek: false };
+    await route.fulfill({ response, json: data });
+  });
+  await page.route('**/api/assistant/chat', async route => {
+    markStarted(); await gate;
+    await route.fulfill({ json: { ok: true, mode: 'cloud', provider: 'gemini', output: 'A late provider response' } }).catch(() => {});
+  });
+  await openConsole(page);
+  await page.locator('#cloudOptions > summary').click();
+  await page.locator('#conversationBtn').click(); await emit(page, 'Help me plan a garden');
+  await started;
+  await page.locator('#provider').selectOption('openai');
+  await expect(page.locator('#status')).toContainText('server may still finish');
+  await expect(page.locator('#micIndicator')).toHaveText('Mic off');
+  await expect(page.locator('#prompt')).toHaveValue('Help me plan a garden');
+  release(); await page.waitForTimeout(500);
+  await expect(page.locator('#chatlog')).not.toContainText('A late provider response');
+  expect(await page.evaluate(() => window.__spoken.length)).toBe(0);
+  expect(await page.evaluate(() => window.__recognitions.some(r => r.active))).toBe(false);
+});
+
+test('a speech engine that starts but never finishes is stopped rather than leaving voice stuck', async ({ page }) => {
+  await controlledSpeech(page); await page.clock.install(); await openConsole(page);
+  await page.evaluate(() => { window.__speechMode = 'hold'; });
+  await page.locator('#conversationBtn').click(); await emit(page, 'calculate six times seven');
+  await expect(page.locator('#status')).toContainText('Speaking the reply');
+  await page.clock.fastForward(61000);
+  await expect(page.locator('#status')).toContainText('Speech did not finish');
+  await expect(page.locator('#status')).toContainText('Conversation stopped');
+  await expect(page.locator('#micIndicator')).toHaveText('Mic off');
+  await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('keyboard submission cannot send an interim transcript or an auto-send draft', async ({ page }) => {
+  await controlledSpeech(page); await openConsole(page);
+  let chats = 0; page.on('request', request => { if (request.url().includes('/api/assistant/chat')) chats++; });
+  await page.locator('#talkBtn').click();
+  await emit(page, 'a partial phrase', false);
+  await page.locator('#prompt').press('Enter');
+  await expect(page.locator('#status')).toContainText('Stop listening and review');
+  expect(chats).toBe(0);
+  await expect(page.locator('#micIndicator')).toHaveText('Mic on');
+  await page.locator('#stopBtn').click();
+  await page.locator('#voiceSettings > summary').click();
+  await page.locator('#autoRun').check();
+  await page.locator('#talkBtn').click();
+  await expect(page.locator('#status')).toContainText('send or clear your draft');
+  await expect(page.locator('#prompt')).toHaveValue('a partial phrase');
+  expect(chats).toBe(0);
+});
+
+test('a recognition session that never returns any result is stopped after its idle limit', async ({ page }) => {
+  await controlledSpeech(page); await page.clock.install(); await openConsole(page);
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#micIndicator')).toHaveText('Mic on');
+  await page.clock.fastForward(91000);
+  await expect(page.locator('#status')).toContainText('No final speech arrived for 90 seconds');
+  await expect(page.locator('#micIndicator')).toHaveText('Mic off');
+  await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__recognitions.some(r => r.active))).toBe(false);
 });

@@ -18,8 +18,8 @@
   let user = null, csrf = '', busy = false, controller = null, runningPrompt = '';
   let recognition = null, starting = false, listening = false, startedAt = 0, recognitionTimer = null;
   let utterance = null, speaking = false, speechTimer = null;
-  let conversationActive = false, resumeTimer = null, lastReply = '', cloudTurns = [], contextVersion = 0;
-  let state = { tools: [], cloudProviders: {} }, providerTouched = false;
+  let conversationActive = false, resumeTimer = null, silenceRetries = 0, lastReply = '', cloudTurns = [], contextVersion = 0;
+  let state = { tools: [], cloudProviders: {} }, providerTouched = false, modeTouched = false;
 
   const setStatus = text => { $('status').textContent = text; };
 
@@ -36,7 +36,7 @@
     $('conversationBtn').setAttribute('aria-pressed', String(conversationActive));
     $('speakBtn').disabled = !lastReply || busy || micPending;
     $('stopBtn').disabled = !busy && !micPending && !speaking && !conversationActive && !resumeTimer;
-    $('talkBtn').textContent = micPending ? 'Stop listening' : 'Start listening';
+    $('talkBtn').textContent = micPending ? 'Stop listening' : conversationActive && speaking ? 'Interrupt & speak' : 'Dictate once';
     $('talkBtn').setAttribute('aria-pressed', String(micPending));
     $('stopBtn').setAttribute('aria-pressed', String(micPending || busy || speaking || conversationActive));
     $('prompt').readOnly = micPending;
@@ -105,7 +105,7 @@
   function clearContext() { cloudTurns = []; contextVersion++; }
 
   function endConversation() {
-    conversationActive = false;
+    conversationActive = false; silenceRetries = 0;
     if (resumeTimer) clearTimeout(resumeTimer);
     resumeTimer = null;
     updateControls();
@@ -121,9 +121,10 @@
     updateControls();
   }
 
-  function scheduleNextTurn() {
+  function scheduleNextTurn(message = 'Reply complete. Starting the microphone for the next turn; press Stop to end the conversation.') {
     if (!conversationActive || document.hidden || !user) return;
-    setStatus('Reply complete. Starting the microphone for the next turn; press Stop to end the conversation.');
+    if (resumeTimer) clearTimeout(resumeTimer);
+    setStatus(message);
     resumeTimer = setTimeout(() => {
       resumeTimer = null;
       if (conversationActive && !document.hidden && !busy) startListening();
@@ -157,20 +158,25 @@
       setStatus(ok ? previousStatus + (clipped ? ' Read-aloud was limited to the first 4,000 characters.' : '') : errorText);
       onComplete?.(ok);
     };
+    const speechTimedOut = message => {
+      if (utterance !== next) return;
+      next.onstart = next.onend = next.onerror = null;
+      try { window.speechSynthesis.cancel(); } catch { /* already stopped */ }
+      finish(false, message);
+    };
     next.onstart = () => {
       if (utterance !== next) return;
       if (speechTimer) clearTimeout(speechTimer);
-      speechTimer = null; setStatus(clipped ? 'Speaking the first 4,000 characters of the reply…' : 'Speaking the reply…'); updateControls();
+      // Some devices start an utterance but never deliver an end/error event.
+      // Allow a generous duration based on length, while leaving Stop usable.
+      const limit = Math.min(600000, Math.max(60000, 30000 + next.text.length * 300));
+      speechTimer = setTimeout(() => speechTimedOut('Speech did not finish. Playback stopped; the reply is still shown as text.'), limit);
+      setStatus(clipped ? 'Speaking the first 4,000 characters of the reply…' : 'Speaking the reply…'); updateControls();
     };
     next.onend = () => finish(true);
     next.onerror = event => finish(false, `The browser could not speak (${event.error || 'speech error'}). Check the selected voice and device volume; the reply is still shown as text.`);
     // A speech API can exist even when no voice ever starts. Do not wait forever.
-    speechTimer = setTimeout(() => {
-      if (utterance !== next) return;
-      next.onstart = next.onend = next.onerror = null;
-      try { window.speechSynthesis.cancel(); } catch { /* already stopped */ }
-      finish(false, 'No speech started. Check your device voices and volume; the reply is still shown as text.');
-    }, 10000);
+    speechTimer = setTimeout(() => speechTimedOut('No speech started. Check your device voices and volume; the reply is still shown as text.'), 10000);
     try { window.speechSynthesis.speak(next); }
     catch { finish(false, 'The browser could not start speech. The reply is still shown as text.'); }
   }
@@ -189,11 +195,26 @@
   }
 
   function startListening() {
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = null;
     window.AJWelcome?.interruptForAssistant();
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Speech) { endConversation(); setStatus('Voice input is not supported in this browser (try Chrome or Edge). Type the command instead.'); return; }
-    if (!user) { endConversation(); setStatus('Sign in first, then press Start listening.'); return; }
+    if (!Speech) { endConversation(); setStatus('Voice input is not supported in this browser (try Chrome or Edge). Type the message instead.'); return; }
+    if (!user) { endConversation(); setStatus('Sign in first, then start listening.'); return; }
     if (window.isSecureContext === false) { endConversation(); setStatus('Microphone access requires HTTPS or localhost. Open the secure application or type instead.'); return; }
+    // An automatically sent turn must never append and send an existing draft,
+    // including one typed while a previous reply spoke. One-shot dictation with
+    // auto-send off still lets the user add to and review a draft.
+    if ((conversationActive || $('autoRun').checked) && $('prompt').value.trim()) {
+      endConversation(); stopListening(); stopSpeaking();
+      setStatus('Voice stopped: send or clear your draft before automatic voice sending. The draft was not sent.'); return;
+    }
+    if (conversationActive && $('mode').value === 'cloud' && state.cloudProviders?.[$('provider').value] !== true) {
+      const knownMissing = state.cloudProviders?.[$('provider').value] === false;
+      endConversation();
+      setStatus(knownMissing ? 'This AI provider has no server key configured. Choose local tools or ask an administrator to configure a provider.' : 'AI provider configuration is unknown. Choose local tools or retry when settings are available.');
+      return;
+    }
     const lang = requireSpeechLanguage();
     if (!lang) { endConversation(); return; }
     stopSpeaking(); stopListening();
@@ -209,35 +230,56 @@
       endConversation(); stopListening();
       setStatus('The microphone did not start. Check browser permissions, then try again or type.');
     }, 20000);
+    const armIdleTimeout = () => {
+      if (recognitionTimer) clearTimeout(recognitionTimer);
+      recognitionTimer = setTimeout(() => {
+        if (recognition !== session) return;
+        endConversation(); stopListening();
+        setStatus('No final speech arrived for 90 seconds. Microphone off; review any text before sending.');
+      }, 90000);
+    };
     session.onstart = () => {
       if (recognition !== session) return;
       if (recognitionTimer) clearTimeout(recognitionTimer);
       recognitionTimer = null; starting = false; listening = true; startedAt = Date.now();
+      armIdleTimeout();
       setStatus(conversationActive ? 'Listening… each final transcript will be sent. Press Stop to end the conversation.' : 'Listening… press Stop or the talk button to cancel.');
       updateControls();
     };
     session.onresult = event => {
       if (recognition !== session || !event.results?.length) return;
       const transcript = Array.from(event.results).map(result => result[0]?.transcript || '').join(' ').trim();
-      $('prompt').value = [base, transcript].filter(Boolean).join(' '); updateControls();
-      if (!event.results[event.results.length - 1].isFinal) return;
+      const combined = [base, transcript].filter(Boolean).join(' ');
+      const limit = $('prompt').maxLength;
+      $('prompt').value = combined.slice(0, limit); updateControls();
+      if (!event.results[event.results.length - 1].isFinal) { armIdleTimeout(); return; }
       const text = $('prompt').value.trim();
       stopListening();
-      if (!transcript) { endConversation(); setStatus('No final speech was recognised. Try again, or type your command.'); return; }
+      if (combined.length > limit) {
+        endConversation(); setStatus('The transcript exceeded 2,000 characters and was shortened. Nothing was sent; review it before sending.'); return;
+      }
+      if (!transcript) { endConversation(); setStatus('No final speech was recognised. Try again, or type your message.'); return; }
+      silenceRetries = 0;
       const ms = Date.now() - startedAt;
-      setStatus(`Heard: “${transcript}” (${ms} ms). Review it, then press Run command.`);
-      if ((conversationActive || $('autoRun').checked) && text) runCommand(text);
+      setStatus(`Heard: “${transcript}” (${ms} ms). Review it, then press Send.`);
+      if ((conversationActive || $('autoRun').checked) && text) runCommand(text, { voice: true });
     };
     session.onerror = event => {
       if (recognition !== session) return;
+      if (event.error === 'no-speech' && conversationActive && silenceRetries < 1 && !document.hidden) {
+        silenceRetries++;
+        stopListening();
+        scheduleNextTurn('No speech detected. Trying once more; press Stop to end the conversation.');
+        return;
+      }
       endConversation(); stopListening();
       const reasons = {
         'not-allowed': 'Microphone permission was denied. Allow it in your browser settings, or type the command.',
         'service-not-allowed': 'The browser speech service is not permitted. Check browser settings, or type the command.',
-        'no-speech': 'No speech was detected. Start listening again and speak closer to the microphone.',
+        'no-speech': 'No speech was detected. Try again and speak closer to the microphone.',
         'audio-capture': 'No microphone was found on this device. Type the command instead.',
         network: 'The browser’s speech service could not be reached. You can still type while the application is online.',
-        aborted: 'Listening was interrupted. Press Start listening to try again.'
+        aborted: 'Listening was interrupted. Press Dictate once or Start conversation to try again.'
       };
       setStatus(reasons[event.error] || `Voice input failed (${event.error || 'unknown error'}). You can still type.`);
     };
@@ -245,7 +287,7 @@
       if (recognition !== session) return;
       const partial = Boolean($('prompt').value.trim());
       endConversation(); stopListening();
-      setStatus(partial ? 'Listening ended without a final transcript. Review the text or try again.' : 'Listening ended without a final transcript. Press Start listening to try again.');
+      setStatus(partial ? 'Listening ended without a final transcript. Review the text or try again.' : 'Listening ended without a final transcript. Press Dictate once or Start conversation to try again.');
     };
     try { session.start(); }
     catch { endConversation(); stopListening(); setStatus('The microphone could not start. Check browser permissions, or type the command.'); }
@@ -268,6 +310,7 @@
 
   function renderTrace(result) {
     const box = $('lastTrace');
+    if (Array.isArray(result?.steps)) $('traceDetails').open = true;
     if (!result || !Array.isArray(result.steps)) {
       box.className = 'agent-trace-empty';
       box.textContent = result?.tool ? `Local command: ${result.tool}. No agent trace was recorded.` : 'This reply did not use the agent runtime, so there is no tool trace.';
@@ -334,10 +377,22 @@
     runningPrompt = ''; updateControls(); return true;
   }
 
-  async function runCommand(text) {
+  // Changing where text is sent or which language is captured ends the active
+  // turn. An aborted browser request may already be running on the server.
+  function stopForConfigurationChange() {
+    if (!conversationActive && !starting && !listening && !speaking && !busy && !resumeTimer) return '';
+    endConversation(); stopListening(); stopSpeaking();
+    const wasRunning = cancelRunning();
+    return wasRunning ? ' Voice stopped; the server may still finish the previous request.' : ' Voice stopped; microphone off.';
+  }
+
+  async function runCommand(text, { voice = false } = {}) {
     text = String(text || $('prompt').value).trim();
     if (!user) { setStatus('Sign in first.'); return; }
     if (busy || !text) return;
+    // Keyboard submission must respect the same microphone guard as the
+    // disabled Send button; never submit a partial recognition result.
+    if (starting || listening) { setStatus('Stop listening and review the transcript before sending.'); return; }
     if ($('mode').value === 'cloud' && !requireSpeechLanguage()) return;
     const destination = destinationFor(text);
     if (destination) {
@@ -359,7 +414,10 @@
     // 'Jarvis, ...' is a spoken command prefix, not an always-on wake word.
     const command = text.replace(/^(?:hey\s+)?jarvis(?:\s*[,!:]\s*|\s+)/i, '').trim() || text;
     const payload = { message: command, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value };
-    if (mode === 'cloud') payload.language = speechLanguage();
+    if (mode === 'cloud') {
+      payload.language = speechLanguage();
+      if (voice) payload.voice = true;
+    }
     const rememberAtSend = mode === 'cloud' && $('rememberContext').checked;
     const requestContextVersion = contextVersion;
     if (rememberAtSend) payload.history = cloudTurns;
@@ -451,13 +509,24 @@
     }
     const cloud = $('mode').querySelector('option[value="cloud"]');
     if (cloud) cloud.textContent = state.cloudConfigured === true ? 'Cloud AI — key configured (not live-tested)' : state.cloudConfigured === false ? 'Cloud AI — not configured' : 'Cloud AI — status unknown';
+    // Prefer open-ended chat only when a specific provider has a known key.
+    // Nothing is sent until the user speaks or submits, and an explicit engine
+    // choice made while metadata was loading is never overridden.
+    if (!modeTouched && !busy && !conversationActive && !starting && !listening && providers[$('provider').value] === true) $('mode').value = 'cloud';
     updateProviderStatus(); updateModeLabel();
   }
 
   function updateModeLabel() {
     const mode = $('mode').value;
     $('cloudOptions').hidden = mode !== 'cloud';
-    $('engineHelp').textContent = mode === 'cloud' ? 'Open-ended replies send text to this provider. A configured key is not a successful connection; provider charges may apply.' : 'Agent and local modes use limited tools or structured templates, not general AI chat. Cloud AI needs a working provider and may incur charges.';
+    const provider = PROVIDER_NAMES[$('provider').value] || 'the selected provider';
+    const configured = state.cloudProviders?.[$('provider').value];
+    $('engineHelp').textContent = mode !== 'cloud'
+      ? 'Agent and local modes use limited tools, not general AI chat. Cloud AI needs a working provider and may incur charges.'
+      : configured === true ? `AI chat sends text to ${provider}. A key does not prove a response; provider charges may apply.`
+      : configured === false ? `${provider} has no server key configured. Choose local tools or ask an administrator to configure it.`
+      : 'AI provider configuration is unknown. Choose local tools or retry when settings are available.';
+    $('contextSummary').textContent = $('rememberContext').checked ? '· memory on' : '· memory off';
     $('voiceMode').textContent = mode === 'agent' ? `Agent mode · ${state.tools?.length || 'bounded'} tools with trace`
       : mode === 'research' ? 'Research · live Wikipedia with cited links'
       : mode === 'cloud' ? 'Cloud AI · sends text to the selected provider'
@@ -476,7 +545,7 @@
     }
     user = session.user; $('loginBanner').hidden = true;
     await refreshState(); $('connectionStatus').textContent = 'Connected · ' + user.username;
-    setStatus('Ready. Your microphone is off.'); updateControls();
+    setStatus($('mode').value === 'cloud' ? 'AI chat selected; its configured key has not been live-tested. Your microphone is off.' : 'Ready. Your microphone is off.'); updateControls();
   }
 
   $('consoleForm').onsubmit = event => { event.preventDefault(); runCommand(); };
@@ -486,7 +555,11 @@
   });
   document.querySelectorAll('[data-prompt]').forEach(button => button.onclick = () => {
     if (busy) return;
-    if (button.dataset.mode) { $('mode').value = button.dataset.mode; updateModeLabel(); }
+    if ($('prompt').value.trim()) { setStatus('Your draft is unchanged. Send or clear it before using an example.'); return; }
+    stopForConfigurationChange();
+    if (button.dataset.mode && $('mode').value !== button.dataset.mode) {
+      modeTouched = true; clearContext(); $('mode').value = button.dataset.mode; updateModeLabel();
+    }
     $('prompt').value = button.dataset.prompt; updateControls(); runCommand(button.dataset.prompt);
   });
   // A deliberate click is the permission to send final transcripts and reopen
@@ -498,14 +571,14 @@
       setStatus(wasRunning ? 'Stopped waiting; the server may still finish the request. Microphone off.' : 'Conversation stopped. Microphone off.');
       return;
     }
-    $('conversationMode').checked = true;
-    $('handsFree').checked = true;
-    conversationActive = true;
+    conversationActive = true; silenceRetries = 0;
     startListening();
   };
   $('talkBtn').onclick = () => {
     if (starting || listening) { endConversation(); stopListening(); setStatus('Microphone stopped. Nothing is listening.'); return; }
-    conversationActive = $('conversationMode').checked;
+    // While a continuous reply is speaking this is an explicit interruption;
+    // startListening cancels speech before it opens the microphone.
+    silenceRetries = 0;
     startListening();
   };
   $('speakBtn').onclick = () => { endConversation(); stopListening(); speak(lastReply); };
@@ -518,25 +591,46 @@
     endConversation(); stopListening(); stopSpeaking(); cancelRunning(false);
     clearContext(); lastReply = ''; $('prompt').value = ''; $('chatlog').replaceChildren();
     $('lastTrace').className = 'agent-trace-empty'; $('lastTrace').textContent = 'No run yet. Agent and research runs show their tool trace here.';
+    $('traceDetails').open = false;
     $('traceNote').textContent = 'Clearing this screen does not delete saved tasks, notes or agent traces.';
     setStatus('Session cleared on this page. Saved tasks, notes and agent traces were not deleted.'); updateControls();
-  };
-  $('conversationMode').onchange = () => {
-    if (!$('conversationMode').checked && conversationActive) {
-      endConversation(); stopListening(); setStatus('Conversation mode stopped. Microphone off.');
-    } else if ($('conversationMode').checked) setStatus('Conversation mode is ready. Press Start listening to begin; each final transcript will be sent.');
   };
   $('handsFree').onchange = () => {
     if (!$('handsFree').checked && speaking) { stopSpeaking(); setStatus('Read-aloud stopped.'); if (conversationActive) scheduleNextTurn(); }
   };
-  $('rememberContext').onchange = () => {
-    if (!$('rememberContext').checked) { clearContext(); setStatus('Cloud conversation context cleared from this page.'); }
-    else setStatus('Context will be remembered from the next successful cloud exchange on this page.');
+  $('autoRun').onchange = () => {
+    const stopped = stopForConfigurationChange();
+    if (stopped) setStatus('Dictation setting changed.' + stopped);
   };
-  $('provider').onchange = () => { providerTouched = true; clearContext(); updateProviderStatus(); updateControls(); setStatus('Provider changed; previous cloud context was cleared from this page.'); };
-  $('mode').onchange = updateModeLabel;
-  $('speechLanguage').onchange = describeLanguage;
-  $('customLanguage').addEventListener('input', describeLanguage);
+  $('profile').onchange = () => {
+    const stopped = stopForConfigurationChange();
+    if (stopped) setStatus('Assistant profile changed.' + stopped);
+  };
+  $('rememberContext').onchange = () => {
+    $('contextSummary').textContent = $('rememberContext').checked ? '· memory on' : '· memory off';
+    if (!$('rememberContext').checked) {
+      clearContext();
+      setStatus('Cloud conversation context cleared from this page.' + (busy ? ' An in-flight request may still finish with what was already sent.' : ''));
+    } else setStatus('Context will be remembered from the next successful cloud exchange on this page.');
+  };
+  $('provider').onchange = () => {
+    const stopped = stopForConfigurationChange();
+    providerTouched = true; clearContext(); updateProviderStatus(); updateModeLabel();
+    setStatus('Provider changed; previous cloud context was cleared from this page.' + stopped);
+  };
+  $('mode').onchange = () => {
+    const stopped = stopForConfigurationChange();
+    modeTouched = true; clearContext(); updateModeLabel();
+    setStatus('Response engine changed; previous cloud context was cleared from this page.' + stopped);
+  };
+  $('speechLanguage').onchange = () => {
+    const stopped = stopForConfigurationChange(); describeLanguage();
+    if (stopped) setStatus('Speech language changed.' + stopped);
+  };
+  $('customLanguage').addEventListener('input', () => {
+    const stopped = stopForConfigurationChange(); describeLanguage();
+    if (stopped) setStatus('Speech language changed.' + stopped);
+  });
   window.addEventListener('aj-speech-voice-change', describeLanguage);
   $('demoBtn').onclick = async () => {
     $('demoBtn').disabled = true;
@@ -544,6 +638,11 @@
     catch (error) { setStatus(error.message); }
     finally { $('demoBtn').disabled = false; }
   };
+  const moreNavigation = $('moreNavigation');
+  document.addEventListener('click', event => { if (moreNavigation.open && !moreNavigation.contains(event.target)) moreNavigation.open = false; });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && moreNavigation.open) { moreNavigation.open = false; moreNavigation.querySelector('summary').focus(); }
+  });
 
   if (window.AJSpeech) { window.AJSpeech.populate($('voice')); window.AJSpeech.refresh(); }
   describeSupport(); describeLanguage();
