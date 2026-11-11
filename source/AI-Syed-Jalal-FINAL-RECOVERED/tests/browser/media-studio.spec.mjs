@@ -136,14 +136,43 @@ test('silent export uses the selected video interval and contains no audio track
       const context = canvas.getContext('2d'); context.drawImage(video, 0, 0); return [...context.getImageData(10, 10, 1, 1).data];
     };
     const first = await sample(.1), last = await sample(.9), duration = video.duration;
-    URL.revokeObjectURL(video.src); return { duration, hasVideo, hasAudio, first, last };
+    URL.revokeObjectURL(video.src);
+
+    // Also decode the actual output via WebCodecs, independently of the video
+    // element's seek/draw path. If a color assertion fails in CI, recording both
+    // observations helps distinguish a bad export from a playback/render issue.
+    const decodedInput = new bunny.Input({ source: new bunny.BlobSource(blob), formats: bunny.ALL_FORMATS });
+    let decodedFirst, decodedLast;
+    try {
+      const track = await decodedInput.getPrimaryVideoTrack();
+      if (track) {
+        const sink = new bunny.VideoSampleSink(track), decodedCanvas = document.createElement('canvas');
+        decodedCanvas.width = video.videoWidth; decodedCanvas.height = video.videoHeight;
+        const context = decodedCanvas.getContext('2d');
+        const decode = async time => {
+          const frame = await sink.getSample(time);
+          if (!frame) return null;
+          try {
+            context.clearRect(0, 0, decodedCanvas.width, decodedCanvas.height);
+            frame.draw(context, 0, 0);
+            return { pixel: [...context.getImageData(10, 10, 1, 1).data], timestamp: frame.timestamp };
+          } finally { frame.close(); }
+        };
+        decodedFirst = await decode(.1); decodedLast = await decode(.9);
+      }
+    } finally { decodedInput.dispose(); }
+    return { duration, hasVideo, hasAudio, first, last, decodedFirst, decodedLast };
   }, { base64: bytes.toString('base64'), type: download.suggestedFilename().endsWith('.mp4') ? 'video/mp4' : 'video/webm' });
   expect(output.hasVideo).toBe(true); expect(output.hasAudio).toBe(false);
   expect(output.duration).toBeGreaterThan(.95); expect(output.duration).toBeLessThan(1.3);
-  // The source changes from red to blue at two seconds. These pixels prove
-  // that the requested 1.5–2.6 second interval, not merely any short clip, was used.
-  expect(output.first[0]).toBeGreaterThan(150); expect(output.first[2]).toBeLessThan(80);
-  expect(output.last[2]).toBeGreaterThan(150); expect(output.last[0]).toBeLessThan(80);
+  // The source changes from red to blue at two seconds. Both the rendered and
+  // independently decoded pixels must show the requested 1.5–2.6s interval.
+  const evidence = `Export frame evidence: ${JSON.stringify(output)}`;
+  expect(output.decodedFirst, evidence).toBeTruthy(); expect(output.decodedLast, evidence).toBeTruthy();
+  expect(output.first[0], evidence).toBeGreaterThan(150); expect(output.first[2], evidence).toBeLessThan(80);
+  expect(output.last[2], evidence).toBeGreaterThan(150); expect(output.last[0], evidence).toBeLessThan(80);
+  expect(output.decodedFirst.pixel[0], evidence).toBeGreaterThan(150); expect(output.decodedFirst.pixel[2], evidence).toBeLessThan(80);
+  expect(output.decodedLast.pixel[2], evidence).toBeGreaterThan(150); expect(output.decodedLast.pixel[0], evidence).toBeLessThan(80);
   expect(mutations).toEqual([]); expect(errors).toEqual([]);
 });
 

@@ -14,7 +14,7 @@
  *    answer says the tool failed.
  */
 
-import { calculate, localAssistant, proposedAssistantAction, isClockQuestion } from './assistant-core.mjs';
+import { calculate, localAssistant, proposedAssistantAction, isClockQuestion, isSafeSavedDataCompound, personalReadIntent, requiresReadClarification, splitAssistantClauses } from './assistant-core.mjs';
 import { extractArithmetic, isArithmeticRequest } from './spoken-arithmetic.mjs';
 import { searchWikipedia } from './wikipedia-adapter.mjs';
 import { TOOLBOX_TOOLS, planFromToolbox } from './toolbox.mjs';
@@ -30,8 +30,14 @@ export const AGENT_TOOLS = [
 ];
 
 const RESEARCH_HINT = /^(?:research|look up|search the web|find out about|what is|who is|tell me about|explain)\b/i;
-const RECORD_HINT = /\b(records?|workspace|customers?|entries|database)\b/i;
-const TASK_HINT = /\b(tasks?|notes?|to-?do)\b/i;
+// Database reads require an explicit command whose object is a record category.
+// A question such as "show me how to manage my records" is not a read request.
+const RECORD_COMMAND = /(?:^|\b(?:and|then)\s+)(?:(?:please|kindly)\s+)?(?:search|find|list|show)\s+(?:(?:me|my|our|the|all)\s+){0,4}(?:workspace\s+)?(?:records?|customers?|entries|database|workspace)\b/i;
+// General questions about task/note/record content are not permission to send
+// those words to Wikipedia. Generic topics such as "a database index" remain
+// lookups; an explicit research command may always request a network search.
+const PERSONAL_CONTEXT = /\b(?:tasks?|notes?|records?|to[ -]?do(?:s|\s+list)?)\b|\b(?:my|our|these|saved|private|personal|workspace)\s+(?:(?:saved|private|personal|workspace)\s+){0,2}(?:workspaces?|customers?|entries|databases?)\b/i;
+const EXPLICIT_RESEARCH = /^(?:research|look up|search the web|find out about)\b/i;
 // A lookup wants a specific fact ("who is Ada Lovelace"). Anything broader —
 // "explain the philosophy of mind" — needs a model, not a search result.
 const LOOKUP_HINT = /^(?:research|look up|search the web|find out about|who is|who was|when (?:was|did|is)|where is|what year|how old is)\b/i;
@@ -56,21 +62,29 @@ export function planFor(prompt, profile = 'general') {
   if (action) return [step('prepare-action', 'Prepare a save for your confirmation', 'none', async () => ({
     observation: localAssistant(text, profile).output, action, data: null, noTool: true
   }))];
+  if (requiresReadClarification(text)) return [step('clarify-private-read', 'Clarify the saved-data request', 'none', async () => ({
+    observation: localAssistant(text, profile).output, data: null, noTool: true
+  }))];
   const researchQuery = text.replace(/^(?:research|look up|search the web(?: for)?|find out about|tell me about|what is|who is|explain)\s*:?\s*/i, '').trim();
 
   // "What is the time in New York?" is a clock question, not an encyclopedia
   // lookup. Without this exclusion the research step fires first, and if the
   // Wikipedia request fails the user gets a network error instead of the time.
   const clockQuestion = isClockQuestion(text);
-  const wantsMath = isArithmeticRequest(text);
-  const wantsResearch = !wantsMath && !clockQuestion && (RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower)));
-  const wantsRecords = RECORD_HINT.test(lower) && /\b(search|find|list|show|which)\b/i.test(lower);
-  const wantsTasks = TASK_HINT.test(lower) && /\b(list|show|my|open|pending)\b/i.test(lower);
-  const includeTasks = /\b(?:tasks?|to-?do)\b/i.test(text);
-  const includeNotes = /\bnotes?\b/i.test(text);
+  const mathText = isArithmeticRequest(text) ? text : splitAssistantClauses(text).find(isArithmeticRequest);
+  const wantsMath = Boolean(mathText);
+  const wantsResearch = !wantsMath && !clockQuestion
+    && (!PERSONAL_CONTEXT.test(text) || EXPLICIT_RESEARCH.test(text))
+    && (RESEARCH_HINT.test(text) || (/\b(?:facts?|sources?|references?|evidence|history of)\b/i.test(lower) && /\w{4,}/.test(lower)));
+  const recordCommand = isSafeSavedDataCompound(text) ? text.match(RECORD_COMMAND) : null;
+  const wantsRecords = Boolean(recordCommand);
+  const read = personalReadIntent(text, { allowCompound: true });
+  const wantsTasks = Boolean(read);
+  const includeTasks = Boolean(read?.tasks);
+  const includeNotes = Boolean(read?.notes);
 
   if (wantsMath) steps.push(step('calculate', 'Evaluate the expression deterministically', 'calculator', async () => {
-    const parsed = extractArithmetic(text);
+    const parsed = extractArithmetic(mathText);
     if (!parsed) return { observation: 'I could not understand that arithmetic. Try “calculate six times seven” or use numbers and symbols.', data: null, noTool: true };
     const answer = calculate(parsed.expression);
     return { observation: parsed.remainder ? `${answer}\nOnly the arithmetic portion was calculated; see other steps for any remaining requests.` : answer, data: null };
@@ -92,7 +106,7 @@ export function planFor(prompt, profile = 'general') {
   }
 
   if (wantsRecords) {
-    const term = text.replace(/.*(?:search|find|list|show|which)\b/i, '').replace(/^(?:\s*the)?\s*(?:records?|workspace|customers?|entries|database)\b/i, '').replace(/^(?:\s*(?:for|about|named|matching))?\s*/i, '').trim();
+    const term = splitAssistantClauses(text.slice(recordCommand.index + recordCommand[0].length))[0].replace(/^\s*:?\s*(?:(?:for|about|named|matching)\s+)?/i, '').trim();
     steps.push(step('records', `Search workspace records${term ? ` for “${truncate(term, 60)}”` : ''}`, 'records', async ({ db, me }) => {
       const like = '%' + (term || '') + '%';
       const rows = await db.query('SELECT id,name,region,sector,status FROM records WHERE deleted_at IS NULL AND (name ILIKE $1 OR notes ILIKE $1 OR region ILIKE $1 OR sector ILIKE $1) ORDER BY updated_at DESC LIMIT 10', [like]);
@@ -102,17 +116,20 @@ export function planFor(prompt, profile = 'general') {
   }
 
   if (wantsTasks) {
-    steps.push(step('tasks', 'Read your saved tasks and notes', 'tasks', async ({ db, me }) => {
+    const title = includeTasks && includeNotes ? 'Read your requested tasks and notes' : includeTasks ? 'Read your requested tasks' : 'Read your saved notes';
+    steps.push(step('tasks', title, 'tasks', async ({ db, me }) => {
       // Do not read or speak private notes just because the user asked for tasks,
       // or vice versa. Only the requested categories leave the database.
       const [tasks, notes] = await Promise.all([
-        includeTasks ? db.query("SELECT title,status FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 15", [me.id]) : [],
+        includeTasks ? db.query(`SELECT title,status FROM assistant_tasks WHERE user_id=$1${read.taskStatus ? ' AND status=$2' : ''} ORDER BY created_at DESC LIMIT 15`, read.taskStatus ? [me.id, read.taskStatus] : [me.id]) : [],
         includeNotes ? db.query('SELECT content FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [me.id]) : []
       ]);
       const parts = [];
       if (includeTasks) {
         const open = tasks.filter(item => item.status !== 'done');
-        parts.push(tasks.length ? `${open.length} open task(s) of ${tasks.length}:\n` + tasks.map(item => `${item.status === 'done' ? '✓' : '○'} ${truncate(item.title, 90)}`).join('\n') : 'No tasks saved yet.');
+        const label = read.taskStatus === 'open' ? 'open tasks' : read.taskStatus === 'done' ? 'completed tasks' : 'tasks';
+        const count = read.taskStatus ? `${tasks.length} ${label}` : `${open.length} open task(s) of ${tasks.length}`;
+        parts.push(tasks.length ? `${count}:\n` + tasks.map(item => `${item.status === 'done' ? '✓' : '○'} ${truncate(item.title, 90)}`).join('\n') : `No ${label} saved yet.`);
       }
       if (includeNotes) parts.push(notes.length ? `${notes.length} recent note(s):\n` + notes.map(note => `• ${truncate(note.content, 90)}`).join('\n') : 'No notes saved yet.');
       return { observation: parts.join('\n\n'), data: { tasks, notes } };
@@ -233,6 +250,7 @@ export async function runAgent({ prompt, db, me, env, profile = 'general', timeo
     // Only real generated files appear here; a step that produced nothing adds nothing.
     artifacts,
     ...(action ? { action } : {}),
+    ...(plan.some(item => item.id === 'clarify-private-read') ? { readAccessBlocked: true } : {}),
     needsProvider
   };
 }

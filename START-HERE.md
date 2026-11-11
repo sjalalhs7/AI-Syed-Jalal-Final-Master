@@ -29,9 +29,9 @@ are kept in the ignored `.data/` directory.
    microphone permission and review the transcript before sending. One-shot
    automatic sending is off by default and can be enabled in advanced settings.
 3. Try “calculate six times seven”, “show my tasks”, “add task: Review my
-   project”, or “open guide”. Task and note writes require an explicit
-   confirmation. English spoken-number calculations are bounded, not a general
-   math tutor.
+   project”, “show my tasks and notes”, or “open guide”. You can ask for open
+   or completed tasks. Task and note writes require an explicit confirmation.
+   English spoken-number calculations are bounded, not a general math tutor.
 4. For turn-taking, press **Start conversation**. Each final transcript is sent
    automatically, and the microphone can reopen after a reply. Use **Interrupt
    & speak** during a spoken reply, or press **Stop**, hide the tab, or leave it
@@ -48,8 +48,21 @@ owner has configured and successfully tested. JARVIS may select a known
 configured provider automatically and shows the chosen engine; no prompt is
 sent to that provider until you speak or submit. Choose **Agent** or
 **Local tools** to avoid a cloud AI request. Local tools, including the
-calculator and confirmed tasks/notes, do not require an AI key. Research uses
-Wikipedia and requires network access.
+calculator and confirmed tasks/notes, do not require an AI key. Research mode
+may send the question to Wikipedia; recognized local saved-data commands stay
+local. Agent mode may also perform a Wikipedia lookup when it recognizes a
+research request.
+
+Saved-data requests are matched conservatively, not understood in every language
+or wording. Recognized exclusions ask for clarification rather than opening
+saved items or contacting a provider for that turn; an unrecognized phrase may
+still be sent when Cloud AI or Research is selected. Ask separately for the
+items you want and review dictated text. JalalAi loads tasks and notes in its
+sidebar on sign-in. A recognized exclusion hides both sidebar lists on that page;
+previous chat remains visible, and reloading or choosing **Show saved lists**
+shows the lists again. An older open JalalAi page may still reload both lists
+after a message; refresh it to load the new behavior and use combined or
+filtered reads.
 
 ## 3. Configure cloud AI safely (optional)
 

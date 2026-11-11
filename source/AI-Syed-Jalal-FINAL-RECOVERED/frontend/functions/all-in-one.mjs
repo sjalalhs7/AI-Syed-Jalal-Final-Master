@@ -11,8 +11,7 @@
 // It does not execute user code or call a cloud language model; agent steps may
 // read account data or query the documented Wikipedia adapter.
 import { localAssistant, PROFILE_IDS } from './assistant-core.mjs';
-import { AGENT_TOOLS, runAgent } from './agent-runtime.mjs';
-import { TOOLBOX_TOOLS, planFromToolbox } from './toolbox.mjs';
+import { AGENT_TOOLS, planFor, runAgent } from './agent-runtime.mjs';
 
 /** Every specialist that can answer without a model key. */
 export const SPECIALISTS = Object.freeze([
@@ -40,21 +39,10 @@ const TRIGGERS = Object.freeze([
   Object.freeze({ id: 'writer', pattern: /\b(write|draft|email|post|caption|copy|summar\w*|rewrite|tone)\b/i })
 ]);
 
-/**
- * A prompt that needs a real tool. V140: this is derived from the toolbox itself
- * rather than a hand-kept keyword list — when a tool is added, the router learns
- * it in the same change, and a prompt that says "convert 10 km to miles" no
- * longer falls through to the planner.
- */
-const TOOL_VERBS = /\b(calculate|calc\b|compute|\d\s*[+\-*/%]\s*\d|my tasks?|my notes?|show (my|the) tasks?|research|look up|who is|search records?)\b/i;
-const TOOL_HINTS = TOOLBOX_TOOLS.map(tool => tool.id);
+/** Use the runtime's pure planner, not loose keywords that mistake a general
+ * question about notes for permission to read them. Planning does not run tools. */
 const TOOL_PATTERN = {
-  test(text) {
-    if (TOOL_VERBS.test(text)) return true;
-    // planFromToolbox is the runtime's own matcher: reusing it means the panel and
-    // the agent can never disagree about what a tool request looks like.
-    return planFromToolbox(text).some(step => TOOL_HINTS.includes(step.tool));
-  }
+  test(text) { return planFor(text).some(step => step.tool !== 'none'); }
 };
 
 /**
@@ -98,9 +86,13 @@ async function runSpecialist(id, { prompt, db, me, env }) {
     }
     const profile = PROFILE_FOR[id] || 'general';
     const result = localAssistant(prompt, profile);
+    // Only the Tool Agent executes saved-data intents on this panel. A local
+    // profile must not claim it opened items which the panel never fetched.
+    const deferredRead = ['list_tasks', 'list_notes', 'list_tasks_and_notes', 'search_records'].includes(result.tool);
     return {
       id, label: specialist.label, kind: specialist.kind, ok: true, ms: Date.now() - started,
-      output: result.output, tool: result.tool || null, action: result.action || null,
+      output: deferredRead ? 'This profile did not open saved items. Choose Tool Agent to run the requested read.' : result.output,
+      tool: result.tool || null, action: result.action || null,
       needsProvider: Boolean(result.needsProvider), simulated: false
     };
   } catch (error) {

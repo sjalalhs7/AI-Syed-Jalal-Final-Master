@@ -46,6 +46,7 @@ test('quick-start guide and assistant search use real contracts', () => {
   assert.match(guide, /Start preview for me/);
   assert.match(guide, /Not connected:/);
   assert.match(guideJs, /json\('\/health'\)/);
-  assert.match(client, /response\.records \|\| \[\]/);
+  assert.match(client, /Array\.isArray\(response\.records\)/);
+  assert.match(client, /Workspace records could not be read/);
   assert.match(client, /encodeURIComponent\(result\.query\)/);
 });
