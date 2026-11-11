@@ -1,6 +1,6 @@
-import { localAssistant, proposedAssistantAction, isSimpleGreeting, PROFILE_IDS } from './assistant-core.mjs';
+import { localAssistant, isSimpleGreeting, PROFILE_IDS } from './assistant-core.mjs';
 import { providerConfiguration, aggregateProviderConfiguration } from './provider-settings.mjs';
-import { AGENT_TOOLS, recordRun, runAgent } from './agent-runtime.mjs';
+import { AGENT_TOOLS, planFor, recordRun, runAgent } from './agent-runtime.mjs';
 import { critique, runReview } from './expert-critic.mjs';
 import { pageStatus } from './page-inventory.mjs';
 import { buildPage, describePage, parseSpec, PALETTES, SECTIONS } from './page-builder.mjs';
@@ -149,8 +149,18 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     if (!message || message.length > (body.mode === 'cloud' ? 9500 : 10000)) return reply({ error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).' }, 400);
     if (!PROFILE_IDS.includes(profile)) return reply({ error: 'Choose a supported assistant profile.' }, 400);
 
-    // Saving is always an explicit proposal, even when Research is selected.
-    if (body.mode === 'research' && proposedAssistantAction(message)) return reply(localAssistant(message, profile));
+    const local = localAssistant(message, profile, undefined, {
+      supportsCombinedReads: body.supportsCombinedReads === true,
+      supportsTaskStatusFilter: body.supportsTaskStatusFilter === true
+    });
+    // A recognized exclusion is not permission to run tools, record a prompt,
+    // contact a provider or start research. Save proposals take precedence even
+    // when the text being saved contains a negation.
+    if (local.readAccessBlocked) return reply(local);
+
+    // In Research mode, an explicit local save or saved-data command is still
+    // a request for that action, not a Wikipedia search containing its text.
+    if (body.mode === 'research' && (local.action || local.localOnly || ['list_tasks', 'list_notes', 'list_tasks_and_notes', 'search_records'].includes(local.tool))) return reply(local);
 
     // Agent mode: a bounded, multi-step tool run. History is best effort.
     if (body.mode === 'agent') {
@@ -177,9 +187,11 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
 
     // Research: a real, attributed Wikipedia lookup rather than an invented answer.
     if (body.mode === 'research' || (body.mode !== 'cloud' && !/^search (?:records|workspace)\b/i.test(message) && /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message))) {
-      const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) ? message : `research: ${message}`, db, me, env, profile });
+      const isRecordCommand = planFor(message, profile).some(step => step.tool === 'records');
+      const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) || isRecordCommand ? message : `research: ${message}`, db, me, env, profile });
       try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
-      await audit(db, me, 'ASSISTANT_RESEARCH', 'Wikipedia research run', request);
+      const description = run.steps.some(step => step.tool === 'research') ? 'Wikipedia research attempt' : 'Local tool run in research mode';
+      await audit(db, me, 'ASSISTANT_RESEARCH', description, request);
       return reply(run);
     }
 
@@ -194,7 +206,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       return reply(review);
     }
 
-    const result = localAssistant(message, profile);
+    const result = local;
     // The built-in greeting is English. Keep the free local response for an
     // English (or unspecified) language, but let an explicitly selected cloud
     // provider respond in another requested language instead of speaking English
@@ -204,7 +216,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       try { localGreeting = Intl.getCanonicalLocales(body.language.trim())[0]?.split('-')[0] === 'en'; }
       catch { /* cloudPrompt will reject the invalid tag */ }
     }
-    if (body.mode !== 'cloud' || result.action || (result.tool && !result.needsProvider) || localGreeting) return reply(result);
+    if (body.mode !== 'cloud' || result.action || result.localOnly || (result.tool && !result.needsProvider) || localGreeting) return reply(result);
     const provider = String(body.provider || 'gemini');
     const configured = providerConfiguration(env, provider);
     if (configured !== true) return reply({ ...result, cloudError: configured === null
@@ -253,7 +265,12 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     if (!rows.length) return reply({ error: 'Agent run not found.' }, 404);
     return reply({ ok: true, run: rows[0] });
   }
-  if (path === '/api/assistant/tasks' && method === 'GET') return reply({ tasks: await db.query('SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [me.id]) });
+  if (path === '/api/assistant/tasks' && method === 'GET') {
+    const status = url.searchParams.get('status');
+    if (status !== null && !['open', 'done'].includes(status)) return reply({ error: 'Task status must be open or done.' }, 400);
+    const sql = `SELECT id,title,status,due_date AS "dueDate",created_at AS "createdAt" FROM assistant_tasks WHERE user_id=$1${status ? ' AND status=$2' : ''} ORDER BY created_at DESC LIMIT 200`;
+    return reply({ tasks: await db.query(sql, status ? [me.id, status] : [me.id]) });
+  }
   if (path === '/api/assistant/notes' && method === 'GET') return reply({ notes: await db.query('SELECT id,content,created_at AS "createdAt" FROM assistant_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [me.id]) });
   const taskMatch = path.match(/^\/api\/assistant\/tasks\/([a-f0-9-]{36})$/);
   if (taskMatch && ['PATCH', 'DELETE'].includes(method)) {

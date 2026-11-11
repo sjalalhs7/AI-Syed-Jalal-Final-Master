@@ -37,7 +37,11 @@ test('real PostgreSQL schema, session, CSRF and assistant persistence', async ()
   const saved = await c('/assistant/confirm', 'POST', { confirmed: true, action: proposal.data.action }, token); assert.equal(saved.status, 200);
   const id = saved.data.task.id;
   assert.equal((await c('/assistant/tasks/' + id, 'PATCH', { status: 'done' }, token)).data.task.status, 'done');
+  assert.equal((await c('/assistant/tasks?status=open')).data.tasks.length, 0);
+  assert.deepEqual((await c('/assistant/tasks?status=done')).data.tasks.map(item => item.id), [id]);
+  assert.equal((await c('/assistant/tasks?status=invalid')).status, 400);
   const other = await account(); assert.equal((await other.c('/assistant/state')).data.tasks.length, 0);
+  assert.equal((await other.c('/assistant/tasks?status=done')).data.tasks.length, 0, 'status filters remain account-scoped');
   assert.equal((await other.c('/assistant/tasks/' + id, 'DELETE', {}, other.token)).status, 404);
   assert.equal((await c('/assistant/tasks/' + id, 'DELETE', {}, token)).status, 200);
   assert.equal((await c('/auth/logout', 'POST', {}, token)).status, 200);

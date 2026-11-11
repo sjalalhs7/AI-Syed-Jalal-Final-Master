@@ -342,19 +342,25 @@
   // In local mode the assistant returns a tool intent. Resolve it with the same
   // authenticated endpoints used by JalalAi instead of merely saying "opening".
   async function resolveLocalTool(result, signal) {
-    if (result.tool === 'list_tasks') {
-      const data = await api('/assistant/tasks', { signal });
-      const tasks = data.tasks || [];
-      return { ...result, output: tasks.length ? 'Your tasks:\n' + tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : 'No tasks saved yet.' };
-    }
-    if (result.tool === 'list_notes') {
-      const data = await api('/assistant/notes', { signal });
-      const notes = data.notes || [];
-      return { ...result, output: notes.length ? 'Your private notes:\n' + notes.map(n => `• ${n.content}`).join('\n') : 'No notes saved yet.' };
+    const readTasks = result.tool === 'list_tasks' || result.tool === 'list_tasks_and_notes';
+    const readNotes = result.tool === 'list_notes' || result.tool === 'list_tasks_and_notes';
+    if (readTasks || readNotes) {
+      if (result.taskStatus !== undefined && !['open', 'done'].includes(result.taskStatus)) throw new Error('The requested task filter was not understood. Try again.');
+      const [tasksData, notesData] = await Promise.all([
+        readTasks ? api('/assistant/tasks' + (result.taskStatus ? '?status=' + encodeURIComponent(result.taskStatus) : ''), { signal }) : null,
+        readNotes ? api('/assistant/notes', { signal }) : null
+      ]);
+      if ((readTasks && !Array.isArray(tasksData?.tasks)) || (readNotes && !Array.isArray(notesData?.notes))) throw new Error('The requested saved items could not be read. Try again.');
+      const parts = [];
+      const taskLabel = result.taskStatus === 'open' ? 'open tasks' : result.taskStatus === 'done' ? 'completed tasks' : 'tasks';
+      if (readTasks) parts.push(tasksData.tasks.length ? `Your ${taskLabel}:\n` + tasksData.tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : `No ${taskLabel} saved yet.`);
+      if (readNotes) parts.push(notesData.notes.length ? 'Your private notes:\n' + notesData.notes.map(n => `• ${n.content}`).join('\n') : 'No notes saved yet.');
+      return { ...result, output: parts.join('\n\n') };
     }
     if (result.tool === 'search_records') {
       const data = await api('/records?limit=200&q=' + encodeURIComponent(result.query), { signal });
-      const records = data.records || [];
+      if (!Array.isArray(data.records)) throw new Error('Workspace records could not be read. Try again.');
+      const records = data.records;
       return { ...result, output: records.length ? 'Workspace records:\n' + records.map(r => `• ${r.name || r.id}: ${r.notes || r.status || 'Record'}`).join('\n') : `No workspace records match “${result.query}”.` };
     }
     return result;
@@ -419,7 +425,7 @@
     const mode = $('mode').value;
     // 'Jarvis, ...' is a spoken command prefix, not an always-on wake word.
     const command = text.replace(/^(?:hey\s+)?jarvis(?:\s*[,!:]\s*|\s+)/i, '').trim() || text;
-    const payload = { message: command, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value };
+    const payload = { message: command, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value, supportsCombinedReads: true, supportsTaskStatusFilter: true };
     if (mode === 'cloud') {
       payload.language = speechLanguage();
       if (voice) payload.voice = true;

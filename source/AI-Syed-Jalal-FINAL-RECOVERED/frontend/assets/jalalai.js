@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  let user = null, csrf = '', busy = false, recognition = null, listening = false, speech = null, lastReply = '', state = { tasks: [], notes: [] }, requestController = null, providerTouched = false;
+  let user = null, csrf = '', busy = false, recognition = null, listening = false, speech = null, lastReply = '', state = { tasks: [], notes: [] }, requestController = null, providerTouched = false, savedListsHidden = false, savedViewVersion = 0, sessionVersion = 0;
   const setStatus = text => { $('status').textContent = text; };
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
@@ -19,6 +19,7 @@
     $('micBtn').disabled = !user || busy;
     $('readBtn').disabled = !lastReply;
     $('stopBtn').disabled = !busy && !listening && !window.speechSynthesis?.speaking;
+    $('showSavedListsBtn').disabled = !user || busy;
     $('accountBtn').textContent = user ? 'Sign out' : 'Sign in';
   }
   function stopVoice() {
@@ -65,19 +66,42 @@
     $('chatlog').appendChild(node); $('chatlog').scrollTop = $('chatlog').scrollHeight; updateControls();
     return node;
   }
-  async function refreshState() {
-    state = await api('/assistant/state?includeOmniRoute=1');
-    for (const [id, items, kind] of [['tasks', state.tasks, 'task'], ['notes', state.notes, 'note']]) {
-      const list = $(id); list.replaceChildren();
-      if (!items.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = `No ${id} yet.`; list.appendChild(empty); }
-      for (const item of items) {
-        const li = document.createElement('li'); li.className = item.status === 'done' ? 'done' : '';
-        if (kind === 'task') { const check = document.createElement('input'); check.type = 'checkbox'; check.checked = item.status === 'done'; check.setAttribute('aria-label', `Complete ${item.title}`); check.onchange = async () => { check.disabled = true; try { await api('/assistant/tasks/' + item.id, { method: 'PATCH', body: JSON.stringify({ status: check.checked ? 'done' : 'open' }) }); await refreshState(); } catch (error) { setStatus(error.message); check.checked = !check.checked; check.disabled = false; } }; li.appendChild(check); }
-        const text = document.createElement('span'); text.textContent = item.title || item.content; li.appendChild(text);
-        const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small danger'; del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${kind}: ${item.title || item.content}`); del.onclick = async () => { if (!window.confirm(`Delete this ${kind}? This cannot be undone.`)) return; del.disabled = true; try { await api(`/assistant/${kind}s/${item.id}`, { method: 'DELETE' }); await refreshState(); } catch (error) { setStatus(error.message); del.disabled = false; } }; li.appendChild(del); list.appendChild(li);
-      }
+  function renderSavedList(id, items, kind) {
+    const list = $(id); list.replaceChildren();
+    if (!items.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = `No ${id} yet.`; list.appendChild(empty); }
+    for (const item of items) {
+      const li = document.createElement('li'); li.className = item.status === 'done' ? 'done' : '';
+      if (kind === 'task') { const check = document.createElement('input'); check.type = 'checkbox'; check.checked = item.status === 'done'; check.setAttribute('aria-label', `Complete ${item.title}`); check.onchange = async () => { check.disabled = true; try { await api('/assistant/tasks/' + item.id, { method: 'PATCH', body: JSON.stringify({ status: check.checked ? 'done' : 'open' }) }); await refreshState(); } catch (error) { setStatus(error.message); check.checked = !check.checked; check.disabled = false; } }; li.appendChild(check); }
+      const text = document.createElement('span'); text.textContent = item.title || item.content; li.appendChild(text);
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small danger'; del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${kind}: ${item.title || item.content}`); del.onclick = async () => { if (!window.confirm(`Delete this ${kind}? This cannot be undone.`)) return; del.disabled = true; try { await api(`/assistant/${kind}s/${item.id}`, { method: 'DELETE' }); await refreshState(); } catch (error) { setStatus(error.message); del.disabled = false; } }; li.appendChild(del); list.appendChild(li);
     }
-    $('taskCount').textContent = state.tasks.filter(t => t.status === 'open').length;
+    if (kind === 'task') $('taskCount').textContent = items.filter(item => item.status === 'open').length;
+  }
+  function hideSavedLists() {
+    savedListsHidden = true; savedViewVersion++;
+    state.tasks = []; state.notes = [];
+    for (const id of ['tasks', 'notes']) {
+      const line = document.createElement('li'); line.className = 'empty'; line.textContent = 'Hidden on this page.';
+      $(id).replaceChildren(line);
+    }
+    $('taskCount').textContent = '—';
+    $('exportBtn').disabled = true;
+    $('showSavedListsBtn').hidden = false;
+  }
+  async function refreshState() {
+    const version = savedViewVersion, hidden = savedListsHidden;
+    const data = await api('/assistant/state?' + (hidden ? 'metadata=1&' : '') + 'includeOmniRoute=1');
+    // Hide/reveal can change while a request is in flight. Discard its response
+    // rather than redisplay old data or replace a revealed list with metadata.
+    if (version !== savedViewVersion || hidden !== savedListsHidden) return;
+    if (hidden) { data.tasks = []; data.notes = []; }
+    state = data;
+    if (!savedListsHidden) {
+      renderSavedList('tasks', state.tasks, 'task');
+      renderSavedList('notes', state.notes, 'note');
+      $('exportBtn').disabled = false;
+      $('showSavedListsBtn').hidden = true;
+    }
     const providers = state.cloudProviders || {};
     const options = Array.from($('provider').options);
     for (const option of options) {
@@ -141,14 +165,43 @@
       $('agentTools').textContent = 'Tools available: ' + data.tools.map(tool => tool.label).join(', ') + '. Every call is shown with its result.';
     } catch { $('agentTools').textContent = 'Tool list unavailable right now.'; }
   }
-  async function runTool(result) {
-    if (result.tool === 'list_tasks') addMessage(state.tasks.length ? state.tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : 'No tasks yet. Try “add task: Review the proposal”.', 'assistant', 'JalalAi · your saved tasks');
-    if (result.tool === 'list_notes') addMessage(state.notes.length ? state.notes.map(n => '• ' + n.content).join('\n') : 'No notes yet. Try “save note: Your note”.', 'assistant', 'JalalAi · your private notes');
-    if (result.tool === 'search_records') {
-      const response = await api('/records?limit=200&q=' + encodeURIComponent(result.query));
-      const matches = response.records || [];
-      addMessage(matches.length ? matches.map(row => `• ${row.name || row.id}: ${row.notes || row.status || 'Record'}`).join('\n') : `No workspace records match “${result.query}”.`, 'assistant', 'JalalAi · workspace search');
+  async function runTool(result, signal) {
+    const readTasks = result.tool === 'list_tasks' || result.tool === 'list_tasks_and_notes';
+    const readNotes = result.tool === 'list_notes' || result.tool === 'list_tasks_and_notes';
+    if (readTasks || readNotes) {
+      // Fetch only what was explicitly requested, rather than speaking a stale
+      // sidebar snapshot or reloading both categories after every message.
+      if (result.taskStatus !== undefined && !['open', 'done'].includes(result.taskStatus)) throw new Error('The requested task filter was not understood. Try again.');
+      const [tasksData, notesData] = await Promise.all([
+        readTasks ? api('/assistant/tasks' + (result.taskStatus ? '?status=' + encodeURIComponent(result.taskStatus) : ''), { signal }) : null,
+        readNotes ? api('/assistant/notes', { signal }) : null
+      ]);
+      if ((readTasks && !Array.isArray(tasksData?.tasks)) || (readNotes && !Array.isArray(notesData?.notes))) throw new Error('The requested saved items could not be read. Try again.');
+      if (signal.aborted) return '';
+      const parts = [];
+      if (readTasks) {
+        // A filtered reply must not silently replace the full list used by export.
+        if (!savedListsHidden && !result.taskStatus) { state.tasks = tasksData.tasks; renderSavedList('tasks', state.tasks, 'task'); }
+        const taskLabel = result.taskStatus === 'open' ? 'open tasks' : result.taskStatus === 'done' ? 'completed tasks' : 'tasks';
+        parts.push(tasksData.tasks.length ? `Your ${taskLabel}:\n` + tasksData.tasks.map(t => `${t.status === 'done' ? '✓' : '○'} ${t.title}`).join('\n') : `No ${taskLabel} saved yet.`);
+      }
+      if (readNotes) {
+        if (!savedListsHidden) { state.notes = notesData.notes; renderSavedList('notes', state.notes, 'note'); }
+        parts.push(notesData.notes.length ? 'Your private notes:\n' + notesData.notes.map(n => '• ' + n.content).join('\n') : 'No notes saved yet.');
+      }
+      const output = parts.join('\n\n');
+      addMessage(output, 'assistant', 'JalalAi · your requested saved items');
+      return output;
     }
+    if (result.tool === 'search_records') {
+      const response = await api('/records?limit=200&q=' + encodeURIComponent(result.query), { signal });
+      if (!Array.isArray(response.records)) throw new Error('Workspace records could not be read. Try again.');
+      if (signal.aborted) return '';
+      const output = response.records.length ? response.records.map(row => `• ${row.name || row.id}: ${row.notes || row.status || 'Record'}`).join('\n') : `No workspace records match “${result.query}”.`;
+      addMessage(output, 'assistant', 'JalalAi · workspace search');
+      return output;
+    }
+    return '';
   }
   async function send(text) {
     text = String(text || $('prompt').value).trim();
@@ -156,11 +209,11 @@
     if (busy || !text) return;
     if (cloudStatusUnknown()) { setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.'); return; }
     stopVoice(); busy = true; $('prompt').value = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Working… Stop cancels waiting for the reply.');
-    const currentRequest = new AbortController(); requestController = currentRequest;
+    const currentRequest = new AbortController(), requestSession = sessionVersion; requestController = currentRequest;
     const timeout = setTimeout(() => currentRequest.abort(), 60000);
     try {
-      const result = await api('/assistant/chat', { method: 'POST', signal: currentRequest.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value }) });
-      if (currentRequest.signal.aborted) return;
+      const result = await api('/assistant/chat', { method: 'POST', signal: currentRequest.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value, supportsCombinedReads: true, supportsTaskStatusFilter: true }) });
+      if (currentRequest.signal.aborted || requestSession !== sessionVersion) return;
       const label = result.mode === 'agent' ? 'JalalAi · agent runtime (real tool trace)'
         : result.mode === 'cloud' ? `JalalAi · cloud ${result.provider}`
         : result.mode === 'local-fallback' ? 'JalalAi · local fallback (cloud unavailable)'
@@ -168,15 +221,22 @@
       if (result.cloudError) setStatus(result.cloudError);
       else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Agent finished with ${result.trace.failures} failed step(s) — see the trace.` : `Agent finished · ${result.trace?.toolCalls ?? 0} successful tool result(s) in ${result.trace?.totalMs ?? 0} ms.`);
       else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Local tools completed the request.');
-      const node = addMessage(result.output, 'assistant', label, result);
+      if (result.readAccessBlocked) hideSavedLists();
+      const output = result.readAccessBlocked ? `${result.output}\n\nBoth sidebar lists are now hidden on this page. Choose “Show saved lists” to reload them; earlier chat may still contain saved items.` : result.output;
+      const node = addMessage(output, 'assistant', label, result);
       if (result.mode === 'agent' && Array.isArray(result.steps)) node.appendChild(agentTrace(result));
-      await runTool(result); await refreshState();
-      if ($('voiceReply').checked) speak(result.output);
+      const resolved = await runTool(result, currentRequest.signal);
+      if (currentRequest.signal.aborted || requestSession !== sessionVersion) return;
+      if ($('voiceReply').checked) speak(resolved || output);
     } catch (error) {
-      const cancelled = error.name === 'AbortError';
+      if (requestSession !== sessionVersion) return;
+      const cancelled = currentRequest.signal.aborted || error.name === 'AbortError';
       setStatus(cancelled ? 'Stopped waiting. The server may still finish; check history or saved actions before retrying.' : error.message);
       if (!cancelled) addMessage(error.message, 'assistant error', 'Request could not complete');
-    } finally { clearTimeout(timeout); busy = false; requestController = null; updateControls(); }
+    } finally {
+      clearTimeout(timeout);
+      if (requestController === currentRequest) { busy = false; requestController = null; updateControls(); }
+    }
   }
   async function signIn() {
     const session = await api('/me'); csrf = session.csrfToken;
@@ -232,7 +292,27 @@
   $('stopBtn').onclick = () => { stopVoice(); if (requestController) { requestController.abort(); setStatus('Stopped waiting. The server may still finish; check history or saved actions before retrying.'); } else setStatus('Stopped.'); };
   $('clearChat').onclick = () => { if (busy || !window.confirm('Clear this chat? Saved tasks and notes are kept.')) return; stopVoice(); lastReply = ''; $('chatlog').replaceChildren(); addMessage('Chat cleared. Your saved tasks and notes are unchanged.', 'assistant', 'JalalAi · session reset'); };
   $('demoBtn').onclick = async () => { $('demoBtn').disabled = true; try { await api('/demo', { method: 'POST' }); await signIn(); } catch (error) { setStatus(error.message); } finally { $('demoBtn').disabled = false; } };
-  $('accountBtn').onclick = async () => { if (!user) { location.href = 'index.html?next=jalalai.html'; return; } if (!window.confirm('Sign out of this device?')) return; try { await api('/auth/logout', { method: 'POST', body: '{}' }); user = null; csrf = ''; lastReply = ''; state = { tasks: [], notes: [] }; $('chatlog').replaceChildren(); for (const id of ['tasks', 'notes']) $(id).replaceChildren(); stopVoice(); await signIn(); } catch (error) { setStatus(error.message); } };
+  $('accountBtn').onclick = async () => {
+    if (!user) { location.href = 'index.html?next=jalalai.html'; return; }
+    if (!window.confirm('Sign out of this device?')) return;
+    try {
+      await api('/auth/logout', { method: 'POST', body: '{}' });
+      // A server response that was already in flight may contain saved items.
+      // Abort it and invalidate its callbacks before clearing this session.
+      sessionVersion++; requestController?.abort();
+      user = null; csrf = ''; lastReply = ''; savedListsHidden = false; savedViewVersion++; state = { tasks: [], notes: [] };
+      $('showSavedListsBtn').hidden = true; $('exportBtn').disabled = false; $('chatlog').replaceChildren();
+      for (const id of ['tasks', 'notes']) $(id).replaceChildren();
+      stopVoice(); await signIn();
+    } catch (error) { setStatus(error.message); }
+  };
+  $('showSavedListsBtn').onclick = async () => {
+    if (!user || busy) return;
+    $('showSavedListsBtn').disabled = true; savedListsHidden = false; savedViewVersion++;
+    try { await refreshState(); if (!savedListsHidden) setStatus('Saved lists loaded again.'); }
+    catch (error) { hideSavedLists(); setStatus(error.message || 'Could not load the saved lists.'); }
+    finally { updateControls(); }
+  };
   $('exportBtn').onclick = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), tasks: state.tasks, notes: state.notes }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = 'jalalai-private-export.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
   function loadVoices() {
     if (!('speechSynthesis' in window)) return;
