@@ -7,7 +7,7 @@
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
     const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal: options.signal || AbortSignal.timeout(65000) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
+    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; error.code = data.code; throw error; }
     return data;
   }
   function cloudStatusUnknown() {
@@ -248,5 +248,16 @@
     $('loginBanner').hidden = false; $('quickStart').hidden = false; $('demoBtn').hidden = true; $('demoBtn').disabled = true; $('demoBtn').style.display = 'none'; $('sendBtn').disabled = true;
     $('loginMessage').textContent = 'Static website preview: JalalAi needs the secure application server for sign-in, tasks, notes and AI. Open the secure app, or run npm run dev locally. See Setup options in the banner.';
     $('connectionStatus').textContent = 'Static preview · backend not connected'; setStatus('Open the secure app or local preview to begin.'); updateControls();
-  } else signIn().then(adoptHandoff).catch(error => { $('connectionStatus').textContent = 'Connection unavailable'; setStatus(error.message); $('loginBanner').hidden = false; $('loginMessage').textContent = 'The server could not be reached. Reload after the application server is running.'; });
+  } else signIn().then(adoptHandoff).catch(error => {
+    user = null; csrf = '';
+    const missingDatabase = error.code === 'DATABASE_NOT_CONFIGURED';
+    $('connectionStatus').textContent = missingDatabase ? 'Database not configured' : error.status ? 'Assistant unavailable' : 'Connection unavailable';
+    setStatus(error.message);
+    $('loginBanner').hidden = false; $('quickStart').hidden = true; $('demoBtn').hidden = true;
+    $('loginMessage').textContent = missingDatabase
+      ? 'This deployment’s database is not configured. The assistant cannot start here. Ask the site owner to configure it; no password was checked by this request.'
+      : error.status ? 'The application responded, but the assistant could not start. Try again or contact the site owner.'
+      : 'The server could not be reached. Check the connection and try again once the application is running.';
+    updateControls();
+  });
 })();

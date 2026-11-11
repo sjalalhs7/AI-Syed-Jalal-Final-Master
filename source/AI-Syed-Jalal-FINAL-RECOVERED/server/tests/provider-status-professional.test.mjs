@@ -220,7 +220,10 @@ test('all provider surfaces report unreadable settings without sending cloud req
     assert.equal(extended.data.cloudProviders.omniroute, true);
     assert.equal(extended.data.cloudProviders.gemini, null);
     assert.ok(!JSON.stringify(extended.data).includes(omniKey));
-    assert.ok(!JSON.stringify(extended.data).includes(env.OMNIROUTE_URL));
+    env.OMNIROUTE_URL = 'https://another.fixture.invalid/v2';
+    const alternate = await admin('/assistant/state?metadata=1&includeOmniRoute=1');
+    assert.deepEqual(alternate.data, extended.data, 'provider metadata must not expose the endpoint');
+    env.OMNIROUTE_URL = 'https://omni.fixture.invalid/v1';
 
     const saved = await admin('/assistant/confirm', 'POST', { confirmed: true, action: { type: 'create_note', content: 'Private fixture note never sent' } }, token);
     assert.equal(saved.status, 200);

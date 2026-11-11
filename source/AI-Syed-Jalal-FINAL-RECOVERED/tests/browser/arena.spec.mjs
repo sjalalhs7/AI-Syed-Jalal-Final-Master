@@ -67,3 +67,34 @@ test('Arena: static host states its limits and cannot simulate a battle', async 
   await expect(page.locator('#engineGrid')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('Arena keeps Run disabled until preview sign-in finishes loading account data', async ({ page }) => {
+  let release, markStarted;
+  const gate = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
+  let battles = 0;
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/arena/battles')) battles++; });
+  await page.route('**/api/arena/leaderboard', async route => {
+    markStarted();
+    await gate;
+    await route.continue();
+  });
+  await page.goto('/arena.html');
+  await expect(page.locator('#engineGrid .engine')).toHaveCount(9);
+  await page.locator('#prompt').fill('Review an analytics dashboard launch plan');
+  await expect(page.locator('#runBtn')).toBeDisabled();
+  await page.getByRole('button', { name: 'Try the local preview' }).click();
+  await started;
+  try {
+    await expect(page.locator('#accountBtn')).toContainText('Sign out');
+    await expect(page.locator('#runBtn')).toBeDisabled();
+    // A programmatic submit also cannot start a run while sign-in is pending.
+    await page.locator('#battleForm').evaluate(form => form.requestSubmit());
+    expect(battles).toBe(0);
+  } finally { release(); }
+  await expect(page.locator('#status')).toContainText('Preview account ready');
+  await expect(page.locator('#runBtn')).toBeEnabled();
+  await page.locator('#runBtn').click();
+  await expect(page.locator('#battlePanel')).toBeVisible({ timeout: 40000 });
+  expect(battles).toBe(1);
+});

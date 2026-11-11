@@ -168,7 +168,7 @@ test('installed shell can browse the public hub offline without caching provider
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
-  expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v170-voice-providers'))).toBe(true);
+  expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v171-voice-providers'))).toBe(true);
   await context.setOffline(true);
   try {
     await page.goto('/ai-hub');

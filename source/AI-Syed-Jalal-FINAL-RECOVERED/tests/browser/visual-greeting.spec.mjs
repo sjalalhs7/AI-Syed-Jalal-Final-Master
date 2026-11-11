@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v170-voice-providers'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v171-voice-providers'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -240,6 +240,8 @@ test('updating the service worker replaces the old greeting cache but keeps unre
     await priorApp.put('/assets/jarvis.js?v=165', new Response('window.__staleJarvisRan = true;'));
     const priorVoice = await caches.open('aj-v169-voice-conversation');
     await priorVoice.put('/assets/jarvis.js?v=169', new Response('window.__staleJarvisRan = true;'));
+    const priorProviders = await caches.open('aj-v170-voice-providers');
+    await priorProviders.put('/assets/jalalai.js?v=170', new Response('window.__staleJalalAiRan = true;'));
   });
   await page.goto('/');
   await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
@@ -254,9 +256,11 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).not.toContain('aj-v157-selected-voice');
   expect(names).not.toContain('aj-v165-agent-evidence');
   expect(names).not.toContain('aj-v169-voice-conversation');
-  expect(names).toContain('aj-v170-voice-providers');
+  expect(names).not.toContain('aj-v170-voice-providers');
+  expect(names).toContain('aj-v171-voice-providers');
   expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jarvis.js?v=170')))).toBe(true);
-  expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jalalai.js?v=170')))).toBe(true);
+  expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jalalai.js?v=171')))).toBe(true);
+  expect(await page.evaluate(async () => Boolean(await caches.match('/assets/arena.js?v=171')))).toBe(true);
   expect(await page.evaluate(async () => (await (await caches.open('other-app-test-cache')).match('/other-app-data')).text())).toBe('preserve this');
   expect(await page.evaluate(() => localStorage.getItem('aj-speech-voice-v1'))).toBe('Aisha|ur-PK');
 });

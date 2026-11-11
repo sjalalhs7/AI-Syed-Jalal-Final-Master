@@ -311,7 +311,9 @@
     $('accountBtn').textContent = user ? `Sign out (${user.username})` : 'Sign in';
     $('demoBtn').hidden = Boolean(user);
     $('runHint').textContent = user ? 'Signed in. Battles, votes and the leaderboard are saved to this account.' : 'Signed out? Use “Try the local preview” to open a disposable sandbox account and battle the local engines with no key.';
-    $('runBtn').disabled = !user;
+    // A preview sign-in is still running while its history and leaderboard
+    // load. Never re-enable submission before the in-flight operation ends.
+    enforceLimits();
     $('buildHint').textContent = user
       ? 'Signed in. Local engines work with no key; cloud engines run only where a server-side provider key exists, and say so when it does not.'
       : 'Sign in to run a battle and keep the results. Nothing is faked for signed-out visitors.';

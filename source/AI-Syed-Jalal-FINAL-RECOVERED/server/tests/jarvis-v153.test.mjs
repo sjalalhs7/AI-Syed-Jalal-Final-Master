@@ -156,7 +156,8 @@ test('OmniRoute metadata is opt-in, secret-free and independent of stored settin
   assert.equal(optedIn.cloudProviders.gemini, null);
   assert.equal(optedIn.cloudConfigured, true);
   assert.equal(JSON.stringify(optedIn).includes(key), false);
-  assert.equal(JSON.stringify(optedIn).includes(endpoint), false);
+  const alternate = await state('&includeOmniRoute=1', unavailableProviderEnv({ OMNIROUTE_KEY: 'another-fixture-key', OMNIROUTE_URL: 'https://other.fixture.invalid/another' }));
+  assert.deepEqual(optedIn, alternate, 'metadata must not depend on the configured key or endpoint values');
   const incomplete = await state('&includeOmniRoute=1', unavailableProviderEnv({ OMNIROUTE_KEY: key }));
   assert.equal(incomplete.cloudProviders.omniroute, false);
   assert.equal(incomplete.cloudConfigured, null, 'unreadable settings remain unknown for the other providers');
