@@ -25,6 +25,8 @@ Configure these values under **Cloudflare Dashboard → Workers & Pages → ai-s
 
 Set optional model variables only when intentionally overriding the defaults: `GEMINI_MODEL`, `OPENAI_MODEL`, `ANTHROPIC_MODEL`, `DEEPSEEK_MODEL`, and `OMNIROUTE_MODEL`.
 
+The optional OmniRoute adapter requires **both** a server-side key and an HTTPS endpoint. JARVIS and JalalAi report it as configured when both values are nonblank; the adapter rejects an invalid or non-HTTPS endpoint before making a request. The deployment-controlled endpoint may forward submitted text to another provider. Confirm its privacy terms and possible charges before enabling it. Key and endpoint presence do not prove that authentication or a model request succeeds.
+
 Never put credentials in source control, frontend JavaScript, screenshots, issue reports, or build logs. Do not copy production secret values into documentation.
 
 ## Implemented API surface
@@ -79,23 +81,26 @@ The recovered agent catalogue and skill metadata do not mean that every listed a
 
 ## Verification procedure
 
-Run from the frontend project directory:
+Run from the recovered application directory (`source/AI-Syed-Jalal-FINAL-RECOVERED`):
 
 ```bash
-npm install --no-audit --no-fund
-npm test
+npm ci
 npm run check
+npm test
+npm run test:e2e
+npm run build
 ```
 
-After deployment, verify:
+The browser suite uses an isolated local database and speech/provider doubles; it is not a real device or live-provider test.
 
-1. `GET /api/health` returns a successful database connectivity result.
-2. `GET /api/ready` reports `ready: true` and `schemaTables: 15` after migrations 005, 006, 007, 009 and 010.
-3. Authentication, CSRF, record CRUD, approvals, role restrictions, Agent Studio history/transient mode, attachments and compare voting pass against a non-production test account.
-4. An authenticated prompt to `POST /api/ai/run` returns a real provider response with `status: "completed"` and `simulated: false`.
-5. Provider failures, missing configuration, rate limits, and unauthorised access return safe, explicit errors.
+After deployment:
 
-Do not run destructive tests against production data. Do not mark the release fully verified until these checks have been executed against the deployed production URL.
+1. Read `GET /api/health` for database connectivity and `GET /api/ready` for the required table-name inventory. A ready response has `ready: true` and `schemaTables` equal to `required` (currently 24). This checks names only, not columns, indexes, migration history, data or provider behavior. A connected database alone is not readiness.
+2. If readiness is incomplete, do not automatically migrate or repair production. First identify the actual target, verify a restorable full backup, rehearse the intended repair on an isolated clone, and obtain explicit operator approval. See [Production database safety](../../../docs/PRODUCTION-DATABASE-SAFETY.md).
+3. Exercise authentication, CSRF, record CRUD, approvals, role restrictions, Agent Studio history/transient mode, attachments and compare voting on an isolated non-production deployment using test data. Those results do not themselves prove the production configuration.
+4. With the owner's approval and awareness of provider costs, use a non-sensitive prompt to check that the intended deployed provider returns a real response with `status: "completed"` and `simulated: false`. Check provider failures, absent configuration and unauthorised access safely. A successful response proves only that particular request; it does not validate voice on a physical device.
+
+Do not run destructive tests against production data. Record which deployment, test data, provider and device were actually exercised; do not mark the release fully verified from local or simulated results alone.
 
 ## Known gaps requiring separate implementation
 

@@ -40,9 +40,12 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v169-voice-conversation'"));
+  assert.ok(sw.includes("const CACHE='aj-v172-voice-providers'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
+  assert.ok(sw.includes("'./assets/jarvis.js?v=170'"));
+  assert.ok(sw.includes("'./assets/jalalai.js?v=171'"));
+  assert.ok(sw.includes("'./assets/arena.js?v=172'"));
   assert.ok(sw.includes("new URL('api/',self.location).pathname"));
   for (const asset of ['guide.css?v=160', 'visual-system.css?v=160', 'preview-entry.js?v=160']) {
     assert.ok(sw.includes(`'./assets/${asset}'`), `${asset} should be available offline`);

@@ -4,6 +4,7 @@ import { calculate, isClockQuestion, localAssistant, proposedAssistantAction } f
 import { extractArithmetic, isArithmeticRequest } from '../../frontend/functions/spoken-arithmetic.mjs';
 import { planFor, runAgent } from '../../frontend/functions/agent-runtime.mjs';
 import { assistantRoute, cloudPrompt } from '../../frontend/functions/assistant-routes.mjs';
+import { unavailableProviderEnv } from '../../frontend/functions/provider-settings.mjs';
 
 const me = { id: 'user-a', username: 'test', role: 'Viewer' };
 
@@ -132,6 +133,37 @@ test('voice startup metadata does not query tasks or notes', async () => {
   assert.deepEqual(result.tasks, []);
   assert.deepEqual(result.notes, []);
   assert.deepEqual(db.queries, []);
+});
+
+test('OmniRoute metadata is opt-in, secret-free and independent of stored settings', async () => {
+  const db = database();
+  const key = 'fixture-key-not-a-real-secret';
+  const endpoint = 'https://fixture.invalid/v1';
+  const state = async (query, env) => {
+    const request = new Request(`https://app.example/api/assistant/state?metadata=1${query}`);
+    const response = await assistantRoute({
+      request, url: new URL(request.url), env, db, me,
+      reply: (data, status = 200) => Response.json(data, { status })
+    });
+    return response.json();
+  };
+  const configured = unavailableProviderEnv({ OMNIROUTE_KEY: key, OMNIROUTE_URL: endpoint });
+  const legacy = await state('', configured);
+  assert.equal(legacy.cloudConfigured, null);
+  assert.equal(Object.hasOwn(legacy.cloudProviders, 'omniroute'), false, 'older tabs must keep their existing provider list');
+  const optedIn = await state('&includeOmniRoute=1', configured);
+  assert.equal(optedIn.cloudProviders.omniroute, true);
+  assert.equal(optedIn.cloudProviders.gemini, null);
+  assert.equal(optedIn.cloudConfigured, true);
+  assert.equal(JSON.stringify(optedIn).includes(key), false);
+  const alternate = await state('&includeOmniRoute=1', unavailableProviderEnv({ OMNIROUTE_KEY: 'another-fixture-key', OMNIROUTE_URL: 'https://other.fixture.invalid/another' }));
+  assert.deepEqual(optedIn, alternate, 'metadata must not depend on the configured key or endpoint values');
+  const incomplete = await state('&includeOmniRoute=1', unavailableProviderEnv({ OMNIROUTE_KEY: key }));
+  assert.equal(incomplete.cloudProviders.omniroute, false);
+  assert.equal(incomplete.cloudConfigured, null, 'unreadable settings remain unknown for the other providers');
+  const wrongFlag = await state('&includeOmniRoute=true', configured);
+  assert.equal(Object.hasOwn(wrongFlag.cloudProviders, 'omniroute'), false);
+  assert.deepEqual(db.queries, [], 'voice metadata must not load private tasks or notes');
 });
 
 test('the selected agent profile is used when no tool fits', async () => {

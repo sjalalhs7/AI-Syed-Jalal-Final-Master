@@ -597,3 +597,84 @@ test('JARVIS distinguishes an unconfigured database, server error and network fa
   await expect(page.locator('#loginMessage')).toContainText('server could not be reached');
   await expect(page.locator('#conversationBtn')).toBeDisabled();
 });
+
+test('a configured OmniRoute endpoint can serve an explicitly started JARVIS voice conversation', async ({ page }) => {
+  await controlledSpeech(page);
+  const requests = [], states = [];
+  await page.route('**/api/assistant/state*', async route => {
+    states.push(route.request().url());
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudProviders = { future: true, gemini: null, openai: null, anthropic: null, deepseek: null, omniroute: true };
+    data.cloudConfigured = true;
+    await route.fulfill({ response, json: data });
+  });
+  await page.route('**/api/assistant/chat', async route => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ok: true, mode: 'cloud', provider: 'omniroute', output: 'A mocked OmniRoute answer' } });
+  });
+  await openConsole(page);
+  expect(new URL(states[0]).searchParams.get('includeOmniRoute')).toBe('1');
+  await expect(page.locator('#mode')).toHaveValue('cloud');
+  await page.locator('#cloudOptions > summary').click();
+  await expect(page.locator('#provider')).toHaveValue('omniroute');
+  await expect(page.locator('#cloudStatus')).toContainText('key and endpoint configured');
+  await expect(page.locator('#cloudStatus')).toContainText('successful provider request');
+  await expect(page.locator('#engineHelp')).toContainText('may forward');
+  await expect(page.locator('#engineHelp')).toContainText('charges may apply');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  expect(requests).toEqual([]);
+
+  await page.locator('#conversationBtn').click();
+  await emit(page, 'Suggest a name for my garden');
+  await expect(page.locator('#chatlog')).toContainText('A mocked OmniRoute answer');
+  expect(requests).toHaveLength(1);
+  expect(requests[0]).toMatchObject({ message: 'Suggest a name for my garden', provider: 'omniroute', mode: 'cloud', voice: true, language: 'en-US' });
+  expect(requests[0].history).toBeUndefined();
+  await expect.poll(() => page.evaluate(() => window.__recognitions.length)).toBe(2);
+  expect(await page.evaluate(() => window.__spoken.at(-1).micActive)).toBe(false);
+  await page.locator('#stopBtn').click();
+});
+
+test('an incomplete OmniRoute setup cannot start a continuous cloud microphone', async ({ page }) => {
+  await controlledSpeech(page);
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudProviders = { gemini: null, openai: null, anthropic: null, deepseek: null, omniroute: false };
+    data.cloudConfigured = null;
+    await route.fulfill({ response, json: data });
+  });
+  let requests = 0; page.on('request', request => { if (request.url().includes('/api/assistant/chat')) requests++; });
+  await openConsole(page);
+  await expect(page.locator('#mode')).toHaveValue('agent');
+  await page.locator('#mode').selectOption('cloud');
+  await expect(page.locator('#provider')).toHaveValue('omniroute');
+  await expect(page.locator('#engineHelp')).toContainText('both a server key and endpoint');
+  await page.locator('#conversationBtn').click();
+  await expect(page.locator('#status')).toContainText('both a server key and endpoint');
+  await expect(page.locator('#conversationBtn')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+  expect(requests).toBe(0);
+});
+
+test('new provider metadata cannot select an option absent from older JARVIS markup', async ({ page }) => {
+  await controlledSpeech(page);
+  await page.route('**/jarvis.html', async route => {
+    const response = await route.fetch();
+    const html = (await response.text()).replace('<option value="omniroute">OmniRoute</option>', '');
+    await route.fulfill({ response, body: html });
+  });
+  await page.route('**/api/assistant/state*', async route => {
+    const response = await route.fetch(); const data = await response.json();
+    data.cloudProviders = { gemini: null, openai: null, anthropic: null, deepseek: null, omniroute: true };
+    data.cloudConfigured = true;
+    await route.fulfill({ response, json: data });
+  });
+  await openConsole(page);
+  await expect(page.locator('#mode')).toHaveValue('agent');
+  await expect(page.locator('#provider')).toHaveValue('');
+  await expect(page.locator('#mode option[value="cloud"]')).toContainText('status unknown');
+  await page.locator('#mode').selectOption('cloud');
+  await page.locator('#prompt').fill('An open-ended question');
+  await expect(page.locator('#sendBtn')).toBeDisabled();
+  expect(await page.evaluate(() => window.__recognitions.length)).toBe(0);
+});

@@ -316,17 +316,20 @@ export async function onRequest(ctx){
    const traceId=crypto.randomUUID(),model=String(x.model||cfg.model).trim();
    if(!model||model.length>120||!/^[A-Za-z0-9._:/-]+$/.test(model))return reply({error:'Invalid model identifier (maximum 120 safe characters)'},400);
    const saveRun=async(status,output,trace)=>privacyMode?[]:db.query('INSERT INTO ai_runs(id,user_id,agent_id,provider,model,prompt,output,status,tool_calls,trace) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb) RETURNING created_at',[traceId,me.id,agentId,provider,model,prompt,output,status,JSON.stringify([]),JSON.stringify(trace)]);
-   if(providerConfiguration(env,provider)===null){
+   const configured=providerConfiguration(env,provider);
+   if(configured===null){
     const output='Stored provider settings could not be read. Configuration is unknown; no cloud request was made.';
     const row=await saveRun('failed',output,{mode:'provider_status_unknown',provider,thinking:Boolean(x.thinking)});
     await audit(db,me,'AI_RUN_PROVIDER_STATUS_UNKNOWN',provider,request);
     return reply({ok:false,traceId,provider,model,status:'failed',code:'PROVIDER_STATUS_UNKNOWN',simulated:false,error:output+' Retry when settings are available or use local tools.',createdAt:row[0]?.created_at},503);
    }
-   if(!cfg.key){
-    const output='No external AI call was made because this provider has no server-side API key configured.';
+   if(configured===false){
+    const omni=provider==='omniroute';
+    const output=omni?'No external AI call was made because OmniRoute requires a server-side key and endpoint.':'No external AI call was made because this provider has no server-side API key configured.';
     const row=await saveRun('not_configured',output,{mode:'not_configured',provider,thinking:Boolean(x.thinking)});
     await audit(db,me,'AI_RUN_NOT_CONFIGURED',provider,request);
-    return reply({ok:false,traceId,provider,model,status:'not_configured',simulated:false,error:'This provider is not configured yet. Add its API key in Cloudflare Pages environment variables, then retry.',createdAt:row[0]?.created_at},503);
+    const error=omni?'OmniRoute is not configured. An administrator must set both its server-side API key and HTTPS endpoint.':'This provider is not configured yet. Add its API key in Cloudflare Pages environment variables, then retry.';
+    return reply({ok:false,traceId,provider,model,status:'not_configured',simulated:false,error,createdAt:row[0]?.created_at},503);
    }
    const agentNames={general:'Power AI Assistant',research:'Research Assistant',coding:'Coding Assistant',creative:'Creative Assistant',analysis:'Analysis Assistant',nexus:'General Assistant',aether:'Creative & Code Assistant',deepreason:'Reasoning Assistant',titan:'Fast Assistant',superpower:'Superpower Agent', 'open-gpt':'OpenGPT Assistant','ux-ui-pro-max':'UX/UI Pro Max',omniroute:'OmniRoute Assistant',omniverse:'Omniverse Intelligence','mission-orchestrator':'Mission Orchestrator','knowledge-vault':'Knowledge Vault','voice-agent':'Voice Assistant','health-agent':'Health Information Assistant',supervisor:'Supervisor Agent',autogpt:'AutoGPT Planner'};
    const specialistRules=agentId==='health-agent'?' For health topics, provide general educational information only, do not diagnose or prescribe, flag emergencies, and encourage qualified clinical care; state uncertainty and do not invent citations.':agentId==='ux-ui-pro-max'?' Focus on professional UX/UI, accessibility, responsive layouts, design tokens, and actionable implementation steps.':agentId==='mission-orchestrator'||agentId==='superpower'||agentId==='supervisor'||agentId==='autogpt'?' Break work into bounded steps, identify required tools and approvals, and never claim an external action ran unless a tool actually executed.':agentId==='voice-agent'?' Provide voice-agent design and scripts in text; do not claim audio capture or speech synthesis is active in this text API.':agentId==='knowledge-vault'?' Distinguish information actually provided or retrieved from assumptions; do not claim access to saved files unless a retrieval tool ran.':'';

@@ -28,6 +28,8 @@ test('provider configuration distinguishes absent, unknown, stored and deploymen
   const failed = unavailableProviderEnv({ OMNIROUTE_KEY: 'local-test-only', OMNIROUTE_URL: 'https://example.invalid' });
   assert.equal(providerConfiguration(failed, 'gemini'), null);
   assert.equal(providerConfiguration(failed, 'omniroute'), true, 'OmniRoute is environment-only');
+  assert.equal(providerConfiguration({ OMNIROUTE_KEY: ' ', OMNIROUTE_URL: 'https://fixture.invalid' }, 'omniroute'), false);
+  assert.equal(providerConfiguration({ OMNIROUTE_KEY: 'fixture-key', OMNIROUTE_URL: '  ' }, 'omniroute'), false);
   assert.equal(aggregateProviderConfiguration([false, false]), false);
   assert.equal(aggregateProviderConfiguration([false, null]), null);
   assert.equal(aggregateProviderConfiguration([true, null]), true);
@@ -202,6 +204,82 @@ test('all provider surfaces report unreadable settings without sending cloud req
     const malformed = await admin('/ai/capabilities');
     assert.equal(malformed.data.providers.find(item => item.id === 'gemini').configured, null);
     assert.equal(malformed.data.providers.find(item => item.id === 'openai').configured, true);
+
+    // Exercise the real assistant -> AI adapter path with a disposable endpoint
+    // fixture, not a live provider or account. The settings table is unavailable.
+    failSettings = true;
+    delete env.OPENAI_API_KEY;
+    const omniKey = 'fixture-omniroute-key-not-real';
+    env.OMNIROUTE_KEY = omniKey;
+    env.OMNIROUTE_URL = 'https://omni.fixture.invalid/v1';
+    const legacy = await admin('/assistant/state?metadata=1');
+    assert.equal(legacy.data.cloudConfigured, null);
+    assert.equal(Object.hasOwn(legacy.data.cloudProviders, 'omniroute'), false);
+    const extended = await admin('/assistant/state?metadata=1&includeOmniRoute=1');
+    assert.equal(extended.data.cloudConfigured, true);
+    assert.equal(extended.data.cloudProviders.omniroute, true);
+    assert.equal(extended.data.cloudProviders.gemini, null);
+    assert.ok(!JSON.stringify(extended.data).includes(omniKey));
+    env.OMNIROUTE_URL = 'https://another.fixture.invalid/v2';
+    const alternate = await admin('/assistant/state?metadata=1&includeOmniRoute=1');
+    assert.deepEqual(alternate.data, extended.data, 'provider metadata must not expose the endpoint');
+    env.OMNIROUTE_URL = 'https://omni.fixture.invalid/v1';
+
+    const saved = await admin('/assistant/confirm', 'POST', { confirmed: true, action: { type: 'create_note', content: 'Private fixture note never sent' } }, token);
+    assert.equal(saved.status, 200);
+    const runsBefore = (await db.query('SELECT count(*)::int AS n FROM ai_runs')).rows[0].n;
+    const notesBefore = (await admin('/assistant/notes')).data.notes.length;
+    let omniRequest;
+    globalThis.fetch = async (url, options) => {
+      providerCalls++;
+      omniRequest = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
+      return Response.json({ choices: [{ message: { content: 'Mocked OmniRoute answer' } }] });
+    };
+    const beforeOmni = providerCalls;
+    const answer = await admin('/assistant/chat', 'POST', {
+      message: 'Suggest a name for my garden', mode: 'cloud', provider: 'omniroute',
+      voice: true, language: 'ur-PK', history: [{ role: 'user', content: 'My garden is small.' }]
+    }, token);
+    assert.equal(answer.status, 200);
+    assert.equal(answer.data.mode, 'cloud');
+    assert.equal(answer.data.output, 'Mocked OmniRoute answer');
+    assert.equal(providerCalls, beforeOmni + 1);
+    assert.equal(omniRequest.url, 'https://omni.fixture.invalid/v1/chat/completions');
+    assert.equal(omniRequest.headers.authorization, 'Bearer ' + omniKey);
+    const sentText = omniRequest.body.messages.at(-1).content;
+    assert.match(sentText, /You are JARVIS/);
+    assert.match(sentText, /requested language \(ur-PK\)/);
+    assert.match(sentText, /My garden is small/);
+    assert.doesNotMatch(sentText, /Private fixture note never sent/);
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM ai_runs')).rows[0].n, runsBefore, 'private assistant chat must not create AI history');
+    assert.ok(!JSON.stringify(answer.data).includes(omniKey));
+
+    const proposal = await admin('/assistant/chat', 'POST', { message: 'save note: Draft fixture', mode: 'cloud', provider: 'omniroute', voice: true }, token);
+    assert.equal(proposal.data.action.type, 'create_note');
+    assert.equal((await admin('/assistant/notes')).data.notes.length, notesBefore);
+    assert.equal(providerCalls, beforeOmni + 1, 'a save proposal must not be forwarded or saved');
+
+    env.OMNIROUTE_URL = '  ';
+    const incomplete = await admin('/assistant/state?metadata=1&includeOmniRoute=1');
+    assert.equal(incomplete.data.cloudProviders.omniroute, false);
+    assert.equal(incomplete.data.cloudConfigured, null);
+    const incompleteFallback = await admin('/assistant/chat', 'POST', { message: 'Suggest a garden name', mode: 'cloud', provider: 'omniroute' }, token);
+    assert.match(incompleteFallback.data.cloudError, /not configured/i);
+    const directIncomplete = await admin('/ai/run', 'POST', { prompt: 'A test', provider: 'omniroute', privacyMode: true }, token);
+    assert.equal(directIncomplete.status, 503);
+    assert.match(directIncomplete.data.error, /both.*key.*endpoint/i);
+    assert.equal(providerCalls, beforeOmni + 1, 'an incomplete endpoint must not receive a request');
+
+    env.OMNIROUTE_URL = 'http://omni.fixture.invalid/v1';
+    const insecure = await admin('/assistant/chat', 'POST', { message: 'Suggest a garden name', mode: 'cloud', provider: 'omniroute' }, token);
+    assert.match(insecure.data.cloudError, /must use HTTPS/i);
+    assert.equal(providerCalls, beforeOmni + 1, 'an insecure endpoint must not receive a request');
+    env.OMNIROUTE_URL = 'https://omni.fixture.invalid/v1';
+    globalThis.fetch = async () => Response.json({ error: { message: `Rejected ${omniKey}` } }, { status: 401 });
+    const rejectedOmni = await admin('/assistant/chat', 'POST', { message: 'Suggest a garden name', mode: 'cloud', provider: 'omniroute' }, token);
+    assert.equal(rejectedOmni.data.mode, 'local-fallback');
+    assert.match(rejectedOmni.data.cloudError, /rejected credentials or model access/i);
+    assert.ok(!JSON.stringify(rejectedOmni.data).includes(omniKey));
   } finally {
     globalThis.fetch = originalFetch;
     await db.close();
