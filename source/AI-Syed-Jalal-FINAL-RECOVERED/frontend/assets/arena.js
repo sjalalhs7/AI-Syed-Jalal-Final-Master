@@ -304,13 +304,38 @@
       return;
     }
     try {
-      const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json());
+      const session = await api('/me');
+      if (typeof session?.authenticated !== 'boolean' || (session.authenticated && typeof session.user?.username !== 'string')) {
+        const error = new Error('The account service returned an invalid response.');
+        error.status = 200;
+        throw error;
+      }
       csrf = session.csrfToken || '';
-      user = session.user || null;
-    } catch { user = null; }
+      user = session.authenticated ? session.user : null;
+    } catch (error) {
+      user = null; csrf = '';
+      $('accountBtn').textContent = 'Sign in';
+      $('demoBtn').hidden = true;
+      const message = error.data?.code === 'DATABASE_NOT_CONFIGURED'
+        ? 'This deployment’s database is not configured. Arena cannot start here. Ask the site owner to configure it; no password was checked by this request.'
+        : error.status ? 'The application responded, but the Arena account service is unavailable. Try again or contact the site owner.'
+        : 'The application server could not be reached. Check the connection and try again.';
+      $('buildHint').textContent = 'Battles are unavailable until the application account service is working.';
+      $('runHint').textContent = message;
+      setStatus(message, 'fail');
+      enforceLimits();
+      return;
+    }
+    // Disposable accounts exist only on the isolated local server, not on a
+    // normal deployment or when the health check is unavailable.
+    const health = user ? null : await api('/health').catch(() => null);
+    const localPreview = health?.localPreview === true;
     $('accountBtn').textContent = user ? `Sign out (${user.username})` : 'Sign in';
-    $('demoBtn').hidden = Boolean(user);
-    $('runHint').textContent = user ? 'Signed in. Battles, votes and the leaderboard are saved to this account.' : 'Signed out? Use “Try the local preview” to open a disposable sandbox account and battle the local engines with no key.';
+    $('demoBtn').hidden = Boolean(user) || !localPreview;
+    $('runHint').textContent = user ? 'Signed in. Battles, votes and the leaderboard are saved to this account.'
+      : localPreview ? 'Use “Try the local preview” to open a disposable sandbox account and battle the local engines with no key.'
+      : 'Sign in from the homepage to run a battle and save the results.';
+    setStatus(user ? 'Ready.' : localPreview ? 'Local preview is available. Sign in or start it to begin.' : 'Sign in to begin.', '');
     // A preview sign-in is still running while its history and leaderboard
     // load. Never re-enable submission before the in-flight operation ends.
     enforceLimits();

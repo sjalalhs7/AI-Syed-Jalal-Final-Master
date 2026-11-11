@@ -68,6 +68,55 @@ test('Arena: static host states its limits and cannot simulate a battle', async 
   expect(errors).toEqual([]);
 });
 
+test('Arena offers a disposable preview only when available and reports startup failures', async ({ page }) => {
+  let mode = 'pending', releaseHealth, healthStarted;
+  const gate = new Promise(resolve => { releaseHealth = resolve; });
+  const started = new Promise(resolve => { healthStarted = resolve; });
+  await page.route('**/api/me', route => {
+    if (mode === 'network') return route.abort('failed');
+    if (mode === 'missing') return route.fulfill({ status: 503, json: { code: 'DATABASE_NOT_CONFIGURED', error: 'Neon DATABASE_URL is not configured' } });
+    if (mode === 'http') return route.fulfill({ status: 500, json: { error: 'Account service failed' } });
+    if (mode === 'invalid') return route.fulfill({ status: 200, body: 'not JSON' });
+    return route.fulfill({ json: { authenticated: false, user: null, csrfToken: null } });
+  });
+  await page.route('**/api/health', async route => {
+    if (mode === 'pending') { healthStarted(); await gate; }
+    if (mode === 'health-failed') return route.abort('failed');
+    return route.fulfill({ json: { ok: true, localPreview: mode === 'local' } });
+  });
+  await page.goto('/arena.html');
+  await started;
+  try {
+    await expect(page.locator('#demoBtn')).toBeHidden();
+    await expect(page.locator('#runBtn')).toBeDisabled();
+    await expect(page.locator('#runHint')).toContainText('Checking account and preview availability');
+  } finally { releaseHealth(); }
+  await expect(page.locator('#runHint')).toContainText('Sign in from the homepage');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+
+  mode = 'local'; await page.reload();
+  await expect(page.locator('#demoBtn')).toBeVisible();
+  await expect(page.locator('#runHint')).toContainText('disposable sandbox account');
+  mode = 'health-failed'; await page.reload();
+  await expect(page.locator('#runHint')).toContainText('Sign in from the homepage');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  mode = 'missing'; await page.reload();
+  await expect(page.locator('#runHint')).toContainText('database is not configured');
+  await expect(page.locator('#runHint')).toContainText('no password was checked');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  await expect(page.locator('#runBtn')).toBeDisabled();
+  mode = 'http'; await page.reload();
+  await expect(page.locator('#runHint')).toContainText('application responded');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  mode = 'invalid'; await page.reload();
+  await expect(page.locator('#runHint')).toContainText('application responded');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  mode = 'network'; await page.reload();
+  await expect(page.locator('#runHint')).toContainText('server could not be reached');
+  await expect(page.locator('#demoBtn')).toBeHidden();
+  await expect(page.locator('#runBtn')).toBeDisabled();
+});
+
 test('Arena keeps Run disabled until preview sign-in finishes loading account data', async ({ page }) => {
   let release, markStarted;
   const gate = new Promise(resolve => { release = resolve; });
