@@ -59,8 +59,11 @@ credentials. This repository update does **not** apply migrations to production.
 The Android folder is a TWA **starting point**, not a release. It targets API 36.
 The [Android CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42364305016)
 built a debug APK and unsigned AAB and inspected the APK target and permissions.
-Artifacts are test-only and may expire. A successful build does not prove
-installation, website association, microphone support, security, policy
+Actions artifacts are test-only and may expire. The debug APK from the later
+[Android test build](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42370869040)
+has also been retained as a [test-only GitHub prerelease](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-test-apk-retained-v1);
+this is not a release-signed or Play-approved app. A successful build does not
+prove installation, website association, microphone support, security, policy
 compliance or Play acceptance. The application ID is provisional. See
 [`android/README.md`](../android/README.md) for signing and Digital Asset Links.
 

@@ -21,6 +21,18 @@ backend and database; web features can vary by Android/browser version.
 - There is no push-notification delegation, background sync, or filesystem API in
   this shell. Browser microphone permission is requested only by the website.
 
+## Retained test APK
+
+A copy of the existing debug build is available as a public, explicitly
+[test-only GitHub prerelease](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-test-apk-retained-v1),
+with the APK and its SHA-256 checksum. It is the same APK from
+[Android test build 42370869040](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42370869040),
+not a new signed release. Its release asset has no seven-day Actions artifact
+expiry, although its availability depends on the repository and GitHub. Its
+package, target SDK, signature, and sensitive-permission checks were repeated;
+installation on a physical device was not verified. It still opens the live
+website and depends on its backend and database.
+
 ## Build and inspect
 
 ```sh
