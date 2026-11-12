@@ -40,22 +40,23 @@ jobs:
                               snap=item.get('snapshot',{}); request=snap.get('request',{})
                               if '/api/ready' not in request.get('url',''): continue
                               response=snap.get('response',{}); content=response.get('content',{})
-                              sha=content.get('_sha1'); resource='resources/'+str(sha)
-                              body=z.read(resource).decode('utf8','replace')[:700] if sha and resource in z.namelist() else '(body not recorded)'
-                              notice('Synthetic readiness response', f"status={response.get('status')} time={snap.get('time')} content={content} body={body}")
+                              resource=content.get('_file') or ('resources/'+str(content.get('_sha1')))
+                              body=z.read(resource).decode('utf8','replace')[:700] if resource in z.namelist() else '(body not recorded)'
+                              notice('Synthetic readiness response', f"status={response.get('status')} start={snap.get('_monotonicTime')} elapsed={snap.get('time')} body={body}")
                       if name.endswith('.trace'):
                           found=[]
                           def walk(node):
                               if isinstance(node,list):
                                   if len(node)>1 and isinstance(node[1],dict) and node[1].get('id') in ('schemaRepairTag','schemaRepairText','opsDb','opsApi'):
-                                      found.append((node[1].get('id'),json.dumps(node,ensure_ascii=False)[:500]))
+                                      found.append((node[1].get('id'),str(stamp)+' '+json.dumps(node,ensure_ascii=False)[:500]))
                                   for child in node: walk(child)
                               elif isinstance(node,dict):
                                   for child in node.values(): walk(child)
                           for line in z.read(name).splitlines():
                               try: item=json.loads(line)
                               except Exception: continue
-                              if item.get('type')=='frame-snapshot': walk(item.get('snapshot',{}).get('html'))
+                              if item.get('type')=='frame-snapshot':
+                                  stamp=item.get('snapshot',{}).get('timestamp'); walk(item.get('snapshot',{}).get('html'))
                           for key in ('schemaRepairTag','schemaRepairText','opsDb','opsApi'):
                               values=[value for ident,value in found if ident==key]
                               notice('Synthetic DOM '+key, '\n'.join(values[-4:]) or 'No matching inline snapshot node')
