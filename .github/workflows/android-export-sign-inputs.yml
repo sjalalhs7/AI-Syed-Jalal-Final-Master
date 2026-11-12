@@ -1,7 +1,7 @@
 name: Assemble updated Android signing input
 
 # Public unsigned build only. The private signing key stays outside GitHub.
-# This build includes the intended-origin-only Android launch fix.
+# This build includes the intended-origin-only Android launch fix and imports.
 # A transient, unreferenced Git blob bridges this workspace's artifact-storage
 # network restriction; the APK is not committed to the branch.
 on:

@@ -24,6 +24,8 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   const launcher = read('app/src/main/java/dev/pages/ai_syed_jalal_live/twa/SafeLauncherActivity.java');
   assert.match(launcher, /CustomTabsClient\.getPackageName\(context,\s*suggestedProvider == null/);
   assert.match(launcher, /Collections\.singletonList\(suggestedProvider\)/);
+  assert.match(launcher, /import android\.content\.Intent;/);
+  assert.match(launcher, /import android\.net\.Uri;/);
   assert.match(launcher, /protected Uri getUrlForIntent\(Intent intent\)/);
   assert.match(launcher, /TRUSTED_HOST\.equalsIgnoreCase\(uri\.getHost\(\)\)/);
   assert.match(launcher, /uri\.getUserInfo\(\) == null/);

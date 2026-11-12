@@ -1,6 +1,8 @@
 package dev.pages.ai_syed_jalal_live.twa;
 
 import android.app.AlertDialog;
+import android.content.Intent;
+import android.net.Uri;
 import android.util.Log;
 
 import androidx.browser.customtabs.CustomTabsClient;
