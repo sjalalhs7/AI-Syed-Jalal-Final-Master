@@ -1,0 +1,74 @@
+name: Inspect final synthetic test failures
+
+# One-time branch diagnostic: all artifacts were produced by isolated tests.
+on:
+  push:
+    branches: ['arena/**']
+    paths: ['.github/workflows/inspect-final-tests.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Inspect the Operations test's synthetic trace
+        run: |
+          set -euo pipefail
+          gh run download 43284426615 -R "$GITHUB_REPOSITORY" -n browser-test-evidence -D "$RUNNER_TEMP/web-evidence"
+          python3 - "$RUNNER_TEMP/web-evidence" <<'PY'
+          from pathlib import Path
+          import json, sys, zipfile
+          root=Path(sys.argv[1])
+          out=[]
+          contexts=list(root.rglob('error-context.md'))
+          out.append('Error contexts: '+', '.join(str(p.relative_to(root)) for p in contexts))
+          for p in contexts:
+              if 'workspace-initialization' not in str(p): continue
+              lines=p.read_text(encoding='utf8',errors='replace').splitlines()
+              hits=[i for i,line in enumerate(lines) if any(x in line.lower() for x in ('unknown','schema state','schema repair','readiness','timed out'))]
+              indices=set(j for i in hits for j in range(max(0,i-2), min(len(lines),i+3)))
+              out.append('\n'.join(lines[i] for i in sorted(indices))[:7000])
+          for path in root.rglob('trace.zip'):
+              if 'workspace-initialization' not in str(path): continue
+              out.append('Trace: '+str(path.relative_to(root)))
+              with zipfile.ZipFile(path) as z:
+                  for name in z.namelist():
+                      if not name.endswith('.network'): continue
+                      for line in z.read(name).splitlines():
+                          try: item=json.loads(line)
+                          except Exception: continue
+                          snap=item.get('snapshot',{})
+                          request=snap.get('request',{})
+                          if '/api/ready' not in request.get('url',''): continue
+                          response=snap.get('response',{})
+                          out.append('ready network: status='+str(response.get('status'))+' statusText='+str(response.get('statusText'))+' time='+str(snap.get('time'))+' failure='+str(snap.get('_failureText')))
+          text=('\n'.join(out) or 'No synthetic trace found.')[:16000]
+          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::notice file=source/AI-Syed-Jalal-FINAL-RECOVERED/tests/browser/workspace-initialization.spec.mjs,line=73,title=Operations synthetic failure evidence::'+text)
+          PY
+      - name: Inspect the cancelled Android 11 signed test
+        run: |
+          set -euo pipefail
+          gh run view 43281505969 -R "$GITHUB_REPOSITORY" --job 131403664192 --log > "$RUNNER_TEMP/android.log"
+          gh run download 43281505969 -R "$GITHUB_REPOSITORY" -n android-signed-candidate-evidence-api-30 -D "$RUNNER_TEMP/android-evidence"
+          python3 - "$RUNNER_TEMP/android.log" "$RUNNER_TEMP/android-evidence" <<'PY'
+          from pathlib import Path
+          import sys
+          lines=Path(sys.argv[1]).read_text(encoding='utf8',errors='replace').splitlines()
+          hits=[i for i,s in enumerate(lines) if any(x in s.lower() for x in ('error','failed','offline','not found','fatal','closed','cancel','timeout','timed out'))]
+          indices=set(j for i in hits[-12:] for j in range(max(0,i-2),min(len(lines),i+3)))
+          out=['\n'.join(lines[i] for i in sorted(indices))[-9000:]]
+          root=Path(sys.argv[2])
+          out.append('Evidence files: '+', '.join(p.name for p in root.iterdir()))
+          for name in ('external-intent-start.txt','external-intent-filter.txt','relaunch-logcat.txt'):
+              p=root/name
+              if p.exists(): out.append(name+': '+p.read_text(encoding='utf8',errors='replace')[-2500:])
+          text='\n'.join(out)[:16000].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::notice file=android/README.md,line=1,title=Cancelled Android 11 evidence::'+text)
+          PY
