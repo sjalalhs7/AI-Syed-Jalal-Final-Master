@@ -1,0 +1,140 @@
+name: Test and retain the signed Android candidate
+
+# This one-time branch workflow deals only with a public signed APK. The signing
+# key never leaves the owner's private workspace. It cannot test real-device
+# Play Protect or certify the website, provider, database, or Play submission.
+on:
+  push:
+    branches: ['arena/**']
+    paths: ['.github/workflows/android-candidate-release.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-prior-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Identify the earlier API 26 test infrastructure failure
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run view 43255543506 -R "$GITHUB_REPOSITORY" --job 131313477558 --log > "$RUNNER_TEMP/prior.log"
+          python3 - "$RUNNER_TEMP/prior.log" <<'PY'
+          import pathlib, sys
+          lines = pathlib.Path(sys.argv[1]).read_text(encoding='utf8', errors='replace').splitlines()
+          selected = [line for line in lines if any(s in line.lower() for s in ('error', 'failed', 'system-images', 'not available', 'exit code'))][-15:]
+          text = '\n'.join(selected)[-8000:] or 'No matching failure text found.'
+          text = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::notice file=android/README.md,line=1,title=Earlier API 26 setup::' + text)
+          PY
+      - name: Identify available Android 8 Play images
+        continue-on-error: true
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list > "$RUNNER_TEMP/sdk-list.txt" 2>&1
+          python3 - "$RUNNER_TEMP/sdk-list.txt" <<'PY'
+          import pathlib, sys
+          lines = pathlib.Path(sys.argv[1]).read_text(encoding='utf8', errors='replace').splitlines()
+          lines = [line.strip() for line in lines if 'system-images;android-26;google_apis_playstore;' in line]
+          text = (' | '.join(lines[:8]) or 'No Play Store image listed').replace('%', '%25')
+          print('::notice file=android/README.md,line=1,title=Android 8 image availability::' + text)
+          PY
+  signed-emulator:
+    name: Signed APK on Android API ${{ matrix.api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Retrieve and verify the exact locally signed public APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/git/blobs/2461ee3dcbedb0bd508a5ee69723fbef8a18c38c" --jq .content | base64 -d > "$RUNNER_TEMP/candidate.apk"
+          echo 'd6b5b376ae7a693521aea8461d2dae11b3d83d00cd0960f364b84d4235050a42  '"$RUNNER_TEMP/candidate.apk" | sha256sum -c -
+          TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          "$TOOLS/apksigner" verify --verbose --print-certs --min-sdk-version 23 "$RUNNER_TEMP/candidate.apk" > "$RUNNER_TEMP/signature.txt"
+          grep -F 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/signature.txt"
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/signature.txt"
+          grep -F 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/signature.txt"
+          grep -F 'certificate SHA-256 digest: 7cee6a85c1335f20038c5e4d405495dde6444bb23a18f3a172e03391abb79eea' "$RUNNER_TEMP/signature.txt"
+          "$TOOLS/zipalign" -c -p 4 "$RUNNER_TEMP/candidate.apk"
+          "$TOOLS/aapt" dump badging "$RUNNER_TEMP/candidate.apk" > "$RUNNER_TEMP/badging.txt"
+          grep -F "package: name='dev.pages.ai_syed_jalal_live.mobile' versionCode='2'" "$RUNNER_TEMP/badging.txt"
+          if grep -q 'application-debuggable' "$RUNNER_TEMP/badging.txt"; then echo 'Candidate must not be debuggable' >&2; exit 1; fi
+          "$TOOLS/aapt" dump permissions "$RUNNER_TEMP/candidate.apk" > "$RUNNER_TEMP/permissions.txt"
+          if grep -E 'android.permission\.(POST_NOTIFICATIONS|MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_[A-Z_]+|ACCESS_MEDIA_LOCATION|MANAGE_MEDIA|RECORD_AUDIO|WAKE_LOCK|RECEIVE_BOOT_COMPLETED|FOREGROUND_SERVICE[A-Z_]*)' "$RUNNER_TEMP/permissions.txt"; then
+            echo 'Unexpected sensitive or background permission' >&2; exit 1
+          fi
+      - name: Download the previous debug APK for the side-by-side install test
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fsSL 'https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/download/android-test-apk-retained-v1/AI-Syed-Jalal-test-debug.apk' -o "$RUNNER_TEMP/old.apk"
+          echo '0cc60099f598a6bf0b67a7f5d8831c51a072ce599a6c1ea7e4cb45c2ef597ad0  '"$RUNNER_TEMP/old.apk" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and open the signed APK on a disposable Android emulator
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          APK_PATH: ${{ runner.temp }}/candidate.apk
+          OLD_APK_PATH: ${{ runner.temp }}/old.apk
+          DIAGNOSTICS_DIR: ${{ runner.temp }}/signed-android-smoke
+          API_LABEL: ${{ matrix.api }}
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash android/tests/smoke-launch.sh
+      - name: Preserve emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-signed-candidate-evidence-api-${{ matrix.api }}
+          path: ${{ runner.temp }}/signed-android-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+  retain:
+    name: Retain tested candidate as a prerelease
+    needs: signed-emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the exact signed APK and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=android-mobile-1.0.1-candidate-v1
+          apk="$RUNNER_TEMP/AI-Syed-Jalal-App-1.0.1.apk"
+          gh api "repos/$GITHUB_REPOSITORY/git/blobs/2461ee3dcbedb0bd508a5ee69723fbef8a18c38c" --jq .content | base64 -d > "$apk"
+          echo 'd6b5b376ae7a693521aea8461d2dae11b3d83d00cd0960f364b84d4235050a42  '"$apk" | sha256sum -c -
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$apk")" > "$(basename "$apk").sha256")
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          **Release-signed candidate, not a Google Play release or a guarantee that installation warnings disappear.**
+
+          This APK fixes a reproduced launch crash caused by a missing Android Browser Helper component. The exact signed APK was installed alongside the previous debug APK and opened the public homepage on disposable Android 11 and Android 15 emulators. Those tests used `adb`, which does not reproduce a physical phone's installer or Play Protect warnings. No physical-device test or Google approval has occurred.
+
+          This is a Trusted Web Activity: it opens the website in a compatible browser, not an independent native AI backend. The new provisional package `dev.pages.ai_syed_jalal_live.mobile` is separate from the old `.twa` debug package, so the old app need not be uninstalled to try it. The website and app still rely on the same backend; the last readiness check reported only 13 of 24 required table names, so some features may fail. No database migration was performed for this release.
+
+          The certificate fingerprint and source association are public; the private signing key is not part of this APK or repository. Digital Asset Links deployment and physical verification must be checked separately. Availability of this GitHub release depends on GitHub and the repository.
+
+          Android source used to build the unsigned APK: commit `d410e988bb4e632ec5b63247f27c095546124bab`. SHA-256 is in the accompanying file.
+          NOTES
+          gh release create "$tag" "$apk" "$apk.sha256" -R "$GITHUB_REPOSITORY" --target d410e988bb4e632ec5b63247f27c095546124bab --prerelease --title 'Android 1.0.1 — signed candidate, not Play release' --notes-file "$RUNNER_TEMP/release-notes.md"

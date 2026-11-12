@@ -132,7 +132,12 @@ check_no_app_crash relaunch
 adb shell input keyevent HOME
 adb shell am force-stop "$PACKAGE"
 if adb shell pm list packages | grep -Fxq 'package:com.android.chrome'; then
+  # A previously opened browser task can remain visible in the emulator; stop
+  # it before disabling Chrome so a stale page cannot count as a fallback.
+  adb shell am force-stop com.android.chrome || true
   adb shell pm disable-user --user 0 com.android.chrome > "$DIAGNOSTICS_DIR/disable-chrome.txt"
+  adb shell pm list packages -d | grep -Fx 'package:com.android.chrome'
+  adb shell input keyevent HOME
   adb logcat -c
   adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
     -n "$PACKAGE/$ACTIVITY" > "$DIAGNOSTICS_DIR/no-chrome-start.txt" 2>&1
@@ -141,6 +146,10 @@ if adb shell pm list packages | grep -Fxq 'package:com.android.chrome'; then
   notice "Android API ${API_LABEL} without Chrome" "$(ui_summary no-chrome)"
   adb exec-out screencap -p > "$DIAGNOSTICS_DIR/no-chrome.png" || true
   check_no_app_crash no-chrome
+  if grep -Fq 'package="com.android.chrome"' "$DIAGNOSTICS_DIR/no-chrome.xml"; then
+    echo "::error file=android/README.md,line=1::The disabled-Chrome test still showed Chrome; it cannot prove fallback behavior on API ${API_LABEL}."
+    exit 1
+  fi
   if ! grep -Eqi 'Browser needed|needs a compatible browser|Professional AI Workspace|One connected workspace|Your AI Partner for a Smarter Tomorrow' "$DIAGNOSTICS_DIR/no-chrome.xml"; then
     echo "::error file=android/README.md,line=1::No homepage or browser-needed explanation was visible without Chrome on API ${API_LABEL}."
     exit 1

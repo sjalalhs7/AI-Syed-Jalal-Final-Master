@@ -44,8 +44,10 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # The API 26 emulator setup did not complete on the hosted runner;
+      # only the listed API levels are counted as exercised here.
       matrix:
-        api: [26, 30, 35]
+        api: [30, 35]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
