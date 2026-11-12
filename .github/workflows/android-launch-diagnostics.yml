@@ -1,0 +1,58 @@
+name: Diagnose Android launch
+
+# This runs on standard public-repository runners, with a disposable emulator.
+# It does not sign in or perform any production database repair or mutation.
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - '.github/workflows/android-launch-diagnostics.yml'
+      - 'android/tests/diagnose-current-apk.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  old-apk:
+    name: Previously delivered APK on Android ${{ matrix.api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download and verify the previously delivered APK
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fsSL 'https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/download/android-test-apk-retained-v1/AI-Syed-Jalal-test-debug.apk' -o "$RUNNER_TEMP/old.apk"
+          echo '0cc60099f598a6bf0b67a7f5d8831c51a072ce599a6c1ea7e4cb45c2ef597ad0  '"$RUNNER_TEMP/old.apk" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch on a disposable Android emulator
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          APK_PATH: ${{ runner.temp }}/old.apk
+          DIAGNOSTICS_DIR: ${{ runner.temp }}/android-diagnostics
+          API_LABEL: ${{ matrix.api }}
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash android/tests/diagnose-current-apk.sh
+      - name: Preserve emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-old-apk-diagnostics-api-${{ matrix.api }}
+          path: ${{ runner.temp }}/android-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
