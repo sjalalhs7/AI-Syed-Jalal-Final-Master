@@ -65,7 +65,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run view 43261909006 -R "$GITHUB_REPOSITORY" --job 131337807802 --log > "$RUNNER_TEMP/release.log"
+          gh run view 43277531971 -R "$GITHUB_REPOSITORY" --job 131389826650 --log > "$RUNNER_TEMP/release.log"
           python3 - "$RUNNER_TEMP/release.log" <<'PY'
           from pathlib import Path
           import sys
