@@ -56,16 +56,17 @@ credentials. This repository update does **not** apply migrations to production.
 
 ## Google Play — still blocked
 
-The Android folder is a TWA **starting point**, not a release. It targets API 36.
-The [Android CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42364305016)
-built a debug APK and unsigned AAB and inspected the APK target and permissions.
-Actions artifacts are test-only and may expire. The debug APK from the later
-[Android test build](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42370869040)
-has also been retained as a [test-only GitHub prerelease](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-test-apk-retained-v1);
-this is not a release-signed or Play-approved app. A successful build does not
-prove installation, website association, microphone support, security, policy
-compliance or Play acceptance. The application ID is provisional. See
-[`android/README.md`](../android/README.md) for signing and Digital Asset Links.
+The Android folder is a provisional TWA, not a completed Play submission. It
+targets API 36. The old debug APK was retained only for diagnostics and is
+known to crash on Android 15; **do not use it**. A separate
+[signed test candidate](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-mobile-1.0.1-candidate-v2)
+fixes that reproduced crash and opened the homepage on Android 8, 11 and 15
+emulators. It has not been tested on a physical phone, is not Play-approved,
+and may still show an installation warning. A build or emulator test does not
+prove physical installation, verified website association, microphone support,
+security, policy compliance or Play acceptance. The application ID remains
+provisional. See [`android/README.md`](../android/README.md) for signing,
+Digital Asset Links and the test evidence.
 
 Before submitting, the operator must:
 
