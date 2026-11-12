@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-  // A deployment whose accounts are all Viewers cannot reach any admin route,
-  // including schema repair. Availability must depend on "no Administrator
-  // exists", not "no users" — a deployment with Viewers but no Admin was
-  // permanently stranded under the old gate.
+  // This mocked setup is offered only when the server reports that no
+  // Administrator exists and the owner has enabled a configured seed. Runtime
+  // authorization and race behavior are covered by the server tests.
   test('first-run panel creates the Administrator and then disappears', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -38,8 +37,8 @@ import { test, expect } from '@playwright/test';
   // The panel must be offered on a fresh deployment, and explain WHY it exists.
   const panel = page.locator('#firstRun');
   await expect(panel).toBeVisible();
-  await expect(page.locator('#firstRunText')).toContainText('No Administrator exists');
-  await expect(page.locator('#firstRunText')).toContainText('Administrator');
+  await expect(page.locator('#firstRunText')).toContainText('No Administrator account exists');
+  await expect(page.locator('#firstRunText')).toContainText('configured seed username and password');
 
   await page.locator('#u').fill('owner');
   await page.locator('#p').fill('StrongPass12345');

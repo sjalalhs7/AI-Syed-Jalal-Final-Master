@@ -227,7 +227,7 @@ document.addEventListener('keydown',e=>e.key==='Escape'&&m.classList.remove('sho
 async function checkFirstRun(){const box=$('firstRun');if(!box)return;if(window.AJ_STATIC_HOST){box.hidden=true;return}
  try{const r=await fetch('/api/bootstrap/status',{credentials:'include'});const d=await r.json();
   if(!d.available||authConnectionState==='unavailable'){box.hidden=true;return}
-  box.hidden=false;$('firstRunText').textContent='No Administrator exists on this deployment, so nobody can reach admin features such as database repair. Normal registration only ever creates a Viewer. Create the first Administrator here — or, if you already have an account, enter its username and password to promote it. This closes permanently once an Administrator exists.';
+  box.hidden=false;$('firstRunText').textContent='No Administrator account exists. The deployment owner has enabled setup and can use the configured seed username and password; an existing account must also have that password. Normal registration creates a Viewer. Setup is unavailable while any Administrator account exists.';
  }catch{box.hidden=true}}
 // Only fixed app destinations may follow sign-in; never navigate to the query value itself.
 const requestedPage=new URLSearchParams(location.search).get('next');

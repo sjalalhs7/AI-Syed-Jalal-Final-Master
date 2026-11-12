@@ -60,27 +60,25 @@ test('provider state reports configured, never "working"', async () => {
   assert.equal(PROVIDER_IDS.length, states.length);
 });
 
-test('first-run bootstrap can only ever create one Administrator', () => {
+test('first-run bootstrap requires an operator-configured seed and a shared limit', () => {
   const source = api();
   const i = source.indexOf("u.pathname==='/api/bootstrap/admin'");
   assert.ok(i > -1, 'bootstrap route missing');
-  const route = source.slice(i, i + 2400);
-  // It must re-check the Admin count, so a second caller cannot race in an Admin.
+  const route = source.slice(i, source.indexOf('async function bootstrapLoginSession', i));
   assert.match(route, /count\(\*\)::int AS n FROM app_users/);
   assert.match(route, /An Administrator already exists/, 'must refuse once an Admin exists');
-  assert.match(route, /'Admin'/, 'the bootstrap account must be an Administrator');
-  assert.match(route, /rateLimited/, 'bootstrap must be rate limited');
-  // An existing account that proves its password is promoted instead of rejected.
-  assert.match(route, /password did not match/, 'wrong password must refuse promotion');
-  assert.match(route, /SET role='Admin'/, 'a matching existing account must be promoted');
+  assert.match(route, /configuredInitialSetup/, 'setup must require the explicit switch and an owner seed');
+  assert.match(route, /consumeRateLimit/, 'setup must use the shared fail-closed limiter');
+  assert.match(route, /password did not match/, 'an existing account must prove its own password');
+  assert.match(route, /SET role='Admin'/, 'a matching existing account can be promoted');
 
   const status = source.indexOf("u.pathname==='/api/bootstrap/status'");
   assert.ok(status > -1);
-  // Availability must depend on "no Administrator exists", not "no users".
-  // A deployment with accounts but no Admin was permanently stranded.
-  assert.match(source.slice(status, status + 1000), /admins===0/,
-    'bootstrap must be available whenever no Administrator exists');
-  assert.match(source.slice(status, status + 1000), /role='Admin' AND active=true/, 'must count real Administrators');
+  const statusRoute = source.slice(status, i);
+  assert.match(statusRoute, /allAdmins===0&&Boolean\(configuredInitialSetup\(env\)\)/);
+  assert.match(statusRoute, /role='Admin' AND active=true/);
+  assert.match(source, /env\.FIRST_ADMIN_SETUP_ENABLED==='true'/);
+  // Runtime, rate-limit, account and race coverage is in bootstrap-security.test.mjs.
 });
 
 test('provider key management is Admin-only and rate limited', () => {

@@ -25,6 +25,20 @@ This source also lets JARVIS and JalalAi use the existing optional OmniRoute ada
 
 The source now has more conservative saved-data routing. Recognized exclusions, including tested examples such as “don't show my notes” and “notes mat dikhao,” ask for clarification rather than initiating a saved-data read, Wikipedia search or cloud request for that assistant turn. Explicit task and note commands can request both lists or only open/completed tasks. Recognition is limited to particular wording and is **not** a general privacy guarantee: an unrecognized exclusion can still be sent as text when Cloud AI or Research is selected, and browser speech may be processed by a vendor. The JalalAi sidebar already loads both lists on sign-in; a recognized exclusion hides those lists on the current page, but cannot erase earlier chat messages, browser history or data already seen. Reloading or choosing **Show saved lists** displays them again. Older open JalalAi pages can still reload both lists after a chat message; refresh the page to load the new client and use combined or filtered reads. These changes describe the source; deployment must be verified separately.
 
+## Administrator setup in this source
+
+The previous public first-Admin setup could be claimed without an owner secret
+when no active Admin existed, and concurrent requests could create more than
+one Admin. The revised source closes initial setup by default; explicitly
+allowing it also requires the configured seed credentials and no Admin account,
+even an inactive one. Attempts use the shared fail-closed limiter. Ordinary
+existing-account sign-in and the separate existing seed-Admin recovery path are
+preserved in disposable-database tests. This is not a permanent initialization
+seal or a global atomic constraint across concurrent role changes. It does not
+perform a database migration or change deployment settings; see
+[`frontend/API-DEPLOYMENT.md`](../source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/API-DEPLOYMENT.md).
+Deployment and current live behavior must be checked separately.
+
 ## Not complete or not independently verified
 
 1. The last read-only live `/api/ready` response showed **13 of 24 required table names**. This is not a count of complete data and does not inspect columns, indexes, migrations or data. Live connection alone is not readiness. Despite the owner's matching-session evidence, the exact Cloudflare connection target, a restorable full backup and an isolated rehearsal remain independently unverified. No production migration or repair has been performed by this audit.
