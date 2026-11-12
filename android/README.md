@@ -46,8 +46,9 @@ showed a browser-needed message with Chrome disabled on Android 8 and 15
 [emulators](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43281505969)
 and in a separate Android 11
 [emulator run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43283063776).
-The Android 11 job in the first run did not complete and is not counted as a
-pass. A [separate check](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43283849828)
+The Android 11 job in the first run timed out after launch and relaunch, before
+completing the remaining checks; its cause is not established and it is not
+counted as a pass. A [separate check](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43283849828)
 verified the public download matches those signed bytes. The URL test is not
 an exhaustive security assessment. These tests used `adb`: neither a physical
 phone's installer and Play Protect warning nor Google Play approval has been

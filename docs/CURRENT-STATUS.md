@@ -41,8 +41,18 @@ Deployment and current live behavior must be checked separately. The branch's
 [application CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43261431617)
 passed its static, unit, integration, audit, backend-release and 229 browser
 tests. An earlier run timed out on one browser race test; a later full run and
-three local repetitions passed. These are synthetic tests, not a production
-login, live provider, database repair or physical-device certification.
+three local repetitions passed. A [subsequent CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43284426615)
+failed an Operations mock: its trace recorded a valid incomplete-readiness
+response, but the UI showed UNKNOWN roughly 12 seconds later. The exact cause
+is unconfirmed. The classification test now gives only its mocked endpoints
+more time, and a separate test checks that a timed-out readiness request stays
+UNKNOWN and never offers repair; production deadlines are unchanged. Another
+[CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43280420620)
+failed one silent-video pixel assertion even though an independently decoded
+frame showed the expected color; later full runs and six focused local
+repetitions passed, but the underlying timing cause is unconfirmed. These are
+synthetic tests, not a production login, live provider, database repair or
+physical-device certification.
 
 ## Not complete or not independently verified
 
