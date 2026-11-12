@@ -60,3 +60,20 @@ jobs:
           text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
           print('::notice file=source/AI-Syed-Jalal-FINAL-RECOVERED/tests/browser/data-transfer-race.spec.mjs,line=1,title=Last synthetic browser actions::'+text)
           PY
+      - name: Inspect the Android release-retention failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run view 43261909006 -R "$GITHUB_REPOSITORY" --job 131337807802 --log > "$RUNNER_TEMP/release.log"
+          python3 - "$RUNNER_TEMP/release.log" <<'PY'
+          from pathlib import Path
+          import sys
+          lines=Path(sys.argv[1]).read_text(encoding='utf8',errors='replace').splitlines()
+          hits=[i for i,line in enumerate(lines) if any(term in line.lower() for term in ('http ', 'error', 'failed', 'denied', 'not found'))]
+          excerpts=[]
+          for i in hits[-5:]: excerpts+=lines[max(0,i-2):min(len(lines),i+3)]
+          text=('\n'.join(excerpts) or '\n'.join(lines[-15:]))[:10000]
+          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::notice file=android/README.md,line=1,title=Android retention failure::'+text)
+          PY
