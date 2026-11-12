@@ -20,7 +20,9 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   assert.match(manifest, /android:name="android\.support\.customtabs\.trusted\.MANAGE_SPACE_URL"/);
   assert.match(manifest, /android:name="dev\.pages\.ai_syed_jalal_live\.twa\.SafeLauncherActivity"/);
   const launcher = read('app/src/main/java/dev/pages/ai_syed_jalal_live/twa/SafeLauncherActivity.java');
-  assert.match(launcher, /CustomTabsClient\.getPackageName\(context, null\)/);
+  assert.match(launcher, /CustomTabsClient\.getPackageName\(context,\s*suggestedProvider == null/);
+  assert.match(launcher, /Collections\.singletonList\(suggestedProvider\)/);
+  assert.match(manifest, /android\.support\.customtabs\.action\.CustomTabsService/);
   assert.match(launcher, /showBrowserNeeded\(\)/);
   assert.match(launcher, /TwaLauncher\.CCT_FALLBACK_STRATEGY\.launch/);
   assert.match(manifest, /https:\/\/ai-syed-jalal-live\.pages\.dev\//);

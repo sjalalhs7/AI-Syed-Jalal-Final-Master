@@ -20,8 +20,11 @@ backend and database; web features can vary by Android/browser version.
 - Until website-to-app Digital Asset Links are configured with the certificate
   used for installation, a browser address bar may appear; do not claim a TWA is
   verified. When a TWA is unavailable, the launcher uses an installed Custom
-  Tabs browser. If none is available or it cannot be opened, it shows a clear
-  browser-needed message rather than launching an arbitrary URL handler.
+  Tabs browser. If Android's default URL handler is a chooser, the launcher's
+  fallback checks the Browser Helper's suggested provider for Custom Tabs
+  support instead of overlooking it. If no compatible provider is available or
+  it cannot be opened, it shows a browser-needed message rather than launching
+  an arbitrary URL handler.
 - There is no push-notification delegation, background sync, or filesystem API in
   this shell. Browser microphone permission is requested only by the website.
 

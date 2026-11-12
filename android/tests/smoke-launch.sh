@@ -46,12 +46,13 @@ click_browser_first_run() {
   local point
   point=$(python3 - "$DIAGNOSTICS_DIR/$1.xml" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
-allowed = {'Use without an account', 'Accept & continue', 'Accept and continue',
-           'Continue without an account', 'No thanks', 'No, thanks', 'Got it'}
+allowed = {value.casefold() for value in ('Use without an account', 'Accept & continue',
+           'Accept and continue', 'Continue without an account', 'No thanks',
+           'No, thanks', 'Got it', 'Next', 'Skip')}
 try:
     root = ET.parse(sys.argv[1]).getroot()
     for node in root.iter('node'):
-        if node.get('text','').strip() not in allowed: continue
+        if node.get('text','').strip().casefold() not in allowed: continue
         match = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds',''))
         if match:
             x1,y1,x2,y2 = map(int, match.groups())

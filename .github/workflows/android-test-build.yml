@@ -44,7 +44,7 @@ jobs:
           grep -F 'com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity' /tmp/android-manifest.txt
           grep -F 'dev.pages.ai_syed_jalal_live.twa.SafeLauncherActivity' /tmp/android-manifest.txt
           "$AAPT" dump permissions "$APK" > /tmp/android-permissions.txt
-          if grep -E 'android.permission\.(POST_NOTIFICATIONS|MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_[A-Z_]+|ACCESS_MEDIA_LOCATION|MANAGE_MEDIA|RECORD_AUDIO|WAKE_LOCK|RECEIVE_BOOT_COMPLETED|FOREGROUND_SERVICE[A-Z_]*)' /tmp/android-permissions.txt; then
+          if grep -E 'android[.]permission[.](POST_NOTIFICATIONS|MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_[A-Z_]+|ACCESS_MEDIA_LOCATION|MANAGE_MEDIA|RECORD_AUDIO|WAKE_LOCK|RECEIVE_BOOT_COMPLETED|FOREGROUND_SERVICE[A-Z_]*)' /tmp/android-permissions.txt; then
             echo 'Unexpected notification, filesystem, background-work or native microphone permission' >&2; exit 1
           fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

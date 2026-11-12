@@ -8,6 +8,8 @@ import androidx.browser.customtabs.CustomTabsClient;
 import com.google.androidbrowserhelper.trusted.LauncherActivity;
 import com.google.androidbrowserhelper.trusted.TwaLauncher;
 
+import java.util.Collections;
+
 /**
  * Use a real Custom Tabs provider or explain why the app cannot open.
  *
@@ -23,8 +25,15 @@ public class SafeLauncherActivity extends LauncherActivity {
 
     @Override
     protected TwaLauncher.FallbackStrategy getFallbackStrategy() {
-        return (context, builder, ignoredProvider, completionCallback) -> {
-            String provider = CustomTabsClient.getPackageName(context, null);
+        return (context, builder, suggestedProvider, completionCallback) -> {
+            // The system's default VIEW handler can be its chooser rather than
+            // a browser (for example when Chrome and a WebView test shell are
+            // both installed). Keep the Browser Helper's suggested provider
+            // as a candidate, but let AndroidX verify it has a Custom Tabs
+            // service. Passing null here discarded a working Chrome on API 26.
+            String provider = CustomTabsClient.getPackageName(context,
+                    suggestedProvider == null ? Collections.emptyList()
+                            : Collections.singletonList(suggestedProvider));
             if (provider == null) {
                 showBrowserNeeded();
                 return;

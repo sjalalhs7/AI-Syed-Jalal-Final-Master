@@ -1,6 +1,7 @@
 name: Assemble updated Android signing input
 
 # Public unsigned build only. The private signing key stays outside GitHub.
+# This build includes the Android 8 Custom Tabs provider-selection fix.
 # A transient, unreferenced Git blob bridges this workspace's artifact-storage
 # network restriction; the APK is not committed to the branch.
 on:
