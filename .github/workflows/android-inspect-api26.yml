@@ -14,51 +14,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Inspect the failed unsigned release build
+      - name: Inspect the latest Android 8 emulator evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run view 43258286607 -R "$GITHUB_REPOSITORY" --job 131322355783 --log > "$RUNNER_TEMP/build.log"
-          python3 - "$RUNNER_TEMP/build.log" <<'PY'
-          from pathlib import Path
-          import sys
-          lines=Path(sys.argv[1]).read_text(encoding='utf8',errors='replace').splitlines()
-          hits=[i for i,s in enumerate(lines) if any(x in s.lower() for x in ('what went wrong', 'error:', 'failed', 'exception', 'could not'))]
-          start=max(0, min(hits[-5:] or [len(lines)-45])-6)
-          text='\n'.join(lines[start:min(len(lines),start+60)])[-10000:]
-          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
-          print('::notice file=android/README.md,line=1,title=Release build failure::'+text)
-          PY
-      - name: Inspect completed Android 8 job log
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh run view 43257701553 -R "$GITHUB_REPOSITORY" --job 131321416721 --log > "$RUNNER_TEMP/job.log"
-          python3 - "$RUNNER_TEMP/job.log" <<'PY'
-          from pathlib import Path
-          import sys
-          lines=Path(sys.argv[1]).read_text(encoding='utf8',errors='replace').splitlines()
-          hits=[i for i,s in enumerate(lines) if any(x in s.lower() for x in ('package:dev.pages.ai_syed', 'error', 'failed', 'exception'))]
-          start=max(0, min(hits[-4:] or [len(lines)-45])-5)
-          text='\n'.join(lines[start:min(len(lines),start+50)])[-9000:]
-          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
-          print('::notice file=android/README.md,line=1,title=API26 job failure::'+text)
-          PY
-      - name: Inspect synthetic emulator evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh run download 43257701553 -R "$GITHUB_REPOSITORY" -n android-launch-evidence-api-26 -D "$RUNNER_TEMP/evidence"
+          gh run download 43258909450 -R "$GITHUB_REPOSITORY" -n android-launch-evidence-api-26 -D "$RUNNER_TEMP/evidence"
           python3 - "$RUNNER_TEMP/evidence" <<'PY'
           from pathlib import Path
           import sys
           root=Path(sys.argv[1])
-          for p in sorted(root.iterdir()):
-              if p.is_file() and p.suffix == '.txt' and p.name != 'packages.txt':
-                  text=p.read_text(encoding='utf8',errors='replace')[:5000]
-                  text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
-                  print(f'::notice file=android/README.md,line=1,title=API26 {p.name}::{text}')
+          for name in ('packages.txt','launch-start.txt','install-old.txt','install-new.txt','launch.xml'):
+              p=root/name
+              if not p.exists():
+                  text='Not recorded'
+              else:
+                  text=p.read_text(encoding='utf8',errors='replace')
+                  if name=='packages.txt':
+                      text='\n'.join(line for line in text.splitlines() if any(s in line.lower() for s in ('browser','chrome','webview','syed')))
+                  elif name=='launch.xml':
+                      import re
+                      text=' | '.join(re.findall(r'(?:text|content-desc)="([^"]+)"',text))
+                  text=text[:5000]
+              text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::notice file=android/README.md,line=1,title=API26 {name}::{text}')
           PY
