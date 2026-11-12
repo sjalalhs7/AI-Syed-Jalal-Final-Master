@@ -1,0 +1,92 @@
+name: Publish retained Android test APK
+
+# One-time publication requested for the current session branch. This preserves
+# the existing verified debug APK, without claiming it is a production release.
+on:
+  push:
+    branches: ['arena/8412eff6-ai-syed-jalal-final-master']
+    paths: ['.github/workflows/publish-retained-android-test.yml']
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-test-apk:
+    name: Preserve the existing Android test APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: '42370869040'
+      SOURCE_ARTIFACT: '13573880772'
+      SOURCE_SHA: '51e4f3e225d6b1dd3f24a5ba3eaca38b11f61112'
+      SOURCE_ARCHIVE_SHA256: '1d93af7fa8ee8e0aaa19852207b4369b9837e98aef2d72afec4cecb345f96ac0'
+      RELEASE_TAG: 'android-test-apk-retained-v1'
+    steps:
+      - name: Download and verify the existing CI artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_ok=$(gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN" --jq \
+            ".conclusion == \"success\" and .head_sha == \"$SOURCE_SHA\"")
+          test "$run_ok" = true
+          artifact_ok=$(gh api "repos/$GH_REPO/actions/artifacts/$SOURCE_ARTIFACT" --jq \
+            ".expired == false and .name == \"android-test-artifacts-not-for-play\" and .workflow_run.id == $SOURCE_RUN and .workflow_run.head_sha == \"$SOURCE_SHA\" and .digest == \"sha256:$SOURCE_ARCHIVE_SHA256\"")
+          test "$artifact_ok" = true
+          mkdir -p "$RUNNER_TEMP/retained-apk"
+          gh api "repos/$GH_REPO/actions/artifacts/$SOURCE_ARTIFACT/zip" > "$RUNNER_TEMP/android-test.zip"
+          printf '%s  %s\n' "$SOURCE_ARCHIVE_SHA256" "$RUNNER_TEMP/android-test.zip" | sha256sum --check
+          unzip -tq "$RUNNER_TEMP/android-test.zip"
+          mapfile -t apk_paths < <(unzip -Z1 "$RUNNER_TEMP/android-test.zip" | grep -E '(^|/)app-debug\.apk$')
+          test "${#apk_paths[@]}" -eq 1
+          unzip -p "$RUNNER_TEMP/android-test.zip" "${apk_paths[0]}" > "$RUNNER_TEMP/retained-apk/AI-Syed-Jalal-test-debug.apk"
+          test -s "$RUNNER_TEMP/retained-apk/AI-Syed-Jalal-test-debug.apk"
+          cd "$RUNNER_TEMP/retained-apk"
+          sha256sum AI-Syed-Jalal-test-debug.apk > AI-Syed-Jalal-test-debug.apk.sha256
+
+      - name: Check the APK signature, identity and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/retained-apk/AI-Syed-Jalal-test-debug.apk"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -n "$AAPT" && test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/android-badging.txt"
+          grep -F "targetSdkVersion:'36'" "$RUNNER_TEMP/android-badging.txt"
+          grep -F "package: name='dev.pages.ai_syed_jalal_live.twa'" "$RUNNER_TEMP/android-badging.txt"
+          "$AAPT" dump permissions "$APK" > "$RUNNER_TEMP/android-permissions.txt"
+          if grep -E 'android.permission\.(POST_NOTIFICATIONS|MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_[A-Z_]+|ACCESS_MEDIA_LOCATION|MANAGE_MEDIA|RECORD_AUDIO|WAKE_LOCK|RECEIVE_BOOT_COMPLETED|FOREGROUND_SERVICE[A-Z_]*)' "$RUNNER_TEMP/android-permissions.txt"; then
+            echo 'Unexpected sensitive Android permission' >&2
+            exit 1
+          fi
+
+      - name: Publish an explicitly test-only prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/retained-apk/AI-Syed-Jalal-test-debug.apk"
+          CHECKSUM="$RUNNER_TEMP/retained-apk/AI-Syed-Jalal-test-debug.apk.sha256"
+          existing=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$RELEASE_TAG" --jq 'length')
+          test "$existing" -eq 0
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          **Test APK only — not a final or Google Play release.**
+
+          This is the same debug-signed APK produced by [Android test build 42370869040](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42370869040). Its application ID is provisional. It opens the live website in a compatible Android browser; it is not an independent native AI app. Installation and behavior on physical devices have not been verified.
+
+          The production database is connected but the most recent readiness check found only 13 of 24 required table names. Some features may fail. A verified full backup, isolated rehearsal and authorization are still required before production repair. The APK does not fix the database.
+
+          The APK is retained as a GitHub release asset rather than a short-lived Actions artifact; availability still depends on the repository and GitHub. The SHA-256 checksum is provided alongside it. No release-signing key, Play Store publication, payment or database change is included.
+          NOTES
+          gh release create "$RELEASE_TAG" "$APK" "$CHECKSUM" \
+            --target "$GITHUB_SHA" --title 'Android test APK — not a Play release' \
+            --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --draft
+          local_sha=$(cut -d ' ' -f 1 "$CHECKSUM")
+          uploaded_sha=$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq \
+            '.assets[] | select(.name == "AI-Syed-Jalal-test-debug.apk") | .digest')
+          test "$uploaded_sha" = "sha256:$local_sha"
+          gh release edit "$RELEASE_TAG" --draft=false
+          gh release view "$RELEASE_TAG" --json url,tagName,isPrerelease,assets
