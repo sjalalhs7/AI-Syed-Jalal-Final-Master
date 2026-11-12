@@ -21,7 +21,24 @@ import java.util.Collections;
  */
 public class SafeLauncherActivity extends LauncherActivity {
     private static final String TAG = "SafeLauncherActivity";
+    private static final String TRUSTED_HOST = "ai-syed-jalal-live.pages.dev";
     private boolean browserDialogShown;
+
+    @Override
+    protected Uri getUrlForIntent(Intent intent) {
+        Uri uri = super.getUrlForIntent(intent);
+        if (uri == null) return null;
+        // Explicit intents can bypass the manifest's host filter. Do not let
+        // another app open an unrelated origin inside this app's browser task.
+        if ("https".equalsIgnoreCase(uri.getScheme())
+                && TRUSTED_HOST.equalsIgnoreCase(uri.getHost())
+                && uri.getUserInfo() == null
+                && (uri.getPort() == -1 || uri.getPort() == 443)) {
+            return uri;
+        }
+        Log.w(TAG, "Ignoring an external or unsupported launch URL");
+        return null; // Browser Helper uses the configured homepage instead.
+    }
 
     @Override
     protected TwaLauncher.FallbackStrategy getFallbackStrategy() {

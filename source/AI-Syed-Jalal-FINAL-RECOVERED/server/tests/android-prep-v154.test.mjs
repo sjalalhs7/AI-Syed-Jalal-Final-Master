@@ -13,6 +13,8 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   assert.match(gradle, /compileSdk\s+36/);
   assert.match(gradle, /targetSdk\s+36/);
   assert.match(gradle, /applicationId 'dev\.pages\.ai_syed_jalal_live\.mobile'/);
+  assert.match(gradle, /versionCode\s+3/);
+  assert.match(gradle, /versionName '1\.0\.2'/);
   assert.match(gradle, /com\.google\.androidbrowserhelper:androidbrowserhelper:2\.7\.2/);
   // Browser Helper calls setComponentEnabledSetting on this class at launch;
   // omitting it made the previously delivered APK crash on Android 15.
@@ -22,6 +24,10 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   const launcher = read('app/src/main/java/dev/pages/ai_syed_jalal_live/twa/SafeLauncherActivity.java');
   assert.match(launcher, /CustomTabsClient\.getPackageName\(context,\s*suggestedProvider == null/);
   assert.match(launcher, /Collections\.singletonList\(suggestedProvider\)/);
+  assert.match(launcher, /protected Uri getUrlForIntent\(Intent intent\)/);
+  assert.match(launcher, /TRUSTED_HOST\.equalsIgnoreCase\(uri\.getHost\(\)\)/);
+  assert.match(launcher, /uri\.getUserInfo\(\) == null/);
+  assert.match(launcher, /uri\.getPort\(\) == -1 \|\| uri\.getPort\(\) == 443/);
   assert.match(manifest, /android\.support\.customtabs\.action\.CustomTabsService/);
   assert.match(launcher, /showBrowserNeeded\(\)/);
   assert.match(launcher, /TwaLauncher\.CCT_FALLBACK_STRATEGY\.launch/);

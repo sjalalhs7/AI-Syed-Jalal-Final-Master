@@ -133,6 +133,21 @@ adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.L
 wait_for_site relaunch
 check_no_app_crash relaunch
 
+# An explicit intent can bypass the manifest's implicit host filter. A request
+# for another HTTPS origin must fall back to our homepage rather than open it
+# in this app's browser task. The emulator uses only this synthetic URL.
+adb shell input keyevent HOME
+adb shell am force-stop "$PACKAGE"
+adb shell am force-stop com.android.chrome || true
+adb logcat -c || true
+adb shell am start -W -a android.intent.action.VIEW -d 'https://example.com/' \
+  -n "$PACKAGE/$ACTIVITY" > "$DIAGNOSTICS_DIR/external-intent-start.txt" 2>&1
+wait_for_site external-intent
+check_no_app_crash external-intent
+adb logcat -d -s SafeLauncherActivity:W > "$DIAGNOSTICS_DIR/external-intent-filter.txt"
+grep -F 'Ignoring an external or unsupported launch URL' "$DIAGNOSTICS_DIR/external-intent-filter.txt"
+notice "Android API ${API_LABEL} external intent" 'An unrelated HTTPS origin was rejected and the intended homepage appeared.'
+
 # With Chrome disabled on the emulator, either another browser displays the
 # site or a clear browser-needed dialog must appear; a silent crash is failure.
 adb shell input keyevent HOME
