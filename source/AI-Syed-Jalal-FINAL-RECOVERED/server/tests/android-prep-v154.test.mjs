@@ -18,6 +18,11 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   // omitting it made the previously delivered APK crash on Android 15.
   assert.match(manifest, /android:name="com\.google\.androidbrowserhelper\.trusted\.ManageDataLauncherActivity"\s+android:exported="false"/);
   assert.match(manifest, /android:name="android\.support\.customtabs\.trusted\.MANAGE_SPACE_URL"/);
+  assert.match(manifest, /android:name="dev\.pages\.ai_syed_jalal_live\.twa\.SafeLauncherActivity"/);
+  const launcher = read('app/src/main/java/dev/pages/ai_syed_jalal_live/twa/SafeLauncherActivity.java');
+  assert.match(launcher, /CustomTabsClient\.getPackageName\(context, null\)/);
+  assert.match(launcher, /showBrowserNeeded\(\)/);
+  assert.match(launcher, /TwaLauncher\.CCT_FALLBACK_STRATEGY\.launch/);
   assert.match(manifest, /https:\/\/ai-syed-jalal-live\.pages\.dev\//);
   assert.match(strings, /https:\/\/ai-syed-jalal-live\.pages\.dev/);
   assert.match(manifest, /android:exported="true"/);

@@ -9,7 +9,7 @@ set -euo pipefail
 mkdir -p "$DIAGNOSTICS_DIR"
 PACKAGE=dev.pages.ai_syed_jalal_live.mobile
 OLD_PACKAGE=dev.pages.ai_syed_jalal_live.twa
-ACTIVITY=com.google.androidbrowserhelper.trusted.LauncherActivity
+ACTIVITY=dev.pages.ai_syed_jalal_live.twa.SafeLauncherActivity
 
 notice() {
   local title=$1 message=$2

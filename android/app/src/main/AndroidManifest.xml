@@ -20,7 +20,7 @@
                 android:value="https://ai-syed-jalal-live.pages.dev/" />
         </activity>
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name="dev.pages.ai_syed_jalal_live.twa.SafeLauncherActivity"
             android:exported="true"
             android:label="@string/app_name">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="https://ai-syed-jalal-live.pages.dev/" />
