@@ -28,7 +28,31 @@ backend and database; web features can vary by Android/browser version.
 - There is no push-notification delegation, background sync, or filesystem API in
   this shell. Browser microphone permission is requested only by the website.
 
-## Retained test APK
+## Signed test candidate
+
+The public [Android 1.0.1 signed test candidate](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-mobile-1.0.1-candidate-v2)
+contains the APK and its SHA-256 checksum. Unlike a seven-day Actions artifact,
+a GitHub release asset has no automatic seven-day expiry, but its availability
+still depends on GitHub and the repository. APK SHA-256:
+`5a526457a27d3dcb02543427df1190e4081e72d96c22fbecd10b833701303b52`.
+The unsigned source build was produced from `e9a98aa11cc030a335cd994c4556edbca4aab590`;
+the APK was signed locally using the certificate in the association file.
+
+The [exact signed APK](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43261909006)
+installed alongside the old debug package, opened and reopened the homepage on
+Android 8, 11 and 15 emulators, and showed a browser-needed message with Chrome
+disabled. All three signed-emulator jobs passed; the separate publication job
+was blocked by Actions permissions, and the release was published separately.
+These tests used `adb`: neither a physical phone's installer and Play Protect
+warning nor Google Play approval has been tested. Do not disable protections or
+assume the warning will disappear. The APK depends on the live website and its
+backend, which still has an incomplete database schema.
+
+Keep the locally generated private signing key and its password protected and
+backed up outside Git and public releases. Losing them can prevent signed updates.
+The provisional package ID and release are not a completed Play submission.
+
+## Retained old debug APK — do not use
 
 A copy of the existing debug build is available as a public, explicitly
 [test-only GitHub prerelease](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-test-apk-retained-v1),
