@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.pages.ai_syed_jalal_live.mobile",
+      "sha256_cert_fingerprints": [
+        "7C:EE:6A:85:C1:33:5F:20:03:8C:5E:4D:40:54:95:DD:E6:44:4B:B2:3A:18:F3:A1:72:E0:33:91:AB:B7:9E:EA"
+      ]
+    }
+  }
+]

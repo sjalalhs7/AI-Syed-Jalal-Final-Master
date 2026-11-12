@@ -60,20 +60,21 @@ release signing and Play upload are owner-controlled. Never upload a debug or
 unsigned build to Play. Android Studio's **Generate Signed Bundle** can create
 an AAB using your private upload key. Keep the key and passwords outside Git.
 
-## Digital Asset Links (after confirming ID and keys)
+## Digital Asset Links
 
-Create `https://ai-syed-jalal-live.pages.dev/.well-known/assetlinks.json` at
-that exact origin root, served over HTTPS as `application/json`, without a
-redirect or authentication. It must contain the confirmed application ID and
-colon-separated SHA-256 **certificate fingerprints**:
+The source includes `frontend/.well-known/assetlinks.json` for the candidate
+`.mobile` package and its public release-certificate fingerprint. It must be
+served at `https://ai-syed-jalal-live.pages.dev/.well-known/assetlinks.json`
+over HTTPS as `application/json`, without a redirect or authentication. Its
+presence in source does **not** prove it is live or that Android has verified
+it. Debug builds use a different key and will not match that fingerprint.
 
-- For a locally installed test build, the certificate that signed that build.
-- For a Play-delivered app using Play App Signing, the **app signing** certificate
-  from Play Console (not just the upload certificate).
-
-Do not publish placeholder fingerprints. The Android app's `asset_statements`
-already points back to the website. Verify the association and behavior on real
-Android devices; a successful build is not proof of that relationship.
+If the owner later publishes through Play App Signing, the association must
+also include the **app signing** certificate from Play Console (not just the
+upload certificate). Do not use placeholder fingerprints. Verify the published
+file and behavior on real Android devices. Keep the private signing key and its
+password separate, protected, and outside Git; the public fingerprint is not
+a private key.
 
 ## Before submission
 
