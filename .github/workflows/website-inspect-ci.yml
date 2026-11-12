@@ -25,11 +25,9 @@ jobs:
           from pathlib import Path
           import sys
           lines=Path(sys.argv[1]).read_text(encoding='utf8',errors='replace').splitlines()
-          hits=[i for i,line in enumerate(lines) if 'tests/browser/data-transfer-race.spec.mjs' in line and ('1)' in line or 'failed' in line.lower())]
-          excerpts=[]
-          for i in hits[-2:]:
-              excerpts.extend(lines[max(0,i-2):min(len(lines),i+32)])
-          text='\n'.join(excerpts)[-10000:] or 'No detailed error located in the job log.'
+          hits=[i for i,line in enumerate(lines) if '1) tests/browser/data-transfer-race.spec.mjs:' in line]
+          excerpts=lines[hits[-1]:hits[-1]+30] if hits else []
+          text='\n'.join(excerpts)[:12000] or 'No detailed error located in the job log.'
           text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
           print('::notice file=source/AI-Syed-Jalal-FINAL-RECOVERED/tests/browser/data-transfer-race.spec.mjs,line=1,title=Playwright failure details::'+text)
           PY
