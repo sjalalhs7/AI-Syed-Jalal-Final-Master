@@ -70,7 +70,10 @@ PY
 
 check_no_app_crash() {
   local phase=$1
-  adb logcat -d -s AndroidRuntime:E > "$DIAGNOSTICS_DIR/$phase-logcat.txt" || true
+  if ! adb logcat -d -s AndroidRuntime:E > "$DIAGNOSTICS_DIR/$phase-logcat.txt"; then
+    echo "::error file=android/README.md,line=1::Could not read Android crash logs for API ${API_LABEL}."
+    return 1
+  fi
   if ! python3 - "$DIAGNOSTICS_DIR/$phase-logcat.txt" "$PACKAGE" <<'PY'
 import sys
 text = open(sys.argv[1], encoding='utf8', errors='replace').read()
@@ -111,7 +114,9 @@ grep -Fx "package:$OLD_PACKAGE" "$DIAGNOSTICS_DIR/packages.txt"
 grep -Fx "package:$PACKAGE" "$DIAGNOSTICS_DIR/packages.txt"
 notice "Android API ${API_LABEL} installation" 'The old and new app packages installed side by side in the emulator.'
 
-adb logcat -c
+# Play Store images on older Android may forbid clearing logs; reading and
+# checking the candidate package's crash entries is still mandatory.
+adb logcat -c || true
 adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
   -n "$PACKAGE/$ACTIVITY" > "$DIAGNOSTICS_DIR/launch-start.txt" 2>&1
 wait_for_site launch
@@ -121,7 +126,7 @@ adb exec-out screencap -p > "$DIAGNOSTICS_DIR/launch.png" || true
 # Return to the launcher and open the app again, as a user would.
 adb shell input keyevent HOME
 adb shell am force-stop "$PACKAGE"
-adb logcat -c
+adb logcat -c || true
 adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
   -n "$PACKAGE/$ACTIVITY" > "$DIAGNOSTICS_DIR/relaunch-start.txt" 2>&1
 wait_for_site relaunch
@@ -138,7 +143,7 @@ if adb shell pm list packages | grep -Fxq 'package:com.android.chrome'; then
   adb shell pm disable-user --user 0 com.android.chrome > "$DIAGNOSTICS_DIR/disable-chrome.txt"
   adb shell pm list packages -d | grep -Fx 'package:com.android.chrome'
   adb shell input keyevent HOME
-  adb logcat -c
+  adb logcat -c || true
   adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
     -n "$PACKAGE/$ACTIVITY" > "$DIAGNOSTICS_DIR/no-chrome-start.txt" 2>&1
   sleep 12
