@@ -30,23 +30,30 @@ backend and database; web features can vary by Android/browser version.
 
 ## Signed test candidate
 
-The public [Android 1.0.1 signed test candidate](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-mobile-1.0.1-candidate-v2)
+The public [Android 1.0.2 signed test candidate](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-mobile-1.0.2-candidate-v1)
 contains the APK and its SHA-256 checksum. Unlike a seven-day Actions artifact,
 a GitHub release asset has no automatic seven-day expiry, but its availability
 still depends on GitHub and the repository. APK SHA-256:
-`5a526457a27d3dcb02543427df1190e4081e72d96c22fbecd10b833701303b52`.
-The unsigned source build was produced from `e9a98aa11cc030a335cd994c4556edbca4aab590`;
+`bece1bcc562a1a58842f8af8573dde098244055d601bf9743d3d2e093026ee1d`.
+The unsigned source build was produced from `96c2f14d0def1a1dccc750c6cd8d315a7937fbb8`;
 the APK was signed locally using the certificate in the association file.
+**Do not use the earlier 1.0.1 candidate:** it did not restrict an explicit
+launch intent to the intended website. Do not use the old debug APK either.
 
-The [exact signed APK](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43261909006)
-installed alongside the old debug package, opened and reopened the homepage on
-Android 8, 11 and 15 emulators, and showed a browser-needed message with Chrome
-disabled. All three signed-emulator jobs passed; the separate publication job
-was blocked by Actions permissions, and the release was published separately.
-These tests used `adb`: neither a physical phone's installer and Play Protect
-warning nor Google Play approval has been tested. Do not disable protections or
-assume the warning will disappear. The APK depends on the live website and its
-backend, which still has an incomplete database schema.
+The exact signed APK installed alongside the old debug package, opened and
+reopened the homepage, rejected an unrelated explicit HTTPS launch URL, and
+showed a browser-needed message with Chrome disabled on Android 8 and 15
+[emulators](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43281505969)
+and in a separate Android 11
+[emulator run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43283063776).
+The Android 11 job in the first run did not complete and is not counted as a
+pass. A [separate check](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43283849828)
+verified the public download matches those signed bytes. The URL test is not
+an exhaustive security assessment. These tests used `adb`: neither a physical
+phone's installer and Play Protect warning nor Google Play approval has been
+tested. Do not disable protections or assume the warning will disappear. The
+APK depends on the live website and its backend, which still has an incomplete
+database schema.
 
 Keep the locally generated private signing key and its password protected and
 backed up outside Git and public releases. Losing them can prevent signed updates.
@@ -70,11 +77,12 @@ warning. **Do not treat the old APK as a working release.**
 
 The `Android launch regression` workflow builds the changed code, installs both
 old and new package IDs side by side, checks that the homepage renders and
-reopens on several emulator API levels, and checks the missing-browser message.
-The workflow must pass before an APK built from this source is distributed; it
-cannot verify physical devices or Play Protect's installer warning. The app
-still relies on the live website, a compatible browser, and the website's
-backend and database. It is not an independent native AI app.
+reopens on several emulator API levels, tests an unrelated explicit HTTPS URL,
+and checks the missing-browser message. The workflow must pass before an APK
+built from this source is distributed; it cannot verify physical devices or
+Play Protect's installer warning. The app still relies on the live website, a
+compatible browser, and the website's backend and database. It is not an
+independent native AI app.
 
 ## Build and inspect
 
