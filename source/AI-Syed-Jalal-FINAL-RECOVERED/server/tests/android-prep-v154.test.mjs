@@ -12,8 +12,12 @@ test('provisional Android TWA targets API 36 and the verified website origin', (
   const strings = read('app/src/main/res/values/strings.xml');
   assert.match(gradle, /compileSdk\s+36/);
   assert.match(gradle, /targetSdk\s+36/);
-  assert.match(gradle, /applicationId 'dev\.pages\.ai_syed_jalal_live\.twa'/);
+  assert.match(gradle, /applicationId 'dev\.pages\.ai_syed_jalal_live\.mobile'/);
   assert.match(gradle, /com\.google\.androidbrowserhelper:androidbrowserhelper:2\.7\.2/);
+  // Browser Helper calls setComponentEnabledSetting on this class at launch;
+  // omitting it made the previously delivered APK crash on Android 15.
+  assert.match(manifest, /android:name="com\.google\.androidbrowserhelper\.trusted\.ManageDataLauncherActivity"\s+android:exported="false"/);
+  assert.match(manifest, /android:name="android\.support\.customtabs\.trusted\.MANAGE_SPACE_URL"/);
   assert.match(manifest, /https:\/\/ai-syed-jalal-live\.pages\.dev\//);
   assert.match(strings, /https:\/\/ai-syed-jalal-live\.pages\.dev/);
   assert.match(manifest, /android:exported="true"/);

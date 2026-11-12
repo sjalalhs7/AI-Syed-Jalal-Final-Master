@@ -8,8 +8,10 @@ backend and database; web features can vary by Android/browser version.
 
 ## Status — not a Play release
 
-- `dev.pages.ai_syed_jalal_live.twa` is a **provisional application ID**. The
-  owner must choose/confirm an available permanent ID before first publication.
+- `dev.pages.ai_syed_jalal_live.mobile` is the new **provisional application
+  ID**. It is distinct from the old debug APK's `.twa` ID so the candidate can
+  be installed alongside it without removing the old app or its local data.
+  The owner must confirm the permanent ID before Play publication.
 - Java 17, Android SDK platform 36 and Gradle 8.14.3 are required. The wrapper
   verifies Gradle's published distribution checksum.
 - `assembleDebug` builds an APK signed with the machine's **debug** key;
@@ -28,10 +30,22 @@ A copy of the existing debug build is available as a public, explicitly
 with the APK and its SHA-256 checksum. It is the same APK from
 [Android test build 42370869040](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42370869040),
 not a new signed release. Its release asset has no seven-day Actions artifact
-expiry, although its availability depends on the repository and GitHub. Its
-package, target SDK, signature, and sensitive-permission checks were repeated;
-installation on a physical device was not verified. It still opens the live
-website and depends on its backend and database.
+expiry, although its availability depends on the repository and GitHub. The
+owner reported that it did not open and showed an installation warning. On a
+[disposable Android 15 emulator](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43253513036),
+the exact retained APK crashed during launch: Android Browser Helper 2.7.2 tried
+to enable an undeclared `ManageDataLauncherActivity`. The manifest in this
+source declares the missing component. This reproduces a launch failure, but
+it does not establish the cause of every device's issue or the installation
+warning. **Do not treat the old APK as a working release.**
+
+The `Android launch regression` workflow builds the changed code, installs both
+old and new package IDs side by side, checks that the homepage renders and
+reopens on several emulator API levels, and checks the missing-browser message.
+The workflow must pass before an APK built from this source is distributed; it
+cannot verify physical devices or Play Protect's installer warning. The app
+still relies on the live website, a compatible browser, and the website's
+backend and database. It is not an independent native AI app.
 
 ## Build and inspect
 

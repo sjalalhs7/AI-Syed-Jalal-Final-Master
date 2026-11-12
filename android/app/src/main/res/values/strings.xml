@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AI-Syed Jalal</string>
+    <string name="app_name">AI-Syed Jalal App</string>
+    <string name="provider_unavailable_title">Browser needed</string>
+    <string name="provider_unavailable_message">%1$s is unavailable. AI-Syed Jalal needs a compatible browser such as Chrome to open.</string>
+    <string name="provider_unavailable_fallback_message">AI-Syed Jalal needs a compatible browser such as Chrome to open.</string>
     <string name="asset_statements">[{\"relation\":[\"delegate_permission/common.handle_all_urls\"],\"target\":{\"namespace\":\"web\",\"site\":\"https://ai-syed-jalal-live.pages.dev\"}}]</string>
 </resources>

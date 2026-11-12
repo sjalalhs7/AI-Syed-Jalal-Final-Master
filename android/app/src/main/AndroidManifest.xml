@@ -8,6 +8,17 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
+        <!-- Browser Helper 2.7.2 enables/disables this component during every
+             launch, even when the optional site-settings shortcut is unused.
+             Without this declaration Android throws IllegalArgumentException
+             and the launcher crashes before the website is shown. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="https://ai-syed-jalal-live.pages.dev/" />
+        </activity>
         <activity
             android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
             android:exported="true"
