@@ -26,7 +26,15 @@ jobs:
       - uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Build unsigned release APK
         working-directory: android
-        run: ./gradlew --no-daemon :app:assembleRelease
+        run: |
+          set -euo pipefail
+          # The public Maven Central service occasionally responds with 429 on
+          # shared runners. Retry a transient failure rather than masking it.
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon :app:assembleRelease; then exit 0; fi
+            if [[ "$attempt" == 3 ]]; then exit 1; fi
+            sleep 45
+          done
       - name: Verify and export the unsigned APK
         env:
           GH_TOKEN: ${{ github.token }}
