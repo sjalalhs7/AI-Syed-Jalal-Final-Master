@@ -1,52 +1,46 @@
-name: Upload the tested signed APK
+name: Verify the public Android download
 
-# One-time upload to an unpublished draft visible to repository collaborators.
-# Only public APK bytes are handled here; the signing key is never sent to GitHub.
+# One-time verification; this workflow needs no signing key or write access.
 on:
   push:
     branches: ['arena/8412eff6-ai-syed-jalal-final-master']
     paths: ['.github/workflows/android-publish-tested.yml']
 
 permissions:
-  actions: read
-  contents: write
+  contents: read
 
 jobs:
-  upload:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
-      - name: Verify the three exact-byte emulator checks
+      - name: Download and verify the published APK and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(gh api "repos/$GH_REPO/actions/runs/43261909006" --jq .head_sha)" = 49784454bc84982409b26df254c55eee2e69a922
-          gh api "repos/$GH_REPO/actions/runs/43261909006/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
-          for api in 26 30 35; do
-            jq -e --arg name "Signed APK on Android API $api" '[.jobs[] | select(.name == $name and .conclusion == "success")] | length == 1' "$RUNNER_TEMP/jobs.json" > /dev/null
-          done
-      - name: Verify and upload the signed APK to the existing draft
-        run: |
-          set -euo pipefail
-          apk="$RUNNER_TEMP/AI-Syed-Jalal-App-1.0.1.apk"
-          gh api "repos/$GH_REPO/git/blobs/40489af4bc0dbc2991dfd05ceabb6203a90fdde1" --jq .content | base64 -d > "$apk"
-          echo '5a526457a27d3dcb02543427df1190e4081e72d96c22fbecd10b833701303b52  '"$apk" | sha256sum -c -
+          tag=android-mobile-1.0.1-candidate-v2
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag"
+          cd "$RUNNER_TEMP"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.draft == false and .prerelease == true' | grep -Fx true
+          curl --retry 3 -fsSL "$base/AI-Syed-Jalal-App-1.0.1.apk" -o AI-Syed-Jalal-App-1.0.1.apk
+          curl --retry 3 -fsSL "$base/AI-Syed-Jalal-App-1.0.1.apk.sha256" -o AI-Syed-Jalal-App-1.0.1.apk.sha256
+          sha256sum -c AI-Syed-Jalal-App-1.0.1.apk.sha256
+          echo '5a526457a27d3dcb02543427df1190e4081e72d96c22fbecd10b833701303b52  AI-Syed-Jalal-App-1.0.1.apk' | sha256sum -c -
           tools=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
-          "$tools/apksigner" verify --verbose --print-certs --min-sdk-version 23 "$apk" > "$RUNNER_TEMP/signature.txt"
-          grep -F 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/signature.txt"
-          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/signature.txt"
-          grep -F 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/signature.txt"
-          grep -F 'certificate SHA-256 digest: 7cee6a85c1335f20038c5e4d405495dde6444bb23a18f3a172e03391abb79eea' "$RUNNER_TEMP/signature.txt"
-          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$apk")" > "$(basename "$apk").sha256")
-          curl --fail-with-body --silent --show-error --request POST \
-            --header "Authorization: Bearer $GH_TOKEN" --header 'Accept: application/vnd.github+json' \
-            --header 'Content-Type: application/vnd.android.package-archive' --data-binary "@$apk" \
-            "https://uploads.github.com/repos/$GH_REPO/releases/443338578/assets?name=AI-Syed-Jalal-App-1.0.1.apk" \
-            | jq '{name,size,digest}'
-          curl --fail-with-body --silent --show-error --request POST \
-            --header "Authorization: Bearer $GH_TOKEN" --header 'Accept: application/vnd.github+json' \
-            --header 'Content-Type: text/plain' --data-binary "@$apk.sha256" \
-            "https://uploads.github.com/repos/$GH_REPO/releases/443338578/assets?name=AI-Syed-Jalal-App-1.0.1.apk.sha256" \
-            | jq '{name,size,digest}'
+          "$tools/apksigner" verify --verbose --print-certs --min-sdk-version 23 AI-Syed-Jalal-App-1.0.1.apk > signature.txt
+          grep -F 'certificate SHA-256 digest: 7cee6a85c1335f20038c5e4d405495dde6444bb23a18f3a172e03391abb79eea' signature.txt
+          echo '::notice file=android/README.md,line=1,title=Public APK download::The published release asset downloads and matches the tested signed APK.'
+      - name: Verify Digital Asset Links on the Cloudflare preview only
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fsS -D "$RUNNER_TEMP/headers.txt" -o "$RUNNER_TEMP/assetlinks.json" 'https://527910d8.ai-syed-jalal-live.pages.dev/.well-known/assetlinks.json'
+          python3 - "$RUNNER_TEMP/headers.txt" "$RUNNER_TEMP/assetlinks.json" <<'PY'
+          import json, pathlib, sys
+          headers=pathlib.Path(sys.argv[1]).read_text().splitlines()
+          assert headers[0].split()[1] == '200', headers[0]
+          assert any(line.lower().startswith('content-type: application/json') for line in headers), headers
+          links=json.loads(pathlib.Path(sys.argv[2]).read_text())
+          assert any(link.get('target',{}).get('package_name') == 'dev.pages.ai_syed_jalal_live.mobile' and '7C:EE:6A:85:C1:33:5F:20:03:8C:5E:4D:40:54:95:DD:E6:44:4B:B2:3A:18:F3:A1:72:E0:33:91:AB:B7:9E:EA' in link.get('target',{}).get('sha256_cert_fingerprints',[]) for link in links)
+          print('::notice file=android/README.md,line=1,title=Preview association::The preview returned matching JSON without a redirect; this does not verify the live origin.')
+          PY
