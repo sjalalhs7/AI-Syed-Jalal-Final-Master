@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 11+ restricts package visibility; discovering actual Custom
+         Tabs services needs this query, not a broad package permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
     <!-- No notification delegation, background sync, filesystem or extra native permissions. -->
     <application
         android:allowBackup="false"
@@ -8,8 +15,19 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
+        <!-- Browser Helper 2.7.2 enables/disables this component during every
+             launch, even when the optional site-settings shortcut is unused.
+             Without this declaration Android throws IllegalArgumentException
+             and the launcher crashes before the website is shown. -->
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="https://ai-syed-jalal-live.pages.dev/" />
+        </activity>
+        <activity
+            android:name="dev.pages.ai_syed_jalal_live.twa.SafeLauncherActivity"
             android:exported="true"
             android:label="@string/app_name">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="https://ai-syed-jalal-live.pages.dev/" />

@@ -19,6 +19,17 @@ const random = n => crypto.getRandomValues(new Uint8Array(n));
 const digest = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))));
 const pass = async (p,s) => hex(await scrypt(new TextEncoder().encode(String(p)),new TextEncoder().encode(String(s)),16384,8,1,64));
 const equal = (a,b) => {const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b));if(x.length!==y.length)return false;let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0};
+// First-admin setup is an owner-controlled recovery operation, not public
+// registration. It is closed unless an operator explicitly enables it AND
+// supplies a strong seed. Existing-admin seed-password recovery is separate.
+function configuredSeedAdmin(env){
+ const username=String(env.SEED_ADMIN_USERNAME||''),password=String(env.SEED_ADMIN_PASSWORD||'');
+ if(!/^[A-Za-z0-9_.-]{3,40}$/.test(username)||password.length<12||password.length>1024||!/[A-Za-z]/.test(password)||!/[0-9]/.test(password)||/change-?me|replace/i.test(password))return null;
+ return {username,password};
+}
+function configuredInitialSetup(env){
+ return env.FIRST_ADMIN_SETUP_ENABLED==='true'?configuredSeedAdmin(env):null;
+}
 const cookies = r => Object.fromEntries((r.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');if(i<0)return [x,''];const k=x.slice(0,i),v=x.slice(i+1);try{return [k,decodeURIComponent(v)]}catch{return [k,v]}}));
 const rawToken = r => {const a=r.headers.get('authorization')||'';return a.startsWith('Bearer ')?a.slice(7):(cookies(r)[C]||'')};
 const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(s),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(t))))};
@@ -165,22 +176,19 @@ export async function onRequest(ctx){
    return reply({ok:schemaOk,status:schemaOk?'healthy':'schema-incomplete',database:env.LOCAL_PREVIEW?'PGlite (local PostgreSQL)':'Neon PostgreSQL',checks:{database:true,schema:schemaOk,aiRuntime:true},schemaTables:tables.length,required:REQUIRED_TABLES.length,missing,tables,pool:{available:false,total:null,waiting:null},ai:{active:ai.length?Number(ai[0].n):null,maxConcurrent:null},sessions:{active:active.length?Number(active[0].n):null},note:'Schema checks required table names only, not columns, indexes, migration history or live features. Pool and edge process metrics are not exposed. AI runtime refers to the local assistant, not a live-tested cloud provider.'});
   }
   if(u.pathname==='/api/admin/audit'&&request.method==='GET'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(me.role!=='Admin')return reply({error:'Admin role required'},403);const limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||20)));const rows=await db.query('SELECT e.id,e.action,e.detail,e.created_at,u.username FROM audit_events e LEFT JOIN app_users u ON u.id=e.user_id ORDER BY e.created_at DESC LIMIT $1',[limit]);return reply({events:rows.map(x=>({id:x.id,time:x.created_at,user:x.username||'system',action:x.action,detail:x.detail||''}))})}
-  // --- V150 first-run bootstrap -------------------------------------------------
-  // Registration always creates a Viewer and there is no seeded administrator, so
-  // a deployment whose accounts are all Viewers cannot reach ANY admin route —
-  // including schema repair. The gate is "no Administrator exists" (not "no
-  // users"), because a deployment with Viewers but no Admin was permanently
-  // stranded. An existing account can claim the first Administrator slot by
-  // proving its password; a brand-new name creates the first Admin.
+  // First-admin setup requires explicit operator enablement and the configured
+  // seed. Even an inactive Admin blocks it. This is not a permanent one-time
+  // database seal or a global atomic one-admin constraint. Existing accounts
+  // must also prove their own password; recovery requires operator review.
   if(u.pathname==='/api/bootstrap/status'&&request.method==='GET'){
    try{
      const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true"))[0]?.n||0);
+     const allAdmins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin'"))[0]?.n||0);
      let users=0;
      try{const u=await db.query('SELECT count(*)::int AS n FROM app_users');users=Number(u[0]?.n||0)}catch{}
-     let completed=false;
-     try{const b=await db.query('SELECT completed_at FROM app_bootstrap WHERE id=true');completed=Boolean(b[0]?.completed_at)}catch{}
-     const open=admins===0;
-     return reply({available:open,users,admins,completed:!open,reason:open?'No Administrator exists on this deployment, so nobody can reach admin features. Create the first Administrator here. This closes permanently once an Administrator exists.':'An Administrator already exists.'});
+     const open=allAdmins===0&&Boolean(configuredInitialSetup(env));
+     const reason=allAdmins>0?'An Administrator account already exists. Contact the deployment owner if it is inactive.':open?'No Administrator account exists. The deployment owner can use the configured seed account to set one up.':'Administrator setup is disabled. Contact the deployment owner for an authorized recovery procedure.';
+     return reply({available:open,users,admins,completed:allAdmins>0,reason});
    }catch(e){
      // app_users itself may be missing on a database that was never migrated.
      return reply({available:false,users:0,admins:0,completed:false,reason:'The database is not initialised yet: '+(e?.message||e)});
@@ -190,28 +198,37 @@ export async function onRequest(ctx){
   if(u.pathname==='/api/bootstrap/admin'&&request.method==='POST'){
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
    if(!/^[A-Za-z0-9_.-]{3,40}$/.test(name))return reply({error:'Username must be 3-40 characters and use letters, numbers, dot, underscore or hyphen'},400);
-   if(password.length<12)return reply({error:'Password must be at least 12 characters'},400);
+   if(password.length<12||password.length>1024)return reply({error:'Password must be between 12 and 1,024 characters'},400);
    if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
-   let bootstrapRateLimited=false;try{bootstrapRateLimited=await rateLimited(db,request,'BOOTSTRAP',5,"interval '1 hour'")}catch{} // audit_events may not exist on a partially migrated database; bootstrap must not be blocked by it
-   if(bootstrapRateLimited)return reply({error:'Too many attempts. Try again later.'},429);
-   // Re-check the Administrator gate inside the route so a second caller cannot
-   // race in an Admin once one has been created.
-   const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true"))[0]?.n||0);
-   if(admins>0)return reply({error:'An Administrator already exists on this deployment. Ask them to change your role.'},409);
-   const existing=await db.query('SELECT id,username,role,salt,password_hash,active FROM app_users WHERE lower(username)=lower($1) LIMIT 1',[name]);
+   const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin'"))[0]?.n||0);
+   if(admins>0)return reply({error:'An Administrator already exists on this deployment. Contact the deployment owner for recovery.'},409);
+   const seed=configuredInitialSetup(env);
+   if(!seed)return reply({error:'Administrator setup is disabled. Contact the deployment owner.'},403);
+   const ip=request.headers.get('CF-Connecting-IP')||'';
+   if(!ip)return reply({error:'Administrator setup is temporarily unavailable.'},429);
+   let permitted=false;
+   try{permitted=await consumeRateLimit(db,'bootstrap-claim',ip,5,720)}catch{return reply({error:'Administrator setup is temporarily unavailable.'},503)}
+   if(!permitted)return reply({error:'Too many attempts. Try again later.'},429,{'Retry-After':'720'});
+   // Compare fixed-length digests so the seed value is never returned or logged.
+   const [actualName,expectedName,actualPassword,expectedPassword]=await Promise.all([digest(name),digest(seed.username),digest(password),digest(seed.password)]);
+   if(!equal(actualName,expectedName)||!equal(actualPassword,expectedPassword))return reply({error:'Administrator setup credentials were not accepted.'},403);
+   const existing=await db.query('SELECT id,username,role,salt,password_hash,active FROM app_users WHERE username=$1 LIMIT 1',[name]);
    if(existing.length){
      const usr=existing[0];
      if(!usr.active)return reply({error:'That account is inactive. Ask an Administrator to reactivate it.'},403);
-     const ok=await equal(await pass(password,usr.salt),usr.password_hash);
-     if(!ok)return reply({error:'That username exists and the password did not match. Use a different username, or enter the correct password to promote this account.'},401);
-     if(usr.role==='Admin')return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'That account is already an Administrator.'},200,{'Set-Cookie':await bootstrapLoginSession(db,usr,env)});
-     await db.query("UPDATE app_users SET role='Admin' WHERE id=$1",[usr.id]);
+     const ok=equal(await pass(password,usr.salt),usr.password_hash);
+     if(!ok)return reply({error:'That username exists and the password did not match. Contact the deployment owner.'},401);
+     if(usr.role==='Admin')return reply({error:'An Administrator already exists on this deployment.'},409);
+     // A concurrent password or active-status change must not promote a stale account.
+     const promoted=await db.query("UPDATE app_users SET role='Admin' WHERE id=$1 AND active=true AND salt=$2 AND password_hash=$3 RETURNING id",[usr.id,usr.salt,usr.password_hash]);
+     if(!promoted.length)return reply({error:'Account changed during setup. Please retry after review.'},409);
      const token=await bootstrapLoginSession(db,usr,env);
      await audit(db,{id:usr.id,username:usr.username,role:'Admin'},'BOOTSTRAP_ADMIN_PROMOTE','Existing account promoted to first Administrator',request);
      return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
    }
    const salt=hex(random(16)),id=crypto.randomUUID();
-   await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)]);
+   try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)])}
+   catch(e){if(e?.code==='23505'||/unique|duplicate/i.test(String(e?.message||'')))return reply({error:'The setup account was created concurrently. Sign in instead.'},409);throw e}
    const token=await bootstrapLoginSession(db,{id,username:name,role:'Admin'},env);
    try{await db.query("UPDATE app_bootstrap SET completed_at=now(),completed_by=$1 WHERE id=true",[name])}catch{}
    await audit(db,{id,username:name,role:'Admin'},'BOOTSTRAP_ADMIN','First Administrator created',request);
@@ -241,7 +258,16 @@ export async function onRequest(ctx){
    const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');if(!name||!password||name.length>200||password.length>1024)return reply({error:'Username and password are required'},400);
    const loginIp=request.headers.get('CF-Connecting-IP')||'';if(!loginIp||!await consumeRateLimit(db,'login',loginIp,10,90))return reply({error:'Too many login attempts. Please wait before trying again.'},429,{'Retry-After':'90'});
    let found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
-   if(!found.length){if(env.SEED_ADMIN_USERNAME&&String(env.SEED_ADMIN_PASSWORD||'').length>=12&&!/change-?me|replace/i.test(env.SEED_ADMIN_PASSWORD)){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),String(env.SEED_ADMIN_USERNAME),salt,await pass(env.SEED_ADMIN_PASSWORD,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}}
+   if(!found.length){
+    // Never create a seed account merely because an unrelated or wrong login
+    // was attempted. Initial creation requires the explicit setup switch, the
+    // configured identity and matching secret, and no Admin (even inactive).
+    const seed=configuredInitialSetup(env);
+    if(seed&&name===seed.username&&equal(await digest(password),await digest(seed.password))){
+     const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin'"))[0]?.n||0);
+     if(admins===0){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),seed.username,salt,await pass(password,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}
+    }
+   }
    const usr=found[0];if(!usr){await pass(password,'00000000000000000000000000000000');await audit(db,null,'LOGIN_FAILED','Unknown user',request);return reply({error:'Invalid credentials'},401)}
    if(!equal(await pass(password,usr.salt),usr.password_hash)){
     const seedName=String(env.SEED_ADMIN_USERNAME||''),seedPassword=String(env.SEED_ADMIN_PASSWORD||'');

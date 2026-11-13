@@ -14,8 +14,9 @@ Configure these values under **Cloudflare Dashboard → Workers & Pages → ai-s
 |---|---|---|---|
 | `DATABASE_URL` | Secret | Required | Neon connection string for the intended production database |
 | `CSRF_SECRET` | Secret | Required | HMAC key; use a cryptographically random value of at least 32 characters |
-| `SEED_ADMIN_PASSWORD` | Secret | Conditional | Initial/recovery administrator credential; use a unique password of at least 12 characters |
-| `SEED_ADMIN_USERNAME` | Text | Conditional | Seed administrator username; normally `admin` |
+| `SEED_ADMIN_PASSWORD` | Secret | Conditional | Initial/recovery administrator credential; use a unique password of 12–1,024 characters containing letters and numbers |
+| `SEED_ADMIN_USERNAME` | Text | Conditional | Exact seed administrator username (3–40 letters, numbers, dots, underscores or hyphens) |
+| `FIRST_ADMIN_SETUP_ENABLED` | Text | Normally absent or `false` | Only the exact value `true` enables initial Admin setup alongside the seed credentials; remove or disable immediately after authorized setup |
 | `GEMINI_API_KEY` | Secret | Required for Gemini | Google Gemini provider authentication |
 | `OPENAI_API_KEY` | Secret | Optional | OpenAI provider authentication |
 | `ANTHROPIC_API_KEY` | Secret | Optional | Anthropic provider authentication |
@@ -24,6 +25,8 @@ Configure these values under **Cloudflare Dashboard → Workers & Pages → ai-s
 | `OMNIROUTE_BASE_URL` / `OMNIROUTE_URL` | Text | Optional with OmniRoute | HTTPS base URL for the OmniRoute-compatible API |
 
 Set optional model variables only when intentionally overriding the defaults: `GEMINI_MODEL`, `OPENAI_MODEL`, `ANTHROPIC_MODEL`, `DEEPSEEK_MODEL`, and `OMNIROUTE_MODEL`.
+
+First-administrator setup is disabled unless the operator explicitly sets `FIRST_ADMIN_SETUP_ENABLED` to `true` **and** configures both seed values. It accepts only that exact username and password, is unavailable while any Administrator account exists (including inactive accounts), and uses the shared rate limiter. If the limiter or trusted client IP is unavailable, setup fails closed. An existing account must also match its stored password before promotion. Disable the setup switch after the authorized operation and use a separately reviewed recovery procedure for inactive Administrators. This is not a permanent one-time seal: if all Admin roles are removed and the switch and seed remain configured, setup may reopen. It is also not a global atomic constraint across concurrent account-role changes. Ordinary sign-in for existing accounts does not require the setup switch. The login route retains a separate seed-based password recovery path for an existing active Admin, so a configured seed remains a sensitive recovery credential even after initial setup. The operator should decide when to remove it, after confirming another safe recovery method; do not remove it blindly or post it in chat. These code and documentation changes do not change deployment settings or migrate a database.
 
 The optional OmniRoute adapter requires **both** a server-side key and an HTTPS endpoint. JARVIS and JalalAi report it as configured when both values are nonblank; the adapter rejects an invalid or non-HTTPS endpoint before making a request. The deployment-controlled endpoint may forward submitted text to another provider. Confirm its privacy terms and possible charges before enabling it. Key and endpoint presence do not prove that authentication or a model request succeeds.
 

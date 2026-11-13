@@ -56,13 +56,20 @@ credentials. This repository update does **not** apply migrations to production.
 
 ## Google Play — still blocked
 
-The Android folder is a TWA **starting point**, not a release. It targets API 36.
-The [Android CI run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/42364305016)
-built a debug APK and unsigned AAB and inspected the APK target and permissions.
-Artifacts are test-only and may expire. A successful build does not prove
-installation, website association, microphone support, security, policy
-compliance or Play acceptance. The application ID is provisional. See
-[`android/README.md`](../android/README.md) for signing and Digital Asset Links.
+The Android folder is a provisional TWA, not a completed Play submission. It
+targets API 36. The old debug APK was retained only for diagnostics and is
+known to crash on Android 15; **do not use it**. The earlier 1.0.1 candidate
+is also superseded because it did not restrict an explicit launch intent to
+the intended website. The
+[1.0.2 signed test candidate](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/releases/tag/android-mobile-1.0.2-candidate-v1)
+fixes the reproduced crash, restricts launch URLs, and opened the homepage on
+Android 8, 11 and 15 emulators. It has not been tested on a physical phone, is
+not Play-approved, and may still show an installation warning. A build or
+emulator test does not prove physical installation, verified website
+association, microphone support, security, policy compliance or Play
+acceptance. The application ID remains provisional. See
+[`android/README.md`](../android/README.md) for signing, Digital Asset Links
+and the separate exact-byte test evidence.
 
 Before submitting, the operator must:
 
