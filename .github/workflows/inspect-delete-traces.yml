@@ -42,7 +42,16 @@ jobs:
               text=text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print(f'::notice title={title}::{text}')
           with zipfile.ZipFile(traces[0]) as z:
-              network=[]; events=[]
+              network=[]; events=[]; console=[]; snapshots=[]
+              def scan(node, matches):
+                  if not isinstance(node, list): return
+                  if len(node)>1 and isinstance(node[1], dict):
+                      attrs=node[1]; id=attrs.get('id')
+                      if id in ('dataImportStatus','pageInfo','settingsUser','app','login'):
+                          # Extract only small strings belonging to known public UI elements.
+                          strings=[v for v in node[2:] if isinstance(v,str)]
+                          matches.append({'id':id,'class':attrs.get('class'),'text':strings[:2]})
+                  for child in node: scan(child,matches)
               for name in z.namelist():
                   if not name.endswith(('.network', '.trace')) or name == 'test.trace': continue
                   for line in z.read(name).decode('utf-8').splitlines():
@@ -51,8 +60,9 @@ jobs:
                       if name.endswith('.network') and e.get('type') == 'resource-snapshot':
                           s=e.get('snapshot', {}); req=s.get('request', {}); res=s.get('response', {})
                           path=urllib.parse.urlsplit(req.get('url', '')).path
-                          if path.startswith('/api/records/'):
-                              network.append({'method':req.get('method'), 'path':'/api/records/{id}', 'status':res.get('status'), 'aborted':s.get('_wasAborted'), 'fromWorker':res.get('_fromServiceWorker'), 'time':s.get('_monotonicTime')})
+                          if path.startswith('/api/'):
+                              if path.startswith('/api/records/'): path='/api/records/{id}'
+                              network.append({'method':req.get('method'), 'path':path, 'status':res.get('status'), 'aborted':s.get('_wasAborted'), 'fromWorker':res.get('_fromServiceWorker'), 'failure':res.get('_failureText'), 'time':s.get('_monotonicTime')})
                       if name.endswith('.trace') and e.get('type') == 'before':
                           kind=e.get('class'); method=e.get('method')
                           if kind=='Route' and method in ('abort', 'continue', 'fulfill'):
@@ -61,6 +71,15 @@ jobs:
                               events.append({'class':kind, 'method':method, 'time':e.get('startTime')})
                           elif kind=='Frame' and method=='click' and 'dataBody' in e.get('params',{}).get('selector',''):
                               events.append({'class':kind, 'method':'delete-row click', 'time':e.get('startTime')})
-              notice('Synthetic record request events', network)
+                      if name.endswith('.trace') and e.get('type') == 'console':
+                          text=e.get('text','')
+                          if any(term in text.lower() for term in ('workspace','err_failed','service worker')):
+                              console.append({'type':e.get('messageType'),'time':e.get('time'),'text':text[:250]})
+                      if name.endswith('.trace') and e.get('type') == 'frame-snapshot':
+                          s=e.get('snapshot',{}); matches=[]; scan(s.get('html'),matches)
+                          if matches: snapshots.append({'callId':s.get('callId'),'phase':s.get('phase'),'time':s.get('timestamp'),'elements':matches})
+              notice('Synthetic API request timeline', network)
               notice('Synthetic interception and click events', events)
+              notice('Synthetic browser console', console)
+              notice('Synthetic changed UI elements', snapshots[-12:])
           PY
