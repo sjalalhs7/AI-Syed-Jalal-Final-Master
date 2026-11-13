@@ -18,8 +18,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [main-debug, signed-candidate]
-        attempt: [1, 2]
+        include:
+          - { variant: main-debug, attempt: 3 }
+          - { variant: signed-candidate, attempt: 3 }
+          - { variant: signed-candidate, attempt: 4 }
+          - { variant: signed-candidate, attempt: 5 }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -66,7 +69,24 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash android/tests/smoke-launch.sh
+          script: |
+            result=0
+            bash android/tests/smoke-launch.sh || result=$?
+            if [ "$result" -ne 0 ]; then
+              # Probe the existing emulator only. Do not restart ADB or retry the
+              # failed test; preserve its original exit code and assertions.
+              mkdir -p "$DIAGNOSTICS_DIR"
+              {
+                echo '--- adb devices ---'
+                timeout 12 adb devices -l || true
+                echo '--- adb state ---'
+                timeout 12 adb get-state || true
+                echo '--- emulator boot state ---'
+                timeout 12 adb shell getprop sys.boot_completed || true
+              } > "$DIAGNOSTICS_DIR/failure-adb-probe.txt" 2>&1
+              timeout 15 adb logcat -d -s AndroidRuntime:E > "$DIAGNOSTICS_DIR/failure-probe-logcat.txt" 2>&1 || true
+            fi
+            exit "$result"
       - name: Summarize synthetic evidence when a recheck fails
         if: failure()
         env:
@@ -81,17 +101,18 @@ jobs:
               text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
               print(f'::notice title={title}::{text}')
           notice('Synthetic evidence files', {name:p.stat().st_size for name,p in sorted(files.items())})
-          for name in ('launch-start.txt','relaunch-start.txt','external-intent-start.txt','no-chrome-start.txt'):
+          for name in ('launch-start.txt','relaunch-start.txt','external-intent-start.txt','no-chrome-start.txt','failure-adb-probe.txt'):
               if name in files: notice('Synthetic '+name,files[name].read_text(errors='replace')[:1500])
           for name in ('launch-progress.txt','relaunch-progress.txt','external-intent-progress.txt'):
               if name in files:
                   lines=files[name].read_text(errors='replace').splitlines()
                   notice('Synthetic '+name,[line.split(' packages=')[0] for line in lines[-6:]])
-          for name in ('launch-logcat.txt','relaunch-logcat.txt','external-intent-logcat.txt','no-chrome-logcat.txt'):
+          for name in ('launch-logcat.txt','relaunch-logcat.txt','external-intent-logcat.txt','no-chrome-logcat.txt','failure-probe-logcat.txt'):
               if name in files:
                   text=files[name].read_text(errors='replace')
                   crashes=[segment[:1500] for segment in text.split('FATAL EXCEPTION:')[1:] if 'Process: dev.pages.ai_syed_jalal_live.mobile,' in segment[:1200]]
-                  notice('Synthetic '+name,{'bytes':len(text.encode()),'candidateCrashes':crashes})
+                  adbError=next((line for line in text.splitlines() if line.lower().startswith('adb:')),None)
+                  notice('Synthetic '+name,{'bytes':len(text.encode()),'adbError':adbError,'candidateCrashes':crashes})
           PY
       - name: Preserve synthetic emulator diagnostics
         if: always()
