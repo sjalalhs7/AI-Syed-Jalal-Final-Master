@@ -375,8 +375,8 @@ export async function onRequest(ctx){
    }
    let upstream,data;
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
-   try{for(let attempt=0;attempt<3;attempt++){upstream=await fetch(url,{method:'POST',headers,body:JSON.stringify(payload),signal:controller.signal});data=await upstream.json().catch(()=>({}));if(upstream.ok||![408,429,500,502,503,504].includes(upstream.status)||attempt===2)break;await new Promise(resolve=>setTimeout(resolve,900*(2**attempt)));}}
-   catch(err){clearTimeout(timer);const msg=err?.name==='AbortError'?'Provider request timed out after 45 seconds.':'Could not reach the selected AI provider.';const row=await saveRun('failed',msg,{mode:'provider_error',provider,model,error:err?.name||'network_error'});await audit(db,me,'AI_RUN_FAILED',provider+': network/timeout',request);return reply({ok:false,traceId,provider,model,status:'failed',error:msg,createdAt:row[0]?.created_at},502);}
+   try{for(let attempt=0;attempt<3;attempt++){upstream=await fetch(url,{method:'POST',headers,body:JSON.stringify(payload),signal:controller.signal});data=await upstream.json().catch(err=>{if(controller.signal.aborted||err?.name!=='SyntaxError')throw err;return {}});if(controller.signal.aborted)throw Object.assign(new Error('Provider response timed out'),{name:'AbortError'});if(upstream.ok||![408,429,500,502,503,504].includes(upstream.status)||attempt===2)break;await new Promise(resolve=>setTimeout(resolve,900*(2**attempt)));}}
+   catch(err){clearTimeout(timer);const msg=controller.signal.aborted?'Provider request timed out after 45 seconds.':'Could not reach the selected AI provider.';const row=await saveRun('failed',msg,{mode:'provider_error',provider,model,error:err?.name||'network_error'});await audit(db,me,'AI_RUN_FAILED',provider+': network/timeout',request);return reply({ok:false,traceId,provider,model,status:'failed',error:msg,createdAt:row[0]?.created_at},502);}
    finally{clearTimeout(timer);}
    if(!upstream.ok){
     // Provider error bodies can echo request data or secrets. Use them only to

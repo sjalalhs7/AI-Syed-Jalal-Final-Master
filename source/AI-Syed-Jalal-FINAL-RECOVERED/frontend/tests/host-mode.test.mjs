@@ -40,11 +40,11 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v173-voice-privacy'"));
+  assert.ok(sw.includes("const CACHE='aj-v174-voice-reliability'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
-  assert.ok(sw.includes("'./assets/jarvis.js?v=173'"));
-  assert.ok(sw.includes("'./assets/jalalai.js?v=173'"));
+  assert.ok(sw.includes("'./assets/jarvis.js?v=174'"));
+  assert.ok(sw.includes("'./assets/jalalai.js?v=174'"));
   assert.ok(sw.includes("'./assets/arena.js?v=172'"));
   assert.ok(sw.includes("new URL('api/',self.location).pathname"));
   for (const asset of ['guide.css?v=160', 'visual-system.css?v=160', 'preview-entry.js?v=160']) {
@@ -54,5 +54,5 @@ test('service worker cache is bumped and includes host-mode helper', () => {
   assert.ok(index.includes('assets/visual-system.css?v=162'));
   assert.ok(sw.includes("'./assets/visual-system.css?v=162'"));
   assert.ok(guide.includes('assets/visual-system.css?v=160'));
-  for (const html of [index, workspace]) assert.ok(html.includes('assets/preview-entry.js?v=160'));
+  for (const html of [index, workspace]) assert.ok(html.includes('assets/preview-entry.js?v=174'));
 });

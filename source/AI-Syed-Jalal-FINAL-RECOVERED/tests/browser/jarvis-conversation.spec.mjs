@@ -342,7 +342,7 @@ test('JARVIS distinguishes a failed tool from a request for generated prose', as
     const { message } = route.request().postDataJSON();
     const failed = message === 'show my tasks';
     return route.fulfill({ json: {
-      mode: 'agent', output: failed ? 'The account read failed.' : 'The local answer is limited.', needsProvider: true,
+      ok: true, mode: 'agent', output: failed ? 'The account read failed.' : 'The local answer is limited.', needsProvider: true,
       trace: { attempted: failed ? 1 : 0, toolCalls: 0, failures: failed ? 1 : 0, totalMs: 1 },
       steps: [{ title: failed ? 'Read tasks' : 'Local answer', tool: failed ? 'tasks' : 'none', ok: !failed, ms: 1, observation: 'Example' }]
     } });
