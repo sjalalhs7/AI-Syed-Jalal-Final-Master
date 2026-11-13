@@ -19,16 +19,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { variant: main-debug, attempt: 3 }
-          - { variant: signed-candidate, attempt: 3 }
-          - { variant: signed-candidate, attempt: 4 }
-          - { variant: signed-candidate, attempt: 5 }
+          - { variant: main-debug, attempt: 4 }
+          - { variant: signed-candidate, attempt: 6 }
+          - { variant: signed-candidate, attempt: 7 }
+          - { variant: signed-candidate, attempt: 8 }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Check the smoke diagnostic helpers
-        run: bash android/tests/test-smoke-diagnostics.sh
+      - name: Check the smoke diagnostic helpers and probe wrapper
+        run: |
+          bash android/tests/test-smoke-diagnostics.sh
+          bash .github/scripts/test-android8-probe.sh
       - name: Retrieve the exact debug APK from the main run
         if: matrix.variant == 'main-debug'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -69,24 +71,9 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: |
-            result=0
-            bash android/tests/smoke-launch.sh || result=$?
-            if [ "$result" -ne 0 ]; then
-              # Probe the existing emulator only. Do not restart ADB or retry the
-              # failed test; preserve its original exit code and assertions.
-              mkdir -p "$DIAGNOSTICS_DIR"
-              {
-                echo '--- adb devices ---'
-                timeout 12 adb devices -l || true
-                echo '--- adb state ---'
-                timeout 12 adb get-state || true
-                echo '--- emulator boot state ---'
-                timeout 12 adb shell getprop sys.boot_completed || true
-              } > "$DIAGNOSTICS_DIR/failure-adb-probe.txt" 2>&1
-              timeout 15 adb logcat -d -s AndroidRuntime:E > "$DIAGNOSTICS_DIR/failure-probe-logcat.txt" 2>&1 || true
-            fi
-            exit "$result"
+          # The runner executes each input line separately, so keep this a
+          # single command and preserve failure handling inside the script.
+          script: bash .github/scripts/android8-probe.sh
       - name: Summarize synthetic evidence when a recheck fails
         if: failure()
         env:
