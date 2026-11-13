@@ -56,9 +56,14 @@ tested. Do not disable protections or assume the warning will disappear. The
 APK depends on the live website and its backend, which still has an incomplete
 database schema.
 
-Keep the locally generated private signing key and its password protected and
-backed up outside Git and public releases. Losing them can prevent signed updates.
-The provisional package ID and release are not a completed Play submission.
+The private signing directory from the original signing session was not present
+in the follow-up workspace; whether an owner-controlled backup exists is not
+known. Keep any backup and its password protected outside Git, public releases
+and chat. The existing APK remains signed, but without the original private key
+a different key cannot normally sign an in-place update to this package. The
+public certificate and APK cannot replace the private key; plan any replacement
+package separately if no backup exists. The provisional package ID and release
+are not a completed Play submission.
 
 ## Retained old debug APK — do not use
 
@@ -79,11 +84,13 @@ warning. **Do not treat the old APK as a working release.**
 The `Android launch regression` workflow builds the changed code, installs both
 old and new package IDs side by side, checks that the homepage renders and
 reopens on several emulator API levels, tests an unrelated explicit HTTPS URL,
-and checks the missing-browser message. The workflow must pass before an APK
-built from this source is distributed; it cannot verify physical devices or
-Play Protect's installer warning. The app still relies on the live website, a
-compatible browser, and the website's backend and database. It is not an
-independent native AI app.
+and checks the missing-browser message. It records synthetic first-run UI
+progress and checks crash logs when rendering fails; diagnostics do not turn a
+failed launch into a pass. The workflow must pass before an APK built from this
+source is distributed; it cannot verify physical devices or Play Protect's
+installer warning. The app still relies on the live website, a compatible
+browser, and the website's backend and database. It is not an independent native
+AI app.
 
 ## Build and inspect
 
