@@ -108,9 +108,34 @@ test('JARVIS handles dictated exclusions, precise status filters and combined re
 
   reads.length = 0;
   await page.locator('#mode').selectOption('research');
-  await send(page, 'read my notes');
-  await expect(page.locator('.message.assistant').last()).toContainText('Private note fixture');
-  expect(reads).toEqual(['/api/assistant/notes']);
+  // The previous combined reply already contains the note. Hold the new chat
+  // request to prove it cannot be mistaken for this turn's reply.
+  let announceChat, releaseChat;
+  const chatStarted = new Promise(resolve => { announceChat = resolve; });
+  const chatGate = new Promise(resolve => { releaseChat = resolve; });
+  const chatPath = url => url.pathname === '/api/assistant/chat';
+  await page.route(chatPath, async route => {
+    if (route.request().postDataJSON()?.message === 'read my notes') {
+      announceChat();
+      await chatGate;
+    }
+    await route.continue();
+  });
+  try {
+    const previousCount = await page.locator('.message.assistant').count();
+    const newReply = page.locator('.message.assistant').nth(previousCount);
+    await send(page, 'read my notes');
+    await chatStarted;
+    await expect(page.locator('.message.assistant').last()).toContainText('Private note fixture');
+    expect(await newReply.count()).toBe(0);
+    expect(reads).toEqual([]);
+    releaseChat();
+    await expect(newReply).toContainText('Private note fixture');
+    expect(reads).toEqual(['/api/assistant/notes']);
+  } finally {
+    releaseChat();
+    await page.unroute(chatPath);
+  }
 
   reads.length = 0;
   await send(page, 'Show my tasks but not my notes');
@@ -122,13 +147,15 @@ test('JARVIS handles dictated exclusions, precise status filters and combined re
   // An instructional example in a compound agent request is not a command
   // to open the saved note that the example mentions.
   await page.locator('#mode').selectOption('agent');
+  const agentMessage = page.locator('.message.assistant').nth(await page.locator('.message.assistant').count());
   const agentReply = page.waitForResponse(response => new URL(response.url()).pathname === '/api/assistant/chat' && response.request().method() === 'POST');
   await send(page, 'Calculate 6 * 7 and tell me how to find and show my notes');
   const agent = await (await agentReply).json();
   expect(agent.trace.tools).not.toContain('tasks');
   expect(agent.trace.tools).not.toContain('records');
   expect(JSON.stringify(agent)).not.toContain('Private note fixture');
-  await expect(page.locator('.message.assistant').last()).not.toContainText('Private note fixture');
+  await expect(agentMessage).toBeVisible();
+  await expect(agentMessage).not.toContainText('Private note fixture');
   expect(reads).toEqual([]);
   expect(errors).toEqual([]);
 });

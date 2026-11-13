@@ -15,6 +15,12 @@ on:
       - 'source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/.well-known/assetlinks.json'
       - '.github/workflows/android-launch-diagnostics.yml'
   workflow_dispatch:
+    inputs:
+      association_only:
+        description: 'Check only the live association (select main)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -23,11 +29,20 @@ jobs:
   production-association:
     name: Verify live Android association
     # Only a main-branch deployment can serve this exact public origin.
-    # This GET does not read or change the production database.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # On manual dispatch, fail explicitly rather than silently skip if an
+    # association-only check was requested from a different branch. This GET
+    # does not read or change the production database.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || inputs.association_only == true))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Require main for a live association check
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo '::error::Select main when requesting the live association check.'
+          exit 1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
@@ -57,6 +72,8 @@ jobs:
           echo '::error file=android/README.md,line=1::The live Android association was not confirmed after deployment.'
           exit 1
   build:
+    # A main-only association recheck should not need another emulator build.
+    if: github.event_name != 'workflow_dispatch' || inputs.association_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
