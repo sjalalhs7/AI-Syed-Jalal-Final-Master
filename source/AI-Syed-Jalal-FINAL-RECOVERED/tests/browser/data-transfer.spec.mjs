@@ -348,23 +348,64 @@ test('a lost single-record save response is uncertain and not retried automatica
   await expect(page.locator('#recordForm button[type="submit"]')).toBeEnabled();
 });
 
-test('a lost single-record deletion response is uncertain and not retried automatically', async ({ page }) => {
+test.describe('single-record deletion with request interception', () => {
+  // Playwright page routes may miss requests handled by a service worker. Block
+  // it only in this interception test; other browser tests still exercise it.
+  test.use({ serviceWorkers:'block' });
+
+  test('an aborted deletion request is uncertain and not retried automatically', async ({ page }) => {
+    test.setTimeout(120000);
+    await workspace(page);
+    const id='DELETE-'+crypto.randomUUID();
+    expect((await api(page,'/records','POST',{id,name:'Local test'})).status).toBe(201);
+    await page.reload();
+    let calls=0;
+    await page.route('**/api/records/**',route=>{
+      if(route.request().method()==='DELETE'){calls++;return route.abort('failed')}
+      return route.continue();
+    });
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Delete'}).click();
+    // First prove the failure was injected, then assert the user-facing result.
+    await expect.poll(()=>calls).toBe(1);
+    await expect(page.locator('#dataImportStatus')).toContainText('Deletion could not be confirmed');
+    await expect(page.locator('#dataImportStatus')).toContainText('before retrying');
+    expect(calls).toBe(1);
+    expect((await api(page,'/records/'+id)).status).toBe(200);
+  });
+});
+
+test('a deletion applied before its response is lost remains uncertain and is not retried', async ({ page }) => {
   test.setTimeout(120000);
   await workspace(page);
-  const id='DELETE-'+crypto.randomUUID();
+  const id='DELETE-APPLIED-'+crypto.randomUUID();
   expect((await api(page,'/records','POST',{id,name:'Local test'})).status).toBe(201);
   await page.reload();
-  let calls=0;
-  await page.route('**/api/records/**',route=>{
-    if(route.request().method()==='DELETE'){calls++;return route.abort('failed')}
-    return route.continue();
-  });
+  await page.evaluate(id=>{
+    const nativeFetch=window.fetch.bind(window);
+    window.testDeletionProbe={attempts:0,status:null};
+    window.fetch=async (input,options={})=>{
+      const url=new URL(input instanceof Request?input.url:String(input),location.href);
+      const method=String(options.method||(input instanceof Request?input.method:'GET')).toUpperCase();
+      if(url.origin===location.origin&&url.pathname==='/api/records/'+encodeURIComponent(id)&&method==='DELETE'){
+        window.testDeletionProbe.attempts++;
+        const response=await nativeFetch(input,options);
+        window.testDeletionProbe.status=response.status;
+        // The disposable server already replied; simulate losing that response
+        // before application code can observe it.
+        throw new TypeError('Synthetic deletion response loss');
+      }
+      return nativeFetch(input,options);
+    };
+  },id);
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#dataBody tr').filter({hasText:id}).getByRole('button',{name:'Delete'}).click();
   await expect(page.locator('#dataImportStatus')).toContainText('Deletion could not be confirmed');
   await expect(page.locator('#dataImportStatus')).toContainText('before retrying');
-  expect(calls).toBe(1);
-  expect((await api(page,'/records/'+id)).status).toBe(200);
+  expect(await page.evaluate(()=>window.testDeletionProbe)).toEqual({attempts:1,status:200});
+  // The successful server-side deletion is observable even though the UI did
+  // not receive its response. Automatic retry or a false confirmation is unsafe.
+  expect((await api(page,'/records/'+id)).status).toBe(404);
 });
 
 test('a lost merge response is reported as uncertain and is not retried', async ({ page }) => {
