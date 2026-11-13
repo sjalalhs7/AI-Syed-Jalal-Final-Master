@@ -43,8 +43,8 @@ PY
 }
 
 click_browser_first_run() {
-  local point
-  point=$(python3 - "$DIAGNOSTICS_DIR/$1.xml" <<'PY'
+  local phase=$1 attempt=$2 point
+  point=$(python3 - "$DIAGNOSTICS_DIR/$phase.xml" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 allowed = {value.casefold() for value in ('Use without an account', 'Accept & continue',
            'Accept and continue', 'Continue without an account', 'No thanks',
@@ -63,9 +63,12 @@ except Exception:
 PY
 )
   if [[ -n "$point" ]]; then
+    printf 'attempt=%s first-run tap=%s\n' "$attempt" "$point" >> "$DIAGNOSTICS_DIR/$phase-progress.txt"
     # The only possible values are two integers generated above.
     # shellcheck disable=SC2086
     adb shell input tap $point
+  else
+    printf 'attempt=%s no recognized first-run control\n' "$attempt" >> "$DIAGNOSTICS_DIR/$phase-progress.txt"
   fi
 }
 
@@ -90,22 +93,35 @@ PY
 }
 
 wait_for_site() {
-  local phase=$1
+  local phase=$1 attempt summary
+  : > "$DIAGNOSTICS_DIR/$phase-progress.txt"
   for attempt in $(seq 1 24); do
     sleep 5
-    dump_ui "$phase" || continue
+    if ! dump_ui "$phase"; then
+      printf 'attempt=%s UI dump unavailable\n' "$attempt" >> "$DIAGNOSTICS_DIR/$phase-progress.txt"
+      continue
+    fi
+    summary=$(ui_summary "$phase")
+    printf 'attempt=%s %s\n' "$attempt" "$summary" >> "$DIAGNOSTICS_DIR/$phase-progress.txt"
     if grep -Eqi 'Professional AI Workspace|One connected workspace|Your AI Partner for a Smarter Tomorrow' "$DIAGNOSTICS_DIR/$phase.xml"; then
-      notice "Android API ${API_LABEL} ${phase}" "Website text is visible. $(ui_summary "$phase")"
+      notice "Android API ${API_LABEL} ${phase}" "Website text is visible. $summary"
       return 0
     fi
-    click_browser_first_run "$phase"
+    click_browser_first_run "$phase" "$attempt"
   done
   if [[ -f "$DIAGNOSTICS_DIR/$phase.xml" ]]; then
     notice "Android API ${API_LABEL} ${phase}" "Website text was not visible. $(ui_summary "$phase")"
   fi
+  notice "Android API ${API_LABEL} ${phase} recent attempts" "$(tail -n 6 "$DIAGNOSTICS_DIR/$phase-progress.txt")"
+  # A failed render must not prevent capture of a possible candidate crash.
+  # Keep the failure regardless of whether crash logs are available.
+  check_no_app_crash "$phase" || true
   echo "::error file=android/README.md,line=1::The expected homepage did not render during ${phase} on API ${API_LABEL}."
   return 1
 }
+
+# Allow the shell regression tests to exercise these helpers with a fake adb.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return; fi
 
 adb shell input keyevent 82 || true
 adb install -r "$OLD_APK_PATH" > "$DIAGNOSTICS_DIR/install-old.txt"

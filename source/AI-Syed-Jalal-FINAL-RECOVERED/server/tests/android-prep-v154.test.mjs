@@ -62,3 +62,21 @@ test('Gradle wrapper and release behavior avoid storing signing credentials', ()
   assert.match(read('.gitignore'), /\*\.jks/);
   assert.match(read('README.md'), /UNSIGNED|unsigned/);
 });
+
+test('live association checks require main and can be dispatched without an emulator', () => {
+  const workflow = readFileSync(new URL('../../../../.github/workflows/android-launch-diagnostics.yml', import.meta.url), 'utf8');
+  const live = workflow.split('  production-association:\n')[1]?.split('\n  build:')[0];
+  const build = workflow.split('\n  build:\n')[1]?.split('\n  emulator:')[0];
+  assert.ok(live && build);
+  assert.match(workflow, /association_only:\s*\n\s+description:[^\n]+\n\s+type: boolean\s*\n\s+required: false\s*\n\s+default: false/);
+  assert.match(live, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(live, /github\.event_name == 'workflow_dispatch' && \(github\.ref == 'refs\/heads\/main' \|\| inputs\.association_only == true\)/);
+  assert.match(live, /if: github\.ref != 'refs\/heads\/main'\s+run: \|\s+echo[^\n]+\n\s+exit 1/);
+  const guard = live.indexOf('Require main for a live association check');
+  assert.ok(guard >= 0 && live.indexOf('curl --silent') > guard);
+  assert.match(live, /https:\/\/ai-syed-jalal-live\.pages\.dev\/\.well-known\/assetlinks\.json/);
+  assert.match(live, /statuses\[-1\]\.split\(\)\[1\] != '200'/);
+  assert.match(live, /content-type: application\/json/);
+  assert.match(live, /json\.loads\(pathlib\.Path\(sys\.argv\[2\]\)\.read_text\(\)\) != json\.loads/);
+  assert.match(build, /github\.event_name != 'workflow_dispatch' \|\| inputs\.association_only != true/);
+});

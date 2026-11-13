@@ -96,6 +96,31 @@ npm run build
 
 The browser suite uses an isolated local database and speech/provider doubles; it is not a real device or live-provider test.
 
+A merge does not itself prove that Cloudflare Pages deployed. PR #73's generated
+squash message inherited an automation-skip directive from an older commit;
+normal push workflows did not run, no Cloudflare Pages build was observed, and
+an initial post-merge check found the Android association absent on the live
+origin. When deployment is intended, review the entire squash message and use
+a clean message without automation-skip directives. Verify the Cloudflare
+Pages build for the actual main commit and then check the live origin. A
+successful GitHub Pages build or branch preview is not proof that the live
+Cloudflare site changed. Deploying source does not authorize database repair.
+
+The `Android launch regression` workflow checks the live Android association
+on relevant main-branch pushes. To recheck only that public, read-only JSON
+without rebuilding the APK, dispatch the workflow from `main` with
+`association_only` set to `true`, for example:
+
+```bash
+gh workflow run android-launch-diagnostics.yml --ref main -f association_only=true
+```
+
+The job checks for HTTP 200 without a redirect, JSON content type, and a parsed
+body matching the main-branch file. An association-only dispatch from another
+branch fails rather than silently reporting a production check. A passing
+association check alone does not prove database readiness, sign-in, Android
+installation, Play Protect behavior, or all website features.
+
 After deployment:
 
 1. Read `GET /api/health` for database connectivity and `GET /api/ready` for the required table-name inventory. A ready response has `ready: true` and `schemaTables` equal to `required` (currently 24). This checks names only, not columns, indexes, migration history, data or provider behavior. A connected database alone is not readiness.
