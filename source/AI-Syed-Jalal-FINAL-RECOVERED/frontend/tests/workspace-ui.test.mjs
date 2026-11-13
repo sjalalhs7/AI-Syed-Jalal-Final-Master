@@ -48,7 +48,7 @@ test('Viewer AI console does not depend on Admin-only endpoints', () => {
   const end = workspace.indexOf('function loadConnection()', start);
   assert.ok(start >= 0 && end > start);
   const loader = workspace.slice(start, end);
-  assert.match(loader, /Promise\.all\(\[api\('\/api\/ai\/capabilities'\),api\('\/api\/ai\/runs\?limit=8'\)\]\)/);
+  assert.match(loader, /Promise\.all\(\[api\('\/api\/ai\/capabilities',\{signal:timeoutSignal\(15000\)\}\),api\('\/api\/ai\/runs\?limit=8',\{signal:timeoutSignal\(15000\)\}\)\]\)/);
   assert.match(loader, /state\.role==='Admin'/);
   assert.equal(loader.includes("api('/api/admin/ai/provider-health')"), false);
 });
@@ -104,14 +104,16 @@ test('Connection page cannot locally assign server roles or fake a tenant', () =
   assert.ok(workspace.includes('Sign in with an account registered in the central database.'));
 });
 
-test('Workspace AI run is disabled unless the API reports a configured provider', () => {
+test('Workspace cloud provider selection follows the API metadata', () => {
   assert.match(workspace, /providerSelect\.innerHTML=providers\.map/);
   assert.match(workspace, /No provider key configured/);
 });
 
-test('All AI actions remain disabled without a configured provider', () => {
+test('Workspace gates cloud and pending requests while permitting ready local tools', () => {
   assert.ok(workspace.includes("['#aiRunBtn','#runSupervisorBtn','#runAutoGPTBtn'].forEach(q=>{if($(q))$(q).disabled=true})"));
-  assert.ok(workspace.includes("$('#aiRunBtn').disabled=$('#aiEngine').value==='cloud'&&!selected"));
+  assert.ok(workspace.includes('providerSelect.disabled=!selected'));
+  assert.ok(workspace.includes("$('#runSupervisorBtn').disabled=!selected;$('#runAutoGPTBtn').disabled=!selected"));
+  assert.ok(workspace.includes("$('#aiRunBtn').disabled=Boolean(aiRunController)||!remoteMode()||!aiInventoryReady||($('#aiEngine').value==='cloud'&&$('#aiProviderSelect').disabled)"));
 });
 
 test('Homepage does not market unimplemented autonomous, voice or multi-model features', () => {

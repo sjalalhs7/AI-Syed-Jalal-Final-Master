@@ -191,3 +191,19 @@ test('each local assistant action opens its intended page on a phone', async ({ 
     if (await welcome.isVisible()) await page.locator('#aj-welcome-notice-close').click();
   }
 });
+
+test('the record dialog remains above floating controls and its buttons are tappable on small screens', async ({ page }) => {
+  await openWorkspace(page, { dismissWelcome:false });
+  await page.locator('#mobileNav [data-nav="data"]').click();
+  await page.locator('#addBtn').click();
+  await expect(page.locator('#modal')).toBeVisible();
+  for (const viewport of [{width:320,height:568}, {width:390,height:844}, {width:568,height:320}, {width:768,height:900}]) {
+    await page.setViewportSize(viewport);
+    // Trial clicks check real hit-testing without submitting a record.
+    await page.locator('#recordForm button[type="submit"]').click({ trial:true, timeout:10000 });
+    await page.locator('#closeModal').click({ trial:true, timeout:10000 });
+  }
+  await page.locator('#closeModal').click();
+  await expect(page.locator('#modal')).toBeHidden();
+  await expect(page.locator('#aj-theme-trigger')).toBeVisible();
+});

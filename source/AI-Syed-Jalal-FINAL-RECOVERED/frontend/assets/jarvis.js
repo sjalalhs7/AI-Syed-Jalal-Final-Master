@@ -47,15 +47,52 @@
     $('micIndicator').dataset.active = String(listening);
   }
 
-  async function api(path, options = {}) {
+  async function api(path, options = {}, timeoutMs = 65000) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
-    const timeout = AbortSignal.timeout(65000);
-    const signal = options.signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([options.signal, timeout]) : (options.signal || timeout);
-    const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.error || `Request failed (${response.status})`);
-      error.status = response.status; error.code = data.code; throw error;
+    // A caller's Stop signal and the deadline must both work, including in
+    // browsers without AbortSignal.timeout/any. Keep the deadline active until
+    // the entire response body is read, not merely until headers arrive.
+    const request = new AbortController(), caller = options.signal;
+    const forwardAbort = () => request.abort();
+    if (caller?.aborted) forwardAbort();
+    else caller?.addEventListener('abort', forwardAbort, { once: true });
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; request.abort(); }, timeoutMs);
+    try {
+      const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal: request.signal });
+      const data = await response.json().catch(error => {
+        if (request.signal.aborted || error?.name !== 'SyntaxError') throw error;
+        if (response.ok) throw new Error('The application response was unreadable. The server may still finish; check before retrying.');
+        return {};
+      });
+      if (request.signal.aborted) throw Object.assign(new Error('Request aborted.'), { name: 'AbortError' });
+      if (!response.ok) {
+        const error = new Error(data?.error || `Request failed (${response.status})`);
+        error.status = response.status; error.code = data?.code; throw error;
+      }
+      return data;
+    } catch (error) {
+      if (timedOut) throw Object.assign(new Error('The request timed out. The server may still finish; check before retrying.'), { name: 'TimeoutError' });
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      caller?.removeEventListener('abort', forwardAbort);
+    }
+  }
+
+  function requireAssistantResponse(result) {
+    if (result?.ok !== true || typeof result.output !== 'string' || !result.output.trim()) {
+      throw new Error('The application response was incomplete. The server may still finish; check history or saved actions before retrying.');
+    }
+    return result;
+  }
+
+  function requireSavedAction(data, action) {
+    const isTask = action?.type === 'create_task', isNote = action?.type === 'create_note';
+    const saved = isTask ? data?.task : isNote ? data?.note : null;
+    const matches = isTask ? saved?.title === action.title : isNote && saved?.content === action.content;
+    if (data?.ok !== true || typeof data.output !== 'string' || !data.output.trim() || typeof saved?.id !== 'string' || !saved.id || !matches) {
+      throw new Error('The save response could not be verified.');
     }
     return data;
   }
@@ -434,7 +471,7 @@
     const requestContextVersion = contextVersion;
     if (rememberAtSend) payload.history = cloudTurns;
     try {
-      let result = await api('/assistant/chat', { method: 'POST', signal: requestController.signal, body: JSON.stringify(payload) });
+      let result = requireAssistantResponse(await api('/assistant/chat', { method: 'POST', signal: requestController.signal, body: JSON.stringify(payload) }));
       result = await resolveLocalTool(result, requestController.signal);
       if (controller !== requestController || requestController.signal.aborted) return;
       controller = null; busy = false; runningPrompt = '';
@@ -482,15 +519,20 @@
     const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn small'; cancel.textContent = 'Cancel'; cancel.style.marginLeft = '8px';
     confirm.onclick = async () => {
       confirm.disabled = cancel.disabled = true; setStatus('Saving your confirmed action…');
+      let data;
       try {
-        const data = await api('/assistant/confirm', { method: 'POST', body: JSON.stringify({ confirmed: true, action: result.action }) });
-        box.replaceChildren(document.createTextNode(data.output)); lastReply = data.output; updateControls(); setStatus('Saved after your confirmation.');
-        if ($('handsFree').checked && !document.hidden) speak(data.output);
+        data = requireSavedAction(await api('/assistant/confirm', { method: 'POST', body: JSON.stringify({ confirmed: true, action: result.action }) }, 20000), result.action);
       } catch (error) {
         // A lost response can mean the server already saved it. Do not invite an
         // immediate duplicate save; the user can check their workspace first.
-        box.replaceChildren(document.createTextNode('Could not verify the save. Check your tasks or notes before trying again.'));
-        setStatus((error.message || 'Save failed.') + ' Check your tasks or notes before retrying.');
+        if (!box.isConnected) return;
+        const message = 'Could not verify the save. The server may still finish; check your tasks or notes before trying again.';
+        box.replaceChildren(document.createTextNode(message)); setStatus(message); return;
+      }
+      if (!box.isConnected) return;
+      box.replaceChildren(document.createTextNode(data.output)); lastReply = data.output; updateControls(); setStatus('Saved after your confirmation.');
+      if ($('handsFree').checked && !document.hidden) {
+        try { speak(data.output); } catch { setStatus('Save confirmed, but the browser could not start speech.'); }
       }
     };
     cancel.onclick = () => { box.replaceChildren(document.createTextNode('Cancelled. Nothing was saved.')); setStatus('Save cancelled. Nothing was saved.'); };

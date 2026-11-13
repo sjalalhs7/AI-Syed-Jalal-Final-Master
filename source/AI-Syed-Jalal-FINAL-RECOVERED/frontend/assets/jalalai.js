@@ -3,11 +3,47 @@
   const $ = id => document.getElementById(id);
   let user = null, csrf = '', busy = false, recognition = null, listening = false, speech = null, lastReply = '', state = { tasks: [], notes: [] }, requestController = null, providerTouched = false, savedListsHidden = false, savedViewVersion = 0, sessionVersion = 0;
   const setStatus = text => { $('status').textContent = text; };
-  async function api(path, options = {}) {
+  async function api(path, options = {}, timeoutMs = 65000) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(csrf && options.method && options.method !== 'GET' ? { 'X-CSRF-Token': csrf } : {}), ...options.headers };
-    const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal: options.signal || AbortSignal.timeout(65000) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; error.code = data.code; throw error; }
+    // Compose Stop and timeout without relying on newer AbortSignal statics.
+    // The deadline covers the body as well as the response headers.
+    const request = new AbortController(), caller = options.signal;
+    const forwardAbort = () => request.abort();
+    if (caller?.aborted) forwardAbort();
+    else caller?.addEventListener('abort', forwardAbort, { once: true });
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; request.abort(); }, timeoutMs);
+    try {
+      const response = await fetch('/api' + path, { ...options, headers, credentials: 'same-origin', signal: request.signal });
+      const data = await response.json().catch(error => {
+        if (request.signal.aborted || error?.name !== 'SyntaxError') throw error;
+        if (response.ok) throw new Error('The application response was unreadable. The server may still finish; check before retrying.');
+        return {};
+      });
+      if (request.signal.aborted) throw Object.assign(new Error('Request aborted.'), { name: 'AbortError' });
+      if (!response.ok) { const error = new Error(data?.error || `Request failed (${response.status})`); error.status = response.status; error.code = data?.code; throw error; }
+      return data;
+    } catch (error) {
+      if (timedOut) throw Object.assign(new Error('The request timed out. The server may still finish; check before retrying.'), { name: 'TimeoutError' });
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      caller?.removeEventListener('abort', forwardAbort);
+    }
+  }
+  function requireAssistantResponse(result) {
+    if (result?.ok !== true || typeof result.output !== 'string' || !result.output.trim()) {
+      throw new Error('The application response was incomplete. The server may still finish; check history or saved actions before retrying.');
+    }
+    return result;
+  }
+  function requireSavedAction(data, action) {
+    const isTask = action?.type === 'create_task', isNote = action?.type === 'create_note';
+    const saved = isTask ? data?.task : isNote ? data?.note : null;
+    const matches = isTask ? saved?.title === action.title : isNote && saved?.content === action.content;
+    if (data?.ok !== true || typeof data.output !== 'string' || !data.output.trim() || typeof saved?.id !== 'string' || !saved.id || !matches) {
+      throw new Error('The save response could not be verified.');
+    }
     return data;
   }
   function cloudStatusUnknown() {
@@ -56,9 +92,22 @@
       const confirm = document.createElement('button'); confirm.className = 'btn small primary'; confirm.type = 'button'; confirm.textContent = 'Confirm & save';
       const cancel = document.createElement('button'); cancel.className = 'btn small'; cancel.type = 'button'; cancel.textContent = 'Cancel'; cancel.style.marginLeft = '8px';
       confirm.onclick = async () => {
-        confirm.disabled = cancel.disabled = true;
-        try { const data = await api('/assistant/confirm', { method: 'POST', body: JSON.stringify({ confirmed: true, action: result.action }) }); box.replaceChildren(document.createTextNode(data.output)); await refreshState(); }
-        catch (error) { setStatus(error.message); confirm.disabled = cancel.disabled = false; }
+        confirm.disabled = cancel.disabled = true; setStatus('Saving your confirmed action…');
+        const saveSession = sessionVersion;
+        let data;
+        try {
+          data = requireSavedAction(await api('/assistant/confirm', { method: 'POST', body: JSON.stringify({ confirmed: true, action: result.action }) }, 20000), result.action);
+        } catch (error) {
+          // A lost response does not prove the write failed. Remove this
+          // confirmation so another tap cannot immediately duplicate the save.
+          if (saveSession !== sessionVersion || !box.isConnected) return;
+          const message = 'Could not verify the save. The server may still finish; check your tasks or notes before trying again.';
+          box.replaceChildren(document.createTextNode(message)); setStatus(message); return;
+        }
+        if (saveSession !== sessionVersion || !box.isConnected) return;
+        box.replaceChildren(document.createTextNode(data.output)); setStatus('Saved after your confirmation.');
+        try { await refreshState(); }
+        catch { box.appendChild(document.createTextNode(' The save was confirmed, but the saved lists could not refresh.')); }
       };
       cancel.onclick = () => { box.replaceChildren(document.createTextNode('Cancelled. Nothing was saved.')); };
       box.append(prompt, confirm, cancel); node.appendChild(box);
@@ -210,20 +259,24 @@
     if (cloudStatusUnknown()) { setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.'); return; }
     stopVoice(); busy = true; $('prompt').value = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Working… Stop cancels waiting for the reply.');
     const currentRequest = new AbortController(), requestSession = sessionVersion; requestController = currentRequest;
-    const timeout = setTimeout(() => currentRequest.abort(), 60000);
+    let timedOut = false, replyShown = false;
+    const timeout = setTimeout(() => { if (!currentRequest.signal.aborted) { timedOut = true; currentRequest.abort(); } }, 60000);
     try {
-      const result = await api('/assistant/chat', { method: 'POST', signal: currentRequest.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value, supportsCombinedReads: true, supportsTaskStatusFilter: true }) });
+      const result = requireAssistantResponse(await api('/assistant/chat', { method: 'POST', signal: currentRequest.signal, body: JSON.stringify({ message: text, profile: $('profile').value, mode: $('mode').value, provider: $('provider').value, supportsCombinedReads: true, supportsTaskStatusFilter: true }) }));
       if (currentRequest.signal.aborted || requestSession !== sessionVersion) return;
-      const label = result.mode === 'agent' ? 'JalalAi · agent runtime (real tool trace)'
+      const label = result.cloudError ? 'JalalAi · local fallback (cloud unavailable)'
+        : result.mode === 'agent' ? 'JalalAi · agent runtime (real tool trace)'
         : result.mode === 'cloud' ? `JalalAi · cloud ${result.provider}`
-        : result.mode === 'local-fallback' ? 'JalalAi · local fallback (cloud unavailable)'
         : 'JalalAi · local tools / guidance';
       if (result.cloudError) setStatus(result.cloudError);
       else if (result.mode === 'agent') setStatus(result.trace?.failures ? `Agent finished with ${result.trace.failures} failed step(s) — see the trace.` : `Agent finished · ${result.trace?.toolCalls ?? 0} successful tool result(s) in ${result.trace?.totalMs ?? 0} ms.`);
       else setStatus(result.mode === 'cloud' ? 'Cloud reply received.' : 'Local tools completed the request.');
       if (result.readAccessBlocked) hideSavedLists();
-      const output = result.readAccessBlocked ? `${result.output}\n\nBoth sidebar lists are now hidden on this page. Choose “Show saved lists” to reload them; earlier chat may still contain saved items.` : result.output;
-      const node = addMessage(output, 'assistant', label, result);
+      const localOutput = result.readAccessBlocked ? `${result.output}\n\nBoth sidebar lists are now hidden on this page. Choose “Show saved lists” to reload them; earlier chat may still contain saved items.` : result.output;
+      // Keep the reason visible in the conversation, not only in the transient
+      // status line, and do not present a local fallback as a Gemini reply.
+      const output = result.cloudError ? `${result.cloudError}\n\nLocal response:\n${localOutput || 'No local response was returned.'}` : localOutput;
+      const node = addMessage(output, 'assistant', label, result); replyShown = true;
       if (result.mode === 'agent' && Array.isArray(result.steps)) node.appendChild(agentTrace(result));
       const resolved = await runTool(result, currentRequest.signal);
       if (currentRequest.signal.aborted || requestSession !== sessionVersion) return;
@@ -231,8 +284,13 @@
     } catch (error) {
       if (requestSession !== sessionVersion) return;
       const cancelled = currentRequest.signal.aborted || error.name === 'AbortError';
-      setStatus(cancelled ? 'Stopped waiting. The server may still finish; check history or saved actions before retrying.' : error.message);
-      if (!cancelled) addMessage(error.message, 'assistant error', 'Request could not complete');
+      // Don't overwrite a new draft or repeat a prompt after a reply was shown.
+      if (!replyShown && !$('prompt').value.trim()) $('prompt').value = text;
+      const message = timedOut || error.name === 'TimeoutError'
+        ? 'The request timed out. The server may still finish; check history or saved actions before retrying.'
+        : cancelled ? 'Stopped waiting. The server may still finish; check history or saved actions before retrying.' : error.message;
+      setStatus(message);
+      if (!cancelled) addMessage(message, 'assistant error', 'Request could not complete');
     } finally {
       clearTimeout(timeout);
       if (requestController === currentRequest) { busy = false; requestController = null; updateControls(); }

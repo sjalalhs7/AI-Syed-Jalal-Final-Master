@@ -2,7 +2,13 @@
 (() => {
   // Only the server can enable this button. The demo endpoint requires a local database adapter.
   if (window.AJ_STATIC_HOST) return;
-  fetch('/api/health', { credentials: 'same-origin', signal: AbortSignal.timeout(10000) })
+  // Some supported browsers have AbortController but no AbortSignal.timeout.
+  const signal = typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(10000) : (() => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10000);
+    return controller.signal;
+  })();
+  fetch('/api/health', { credentials: 'same-origin', signal })
     .then(response => response.ok ? response.json() : null).then(health => {
       if (!health?.localPreview) return;
       window.ajLocalPreview = true;
@@ -12,8 +18,10 @@
       const note = document.createElement('p'); note.className = 'muted'; note.style.cssText = 'font-size:12px;margin-top:8px'; note.textContent = 'Disposable shared sandbox: use test data only. No production data or credentials are used. Other sandbox testers may see shared records.';
       button.onclick = async () => {
         button.disabled = true; button.textContent = 'Preparing your preview…';
+        let checkingWorkspace = Boolean(window.workspaceReady);
         try {
           if (window.workspaceReady) await window.workspaceReady;
+          checkingWorkspace = false;
           let csrf = '';
           if (document.querySelector('#loginForm')) { const session = await fetch('/api/me', { credentials: 'same-origin' }).then(r => r.json()); csrf = session.csrfToken || ''; }
           const response = await fetch('/api/demo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: '{}' });
@@ -22,7 +30,7 @@
             if (typeof window.AJNavigateAfterSignIn === 'function') window.AJNavigateAfterSignIn();
             else location.href = 'dashboard.html';
           }
-        } catch (error) { note.textContent = error?.name === 'TimeoutError' ? 'The workspace session check timed out. Check your connection, then reload this page.' : (error?.message || 'Preview could not start.'); note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
+        } catch (error) { note.textContent = checkingWorkspace && ['TimeoutError', 'AbortError'].includes(error?.name) ? 'The workspace session check timed out. Check your connection, then reload this page.' : (error?.message || 'Preview could not start.'); note.setAttribute('role', 'alert'); button.disabled = false; button.textContent = 'Try the local preview'; }
       };
       form.append(button, note);
     }).catch(() => {});

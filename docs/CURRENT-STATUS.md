@@ -25,6 +25,25 @@ This source also lets JARVIS and JalalAi use the existing optional OmniRoute ada
 
 The source now has more conservative saved-data routing. Recognized exclusions, including tested examples such as “don't show my notes” and “notes mat dikhao,” ask for clarification rather than initiating a saved-data read, Wikipedia search or cloud request for that assistant turn. Explicit task and note commands can request both lists or only open/completed tasks. Recognition is limited to particular wording and is **not** a general privacy guarantee: an unrecognized exclusion can still be sent as text when Cloud AI or Research is selected, and browser speech may be processed by a vendor. The JalalAi sidebar already loads both lists on sign-in; a recognized exclusion hides those lists on the current page, but cannot erase earlier chat messages, browser history or data already seen. Reloading or choosing **Show saved lists** displays them again. Older open JalalAi pages can still reload both lists after a chat message; refresh the page to load the new client and use combined or filtered reads. These changes describe the source; deployment must be verified separately.
 
+## Assistant reliability in this source
+
+JARVIS, JalalAi and the Workspace assistant use bounded requests even when a
+browser lacks the newer `AbortSignal` static helpers. Stop cancels waiting on
+the client, not necessarily work already sent to the server. Timeouts preserve
+drafts and warn that an operation may still finish. Provider failures are shown
+alongside, and not mistaken for, local fallback responses. Successful HTTP
+responses must contain a valid assistant reply before the UI reports success.
+
+Task and note confirmations have a bounded wait and are only reported as
+saved when the response confirms the requested item. If a response is lost or
+unverifiable, the confirmation is removed to prevent an immediate duplicate;
+check the saved tasks or notes before attempting the action again. The Workspace
+record dialog is also above floating controls at the tested mobile viewport
+sizes. These behaviors are covered by disposable-database and simulated-mobile
+browser tests. They do not establish the cause of a particular phone's Gemini
+error, a working live provider, a physical-device result, or deployment status.
+No schema migration or repair is part of these source changes.
+
 ## Administrator setup in this source
 
 The previous public first-Admin setup could be claimed without an owner secret
