@@ -1,0 +1,59 @@
+name: Inspect synthetic Android first-run screen
+
+# One-off read-only inspection of a disposable emulator artifact; remove after use.
+on:
+  push:
+    branches: ['arena/**']
+    paths: ['.github/workflows/inspect-android-failure.yml']
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download the failed synthetic API 30 UI artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: android-launch-evidence-api-30
+          run-id: 43355783343
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/android-evidence
+      - name: Report first-run control geometry without account data
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/android-evidence
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, xml.etree.ElementTree as ET
+          rootdir = pathlib.Path(os.environ['EVIDENCE_DIR'])
+          files = list(rootdir.rglob('launch.xml'))
+          if len(files) != 1:
+              raise SystemExit('Expected exactly one disposable emulator launch UI file')
+          tree = ET.parse(files[0]).getroot()
+          parents = {child: parent for parent in tree.iter() for child in parent}
+          allowed = {value.casefold() for value in ('Use without an account', 'Accept & continue', 'Accept and continue', 'Continue without an account', 'No thanks', 'No, thanks', 'Got it', 'Next', 'Skip')}
+          fields = ('class', 'resource-id', 'text', 'content-desc', 'bounds', 'enabled', 'clickable', 'focusable', 'visible-to-user')
+          def attrs(node):
+              return {key: node.get(key) for key in fields if node.get(key)}
+          def notice(title, message):
+              text = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::notice title={title}::{text}')
+          matches = [node for node in tree.iter('node') if node.get('text', '').strip().casefold() in allowed]
+          notice('Synthetic first-run match count', str(len(matches)))
+          for i, node in enumerate(matches[:5]):
+              chain = []
+              current = node
+              for _ in range(4):
+                  if current is None: break
+                  chain.append(attrs(current))
+                  current = parents.get(current)
+              notice(f'Synthetic first-run match {i + 1}', json.dumps(chain, separators=(',', ':')))
+              bounds = node.get('bounds', '')
+              m = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds)
+              if m:
+                  x1, y1, x2, y2 = map(int, m.groups())
+                  notice(f'Synthetic first-run tap {i + 1}', f'center={(x1+x2)//2},{(y1+y2)//2}; extent={x2-x1}x{y2-y1}')
+          PY
