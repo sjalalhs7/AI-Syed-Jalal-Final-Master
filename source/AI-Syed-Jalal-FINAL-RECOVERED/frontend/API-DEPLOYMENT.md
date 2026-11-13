@@ -96,6 +96,16 @@ npm run build
 
 The browser suite uses an isolated local database and speech/provider doubles; it is not a real device or live-provider test.
 
+A merge does not itself prove that the Cloudflare production deployment ran. The
+squash message for PR #73 inherited an automation-skip directive from an older
+branch commit; its normal push workflows did not run, no Cloudflare Pages build
+was observed, and the live Android association was still absent when checked.
+For future squash merges, review the entire generated commit message and use a
+clean message without automation-skip directives when deployment is intended.
+Verify the Cloudflare Pages build and actual live origin separately; a successful
+GitHub Pages build or branch preview is not proof that the live site changed.
+Deploying source does not authorize a production database migration or repair.
+
 After deployment:
 
 1. Read `GET /api/health` for database connectivity and `GET /api/ready` for the required table-name inventory. A ready response has `ready: true` and `schemaTables` equal to `required` (currently 24). This checks names only, not columns, indexes, migration history, data or provider behavior. A connected database alone is not readiness.
