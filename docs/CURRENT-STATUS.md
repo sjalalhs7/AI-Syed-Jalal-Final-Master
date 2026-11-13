@@ -44,6 +44,16 @@ browser tests. They do not establish the cause of a particular phone's Gemini
 error, a working live provider, a physical-device result, or deployment status.
 No schema migration or repair is part of these source changes.
 
+After PR #75 deployed, its [post-merge application run](https://github.com/sjalalhs7/AI-Syed-Jalal-Final-Master/actions/runs/43464045883)
+passed 276 browser tests but failed one mocked save-response test: the page
+showed a successful disposable save instead of the fixture's error. Its trace
+recorded the route setup but no captured confirmation request or fixture
+fulfillment; the cause was not established. The mock-specific save tests in this
+source block service workers and explicitly check that their fixture intercepted
+the request. A separate real disposable save test retains an active worker.
+Those changes do not prove why the earlier interception failed, or by themselves
+verify a physical phone or production provider.
+
 ## Administrator setup in this source
 
 The previous public first-Admin setup could be claimed without an owner secret

@@ -50,48 +50,60 @@ async function propose(page, surface, title) {
   return { panel, button };
 }
 
-for (const surface of ['jarvis', 'jalalai', 'console', 'dock']) {
-  for (const failure of ['timeout', 'malformed']) {
-    test(`${surface} keeps a ${failure} save unconfirmed and cannot resend it with one tap`, async ({ page }) => {
-      await openSurface(page, surface);
-      const title = `Disposable ${surface} ${failure} task`;
-      const { panel, button } = await propose(page, surface, title);
-      let calls = 0, release;
-      const held = new Promise(resolve => { release = resolve; });
-      await page.route('**/api/assistant/confirm', async route => {
-        calls++;
-        if (failure === 'timeout') {
-          await held;
-          await route.fulfill({ json: { ok: true, task: { id: 'late', title }, output: 'Late fixture save' } }).catch(() => {});
-        } else {
-          // Valid JSON and HTTP 200 are not proof that the requested task was saved.
-          await route.fulfill({ json: { ok: true, output: 'Forged save' } });
-        }
-      });
-      try {
-        await page.evaluate(() => {
-          const original = window.setTimeout.bind(window);
-          window.setTimeout = (fn, ms, ...args) => original(fn, ms === 20000 || ms === 65000 ? 150 : ms, ...args);
+test.describe('intercepted save failures', () => {
+  // Playwright cannot reliably route requests handled by a service worker.
+  // These tests exercise mocked responses; separate real-save tests below
+  // retain the worker to cover the deployed browser configuration.
+  test.use({ serviceWorkers: 'block' });
+  for (const surface of ['jarvis', 'jalalai', 'console', 'dock']) {
+    for (const failure of ['timeout', 'malformed']) {
+      test(`${surface} keeps a ${failure} save unconfirmed and cannot resend it with one tap`, async ({ page }) => {
+        await openSurface(page, surface);
+        const title = `Disposable ${surface} ${failure} task`;
+        const { panel, button } = await propose(page, surface, title);
+        let calls = 0, release;
+        const held = new Promise(resolve => { release = resolve; });
+        await page.route('**/api/assistant/confirm', async route => {
+          calls++;
+          if (failure === 'timeout') {
+            await held;
+            await route.fulfill({ json: { ok: true, task: { id: 'late', title }, output: 'Late fixture save' } }).catch(() => {});
+          } else {
+            // Valid JSON and HTTP 200 are not proof that the requested task was saved.
+            await route.fulfill({ json: { ok: true, output: 'Forged save' } });
+          }
         });
-        await button.click();
-        const message = surface === 'dock' ? page.locator('#ajDockStatus') : panel;
-        await expect(message).toContainText('Could not verify the save', { timeout: 3000 });
-        await expect(message).toContainText('server may still finish');
-        await expect(message).toContainText('check your tasks or notes');
-        await expect(button).toHaveCount(0);
-        expect(calls).toBe(1);
-        release(); await page.waitForTimeout(300);
-        await expect(panel).not.toContainText('Late fixture save');
-        await expect(panel).not.toContainText('Forged save');
-        expect(calls).toBe(1);
-      } finally { release(); }
-    });
+        try {
+          await page.evaluate(() => {
+            const original = window.setTimeout.bind(window);
+            window.setTimeout = (fn, ms, ...args) => original(fn, ms === 20000 || ms === 65000 ? 150 : ms, ...args);
+          });
+          await button.click();
+          // If interception is bypassed, a real disposable save can succeed and
+          // hide what this test actually exercised. Verify the fixture was used.
+          await expect.poll(() => calls, { timeout: 5000 }).toBe(1);
+          const message = surface === 'dock' ? page.locator('#ajDockStatus') : panel;
+          await expect(message).toContainText('Could not verify the save', { timeout: 3000 });
+          await expect(message).toContainText('server may still finish');
+          await expect(message).toContainText('check your tasks or notes');
+          await expect(button).toHaveCount(0);
+          expect(calls).toBe(1);
+          release(); await page.waitForTimeout(300);
+          await expect(panel).not.toContainText('Late fixture save');
+          await expect(panel).not.toContainText('Forged save');
+          expect(calls).toBe(1);
+        } finally { release(); }
+      });
+    }
   }
-}
+});
 
 for (const surface of ['console', 'dock']) {
   test(`${surface} confirms a real disposable task exactly once`, async ({ page }) => {
     await openSurface(page, surface);
+    // A real, unmocked save also exercises the installed worker rather than
+    // relying exclusively on the isolated mock tests above.
+    if (surface === 'console') await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });
     const title = `Confirmed ${surface} task`;
     const { panel, button } = await propose(page, surface, title);
     let calls = 0;
@@ -107,51 +119,54 @@ for (const surface of ['console', 'dock']) {
   });
 }
 
-for (const surface of ['jarvis', 'jalalai', 'console', 'dock']) {
-  test(`${surface} ignores a delayed save response after the user leaves its original view`, async ({ page }) => {
-    await openSurface(page, surface);
-    const title = `Private delayed ${surface} task`;
-    const { button } = await propose(page, surface, title);
-    let release, announce, finish;
-    const started = new Promise(resolve => { announce = resolve; });
-    const held = new Promise(resolve => { release = resolve; });
-    const finished = new Promise(resolve => { finish = resolve; });
-    await page.route('**/api/assistant/confirm', async route => {
-      announce(); await held;
-      await route.fulfill({ json: { ok: true, task: { id: 'late', title }, output: 'Late fixture save' } }).catch(() => {});
-      finish();
+test.describe('intercepted delayed saves', () => {
+  test.use({ serviceWorkers: 'block' });
+  for (const surface of ['jarvis', 'jalalai', 'console', 'dock']) {
+    test(`${surface} ignores a delayed save response after the user leaves its original view`, async ({ page }) => {
+      await openSurface(page, surface);
+      const title = `Private delayed ${surface} task`;
+      const { button } = await propose(page, surface, title);
+      let release, finish, calls = 0;
+      const held = new Promise(resolve => { release = resolve; });
+      const finished = new Promise(resolve => { finish = resolve; });
+      await page.route('**/api/assistant/confirm', async route => {
+        calls++; await held;
+        await route.fulfill({ json: { ok: true, task: { id: 'late', title }, output: 'Late fixture save' } }).catch(() => {});
+        finish();
+      });
+      try {
+        await button.click();
+        await expect.poll(() => calls, { timeout: 5000 }).toBe(1);
+        if (surface === 'jarvis') {
+          await page.locator('#clearChat').click();
+          await expect(page.locator('#status')).toContainText('Session cleared');
+        } else if (surface === 'jalalai') {
+          page.once('dialog', dialog => dialog.accept());
+          await page.locator('#accountBtn').click();
+          await expect(page.locator('#accountBtn')).toHaveText('Sign in');
+        } else if (surface === 'console') {
+          await expect(page.locator('#aiRunBtn')).toBeEnabled();
+          await page.locator('#aiPrompt').fill('calculate 6*7');
+          await page.locator('#aiRunBtn').click();
+          await expect(page.locator('#aiOutput')).toContainText('42');
+        } else {
+          await page.locator('#ajDockInput').fill('calculate 6*7');
+          await page.locator('#ajDockSend').click();
+          await expect(page.locator('#ajDockReply')).toContainText('42');
+        }
+        release(); await finished; await page.waitForTimeout(300);
+        if (surface === 'jarvis' || surface === 'jalalai') {
+          await expect(page.locator('#chatlog')).not.toContainText('Late fixture save');
+          await expect(page.locator('#status')).not.toContainText('Saved after your confirmation');
+        } else {
+          const panel = page.locator(surface === 'console' ? '#aiOutput' : '#ajDockReply');
+          await expect(panel).toContainText('42');
+          await expect(panel).not.toContainText('Late fixture save');
+        }
+      } finally { release(); }
     });
-    try {
-      await button.click(); await started;
-      if (surface === 'jarvis') {
-        await page.locator('#clearChat').click();
-        await expect(page.locator('#status')).toContainText('Session cleared');
-      } else if (surface === 'jalalai') {
-        page.once('dialog', dialog => dialog.accept());
-        await page.locator('#accountBtn').click();
-        await expect(page.locator('#accountBtn')).toHaveText('Sign in');
-      } else if (surface === 'console') {
-        await expect(page.locator('#aiRunBtn')).toBeEnabled();
-        await page.locator('#aiPrompt').fill('calculate 6*7');
-        await page.locator('#aiRunBtn').click();
-        await expect(page.locator('#aiOutput')).toContainText('42');
-      } else {
-        await page.locator('#ajDockInput').fill('calculate 6*7');
-        await page.locator('#ajDockSend').click();
-        await expect(page.locator('#ajDockReply')).toContainText('42');
-      }
-      release(); await finished; await page.waitForTimeout(300);
-      if (surface === 'jarvis' || surface === 'jalalai') {
-        await expect(page.locator('#chatlog')).not.toContainText('Late fixture save');
-        await expect(page.locator('#status')).not.toContainText('Saved after your confirmation');
-      } else {
-        const panel = page.locator(surface === 'console' ? '#aiOutput' : '#ajDockReply');
-        await expect(panel).toContainText('42');
-        await expect(panel).not.toContainText('Late fixture save');
-      }
-    } finally { release(); }
-  });
-}
+  }
+});
 
 for (const surface of ['console', 'dock']) {
   test(`${surface} confirms a disposable note exactly once`, async ({ page }) => {
