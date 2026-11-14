@@ -234,7 +234,16 @@ test('signup and sign-in work in a disposable fixture with the reported incomple
     assert.equal(ready.data.required, REQUIRED_TABLES.length);
     assert.deepEqual([...ready.data.missing].sort(), [...missing].sort());
 
-    await fixture.query('INSERT INTO records(id,name,notes) VALUES($1,$2,$3)', ['FIXTURE-1', 'Shared fixture record', 'Shared fixture note']);
+    // Give the isolated workspace an existing Admin and record before signup.
+    const owner = await request('/demo', { method: 'POST', body: {}, dbAdapter: fixtureAdapter });
+    assert.equal(owner.status, 200);
+    const ownerMe = await request('/me', { cookie: owner.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(ownerMe.data.user.role, 'Admin');
+    const bootstrap = await request('/bootstrap/status', { dbAdapter: fixtureAdapter });
+    assert.equal(bootstrap.data.available, false);
+    assert.equal(bootstrap.data.admins, 1);
+    const record = await request('/records', { method: 'POST', cookie: owner.cookie, csrf: ownerMe.data.csrfToken, dbAdapter: fixtureAdapter, body: { id: 'FIXTURE-1', name: 'Shared fixture record', notes: 'Shared fixture note' } });
+    assert.equal(record.status, 201);
     const created = await register('FixtureViewer', { dbAdapter: fixtureAdapter });
     assert.equal(created.status, 201);
     assert.equal(created.data.user.role, 'Viewer');
@@ -248,16 +257,22 @@ test('signup and sign-in work in a disposable fixture with the reported incomple
     assert.equal((await request('/admin/users', { cookie: created.cookie, dbAdapter: fixtureAdapter })).status, 403);
     assert.equal((await request('/records', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: { name: 'Forbidden fixture write' } })).status, 403);
     assert.equal((await request('/auth/logout', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: {} })).status, 200);
+    assert.equal((await request('/me', { cookie: created.cookie, dbAdapter: fixtureAdapter })).data.authenticated, false);
     const signedIn = await login('FIXTUREVIEWER', password, { dbAdapter: fixtureAdapter });
     assert.equal(signedIn.status, 200);
     assert.equal(signedIn.data.user.id, created.data.user.id);
     assert.equal(signedIn.data.user.role, 'Viewer');
+    assert.equal((await request('/me', { cookie: signedIn.cookie, dbAdapter: fixtureAdapter })).data.authenticated, true);
+    assert.equal((await request('/me', { cookie: owner.cookie, dbAdapter: fixtureAdapter })).data.user.role, 'Admin');
 
-    // A missing auth limiter is different: registration must fail closed.
+    // A missing auth limiter is different: registration and sign-in fail closed.
     await fixture.query('DROP TABLE auth_rate_limits');
     const blocked = await register('blocked-fixture', { dbAdapter: fixtureAdapter });
     assert.equal(blocked.status, 503);
     assert.equal(blocked.data.code, 'AUTH_UNAVAILABLE');
+    const blockedLogin = await login('FIXTUREVIEWER', password, { dbAdapter: fixtureAdapter });
+    assert.equal(blockedLogin.status, 503);
+    assert.equal(blockedLogin.data.code, 'AUTH_UNAVAILABLE');
     const rows = await fixture.query('SELECT count(*)::int AS n FROM app_users WHERE username=$1', ['blocked-fixture']);
     assert.equal(Number(rows.rows[0].n), 0);
   } finally {
