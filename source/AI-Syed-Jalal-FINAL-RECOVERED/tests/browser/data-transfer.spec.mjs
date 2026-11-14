@@ -259,34 +259,59 @@ test('an installed worker with an old transfer helper still loads the new editor
 });
 
 test('individual edits reject concurrent changes and submit only changed fields', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await workspace(page);
   const original={id:'CONCURRENT-'+crypto.randomUUID(),name:'Local test',region:'Old',notes:'Original'};
   expect((await api(page,'/records','POST',original)).status).toBe(201);
   await page.reload();
+  await page.evaluate(()=>window.workspaceReady);
   const row=page.locator('#dataBody tr').filter({hasText:original.id});
-  await row.getByRole('button',{name:'Edit'}).click();
+  const recordPath='/api/records/'+original.id;
+  const responseFor=method=>response=>response.request().method()===method&&new URL(response.url()).pathname===recordPath;
+  const modal=page.locator('#modal'),save=page.locator('#recordForm button[type="submit"]');
+  await expect(row).toContainText(original.id,{timeout:30000});
+  // Opening the editor is asynchronous; its hidden fields still contain the
+  // previous record until the fresh GET has completed and the dialog opens.
+  const openEditor=async()=>{
+    const [loaded]=await Promise.all([
+      page.waitForResponse(responseFor('GET'),{timeout:60000}),
+      row.getByRole('button',{name:'Edit'}).click()
+    ]);
+    expect(loaded.status()).toBe(200);
+    await expect(modal).toBeVisible({timeout:30000});
+    return loaded;
+  };
+  const initial=await openEditor();
+  expect((await initial.json()).record.notes).toBe('Original');
+  await expect(page.locator('#fNotes')).toHaveValue('Original');
   expect((await api(page,'/records/'+original.id,'PUT',{notes:'Updated concurrently'})).status).toBe(200);
   const payloads=[];
-  page.on('request',request=>{if(request.method()==='PUT'&&request.url().endsWith('/api/records/'+original.id))payloads.push(request.postDataJSON())});
+  page.on('request',request=>{if(request.method()==='PUT'&&request.url().endsWith(recordPath))payloads.push(request.postDataJSON())});
   await page.locator('#fRegion').fill('New');
-  await page.locator('#recordForm button[type="submit"]').click();
-  await expect(page.locator('#recordFormStatus')).toContainText('your edit was not saved');
+  const [conflict]=await Promise.all([page.waitForResponse(responseFor('PUT'),{timeout:65000}),save.click()]);
+  expect(conflict.status()).toBe(409);
+  await expect(page.locator('#recordFormStatus')).toContainText('your edit was not saved',{timeout:30000});
+  await expect(save).toBeEnabled({timeout:30000});
   expect((await api(page,'/records/'+original.id)).data.record).toMatchObject({region:'Old',notes:'Updated concurrently'});
   expect(payloads).toHaveLength(1);expect(payloads[0]).toMatchObject({region:'New'});
   expect(Object.keys(payloads[0]).sort()).toEqual(['expectedVersion','region']);
   expect(payloads[0].expectedVersion).toMatch(/^\d+$/);
   await page.locator('#closeModal').click();
-  await row.getByRole('button',{name:'Edit'}).click();
-  await expect(page.locator('#fNotes')).toHaveValue('Updated concurrently');
+  await expect(modal).toBeHidden();
+  const refreshed=await openEditor();
+  expect((await refreshed.json()).record.notes).toBe('Updated concurrently');
+  await expect(page.locator('#fNotes')).toHaveValue('Updated concurrently',{timeout:30000});
   await page.locator('#fRegion').fill('New');
-  await page.locator('#recordForm button[type="submit"]').click();
-  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed');
+  const [saved]=await Promise.all([page.waitForResponse(responseFor('PUT'),{timeout:65000}),save.click()]);
+  expect(saved.status()).toBe(200);
+  await expect(page.locator('#dataImportStatus')).toContainText('Record save confirmed',{timeout:30000});
+  // The save remains pending while the refreshed list and filters load.
+  await expect(save).toBeEnabled({timeout:60000});
   expect((await api(page,'/records/'+original.id)).data.record).toMatchObject({region:'New',notes:'Updated concurrently'});
   expect(payloads).toHaveLength(2);expect(payloads[1].expectedVersion).not.toBe(payloads[0].expectedVersion);
-  await page.locator('#dataBody tr').filter({hasText:original.id}).getByRole('button',{name:'Edit'}).click();
-  await page.locator('#recordForm button[type="submit"]').click();
-  await expect(page.locator('#dataImportStatus')).toHaveText('No changes to save.');
+  await openEditor();
+  await save.click();
+  await expect(page.locator('#dataImportStatus')).toHaveText('No changes to save.',{timeout:30000});
   expect(payloads).toHaveLength(2);
 });
 
