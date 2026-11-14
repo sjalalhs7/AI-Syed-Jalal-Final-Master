@@ -2,7 +2,7 @@ import test, { before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { buildApi } from '../build.mjs';
-import { SCHEMA_PARTS } from '../../frontend/functions/schema-bundle.mjs';
+import { SCHEMA_PARTS, REQUIRED_TABLES } from '../../frontend/functions/schema-bundle.mjs';
 
 // Invented credentials and an in-memory database only: no Neon, providers or
 // production records are contacted. Concurrency barriers force both contenders
@@ -206,4 +206,61 @@ test('reserved seed names and case variants cannot create or recover the wrong A
   assert.equal((await login(seed.SEED_ADMIN_USERNAME, seed.SEED_ADMIN_PASSWORD, { override: seed })).status, 401);
   assert.deepEqual((await db.query('SELECT salt,password_hash FROM app_users WHERE id=$1', [legacy.data.user.id])).rows[0], before);
   assert.equal((await login('SEEDOWNER')).status, 200, 'ordinary password login remains available');
+});
+
+test('signup and sign-in work in a disposable fixture with the reported incomplete table-name inventory', async () => {
+  // This models the reported table names only. The fixture uses current local
+  // schema definitions; it is not a production clone, backup or live test.
+  const reportedPresent = [
+    'app_users', 'sessions', 'records', 'audit_events', 'record_history',
+    'documents', 'approvals', 'ai_runs', 'auth_rate_limits', 'assistant_tasks',
+    'assistant_notes', 'platform_conversations', 'platform_messages'
+  ];
+  const missing = REQUIRED_TABLES.filter(name => !reportedPresent.includes(name));
+  assert.equal(reportedPresent.filter(name => REQUIRED_TABLES.includes(name)).length, 13);
+  assert.ok(missing.includes('app_settings') && missing.includes('app_bootstrap'));
+  const fixture = await PGlite.create();
+  try {
+    for (const part of SCHEMA_PARTS) await fixture.exec(part.sql);
+    for (const name of missing) {
+      assert.match(name, /^[a-z_][a-z0-9_]*$/);
+      await fixture.query(`DROP TABLE IF EXISTS "${name}" CASCADE`);
+    }
+    const fixtureAdapter = { query: async (sql, params = []) => (await fixture.query(sql, params)).rows };
+    const ready = await request('/ready', { dbAdapter: fixtureAdapter });
+    assert.equal(ready.status, 503);
+    assert.equal(ready.data.ready, false);
+    assert.equal(ready.data.schemaTables, 13);
+    assert.equal(ready.data.required, REQUIRED_TABLES.length);
+    assert.deepEqual([...ready.data.missing].sort(), [...missing].sort());
+
+    await fixture.query('INSERT INTO records(id,name,notes) VALUES($1,$2,$3)', ['FIXTURE-1', 'Shared fixture record', 'Shared fixture note']);
+    const created = await register('FixtureViewer', { dbAdapter: fixtureAdapter });
+    assert.equal(created.status, 201);
+    assert.equal(created.data.user.role, 'Viewer');
+    const me = await request('/me', { cookie: created.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(me.data.authenticated, true);
+    assert.equal(me.data.user.id, created.data.user.id);
+    assert.ok(me.data.csrfToken);
+    const records = await request('/records', { cookie: created.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(records.status, 200);
+    assert.ok(records.data.records.some(row => row.id === 'FIXTURE-1' && row.notes === 'Shared fixture note'));
+    assert.equal((await request('/admin/users', { cookie: created.cookie, dbAdapter: fixtureAdapter })).status, 403);
+    assert.equal((await request('/records', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: { name: 'Forbidden fixture write' } })).status, 403);
+    assert.equal((await request('/auth/logout', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: {} })).status, 200);
+    const signedIn = await login('FIXTUREVIEWER', password, { dbAdapter: fixtureAdapter });
+    assert.equal(signedIn.status, 200);
+    assert.equal(signedIn.data.user.id, created.data.user.id);
+    assert.equal(signedIn.data.user.role, 'Viewer');
+
+    // A missing auth limiter is different: registration must fail closed.
+    await fixture.query('DROP TABLE auth_rate_limits');
+    const blocked = await register('blocked-fixture', { dbAdapter: fixtureAdapter });
+    assert.equal(blocked.status, 503);
+    assert.equal(blocked.data.code, 'AUTH_UNAVAILABLE');
+    const rows = await fixture.query('SELECT count(*)::int AS n FROM app_users WHERE username=$1', ['blocked-fixture']);
+    assert.equal(Number(rows.rows[0].n), 0);
+  } finally {
+    await fixture.close();
+  }
 });
