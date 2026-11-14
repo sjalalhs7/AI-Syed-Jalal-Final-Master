@@ -30,6 +30,51 @@ jobs:
           from zipfile import ZipFile
           import json
 
+          def editor_state(snapshots, index):
+              cache = {}
+              def nodes_for(i):
+                  if i in cache:
+                      return cache[i]
+                  nodes = []
+                  def collect(node):
+                      if isinstance(node, str):
+                          nodes.append(node)
+                      elif isinstance(node, list) and node and isinstance(node[0], str):
+                          for child in node[2:]:
+                              collect(child)
+                          nodes.append(node)
+                  collect(snapshots[i]['html'])
+                  cache[i] = nodes
+                  return nodes
+              found = {}
+              def walk(node, i):
+                  if not isinstance(node, list) or not node:
+                      return
+                  if isinstance(node[0], list):
+                      back, number = node[0]
+                      if i - back >= 0:
+                          pool = nodes_for(i - back)
+                          if number < len(pool):
+                              walk(pool[number], i - back)
+                  elif isinstance(node[0], str):
+                      attrs = node[1] if len(node) > 1 and isinstance(node[1], dict) else {}
+                      identity = attrs.get('id')
+                      if identity == 'modal':
+                          found['modalHidden'] = 'hidden' in attrs.get('class', '').split()
+                      elif identity == 'fNotes':
+                          value = attrs.get('__playwright_value_', '')
+                          found['notes'] = 'updated' if value == 'Updated concurrently' else 'original' if value == 'Original' else 'other-or-empty'
+                      elif identity == 'recordFormStatus':
+                          text = ''.join(x for x in node[2:] if isinstance(x, str))
+                          found['conflictShown'] = 'your edit was not saved' in text
+                      elif identity == 'toast':
+                          text = ''.join(x for x in node[2:] if isinstance(x, str))
+                          found['toastHasText'] = bool(text)
+                      for child in node[2:]:
+                          walk(child, i)
+              walk(snapshots[index]['html'], index)
+              return found
+
           matches = []
           for path in Path('evidence').rglob('*.zip'):
               with ZipFile(path) as archive:
@@ -68,7 +113,7 @@ jobs:
                               entry['bodyReadable'] = False
                           network.append(entry)
                   ends = {e.get('callId'): e for e in events if e.get('type') == 'after'}
-                  calls = []
+                  calls, failed_notes = [], set()
                   for e in events:
                       if e.get('type') != 'before' or e.get('class') != 'Frame':
                           continue
@@ -82,7 +127,20 @@ jobs:
                           end = ends.get(e.get('callId'), {})
                           calls.append({'kind': kind, 'startMs': e.get('startTime'),
                                         'endMs': end.get('endTime'), 'error': bool(end.get('error'))})
-                  matches.append({'network': network, 'calls': calls})
+                          if kind == 'notes-assertion' and end.get('error'):
+                              failed_notes.add(e.get('callId'))
+                  frames = {}
+                  for e in events:
+                      if e.get('type') == 'frame-snapshot':
+                          snap = e['snapshot']
+                          frames.setdefault(snap['frameId'], []).append(snap)
+                  editor = []
+                  for snapshots in frames.values():
+                      for index, snap in enumerate(snapshots):
+                          if snap.get('callId') in failed_notes:
+                              editor.append({'phase': snap.get('phase'), **editor_state(snapshots, index)})
+                  console = [e.get('time') for e in events if e.get('type') == 'console' and e.get('messageType') == 'error']
+                  matches.append({'network': network, 'calls': calls, 'editor': editor, 'consoleErrorTimes': console})
           print('::notice title=Disposable record trace::' + json.dumps({'matches': matches}, separators=(',', ':')))
           if not matches:
               raise SystemExit('No matching disposable record trace found')
