@@ -35,21 +35,16 @@ const rawToken = r => {const a=r.headers.get('authorization')||'';return a.start
 const csrf = async (t,s) => {if(!s||s.length<32)throw Error('CSRF_SECRET is not configured');const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(s),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(t))))};
 const readBody = async (r,max=1024*1024) => {const declared=Number(r.headers.get('content-length')||0);if(declared>max)throw Object.assign(Error('Request body too large'),{status:413});if(!r.body)return {};const reader=r.body.getReader(),chunks=[];let size=0;try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>max){await reader.cancel();throw Object.assign(Error('Request body too large'),{status:413})}chunks.push(value)}}finally{reader.releaseLock()}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}const t=new TextDecoder().decode(bytes);if(!t)return {};try{const value=JSON.parse(t);if(!value||typeof value!=='object'||Array.isArray(value))throw Error();return value}catch{throw Object.assign(Error('Invalid JSON body'),{status:400})}};
 const sessionCookie = (t,env={}) => C+'='+t+'; Max-Age=28800; Path=/; HttpOnly;'+((env.DB_ADAPTER&&env.COOKIE_SECURE==='false')?'':' Secure;')+' SameSite=Lax';
+// Requiring JSON prevents cross-site HTML forms from silently creating or
+// replacing a browser session. The API does not grant cross-origin CORS access.
+const isAuthJson = req => /^application\/json(?:\s*;|$)/i.test((req.headers.get('content-type')||'').trim());
+const hasCsrfSecret = env => String(env.CSRF_SECRET||env.SESSION_SECRET||'').length>=32;
+const usernameExists = async (db,name) => (await db.query('SELECT id FROM app_users WHERE lower(username)=lower($1) LIMIT 1',[name])).length>0;
 async function audit(db,u,action,detail,req){try{await db.query('INSERT INTO audit_events(id,user_id,action,detail,ip,request_id) VALUES($1,$2,$3,$4,$5,$6)',[crypto.randomUUID(),u?u.id:null,action,detail,req.headers.get('CF-Connecting-IP')||'',req.headers.get('cf-ray')||null])}catch{}}
 async function consumeRateLimit(db, scope, subject, capacity, refillSeconds){
  const subjectHash=await digest(subject),requestId=crypto.randomUUID();
  const rows=await db.query(`WITH stale AS (DELETE FROM auth_rate_limits WHERE updated_at<now()-interval '30 days' AND NOT (scope=$1 AND subject_hash=$2) RETURNING 1), applied AS (INSERT INTO auth_rate_limits(scope,subject_hash,tokens,updated_at,last_request_id) SELECT $1,$2,$3::numeric-1,now(),$5 FROM (SELECT count(*) FROM stale) cleanup ON CONFLICT(scope,subject_hash) DO UPDATE SET tokens=CASE WHEN auth_rate_limits.tokens+GREATEST(0,EXTRACT(EPOCH FROM (now()-auth_rate_limits.updated_at))/$4::numeric)>=1 THEN LEAST($3::numeric,auth_rate_limits.tokens+GREATEST(0,EXTRACT(EPOCH FROM (now()-auth_rate_limits.updated_at))/$4::numeric))-1 ELSE auth_rate_limits.tokens END,updated_at=CASE WHEN auth_rate_limits.tokens+GREATEST(0,EXTRACT(EPOCH FROM (now()-auth_rate_limits.updated_at))/$4::numeric)>=1 THEN now() ELSE auth_rate_limits.updated_at END,last_request_id=CASE WHEN auth_rate_limits.tokens+GREATEST(0,EXTRACT(EPOCH FROM (now()-auth_rate_limits.updated_at))/$4::numeric)>=1 THEN $5 ELSE auth_rate_limits.last_request_id END RETURNING last_request_id=$5 AS allowed) SELECT allowed FROM applied`,[scope,subjectHash,capacity,refillSeconds,requestId]);
  return rows[0]?.allowed===true;
-}
-async function rateLimited(db, req, action, max, windowSql, userId=null){
- const ip=req.headers.get('CF-Connecting-IP')||'';
- if(!ip)return true; // fail closed if the trusted edge IP is unavailable
- const sql=userId
-  ? `SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1 AND created_at>now()-${windowSql}`
-  : `SELECT count(*)::int AS n FROM audit_events WHERE action=$1 AND ip=$2 AND created_at>now()-${windowSql}`;
- const args=userId?[userId]:[action,ip];
- const rows=await db.query(sql,args);
- return Number(rows[0]?.n||0)>=max;
 }
 async function userFor(db,req){const t=rawToken(req);if(!t)return null;const a=await db.query('SELECT u.id,u.username,u.role,s.id AS session_id FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active=true LIMIT 1',[await digest(t)]);return a[0]||null}
 async function validCsrf(req,env){const t=rawToken(req),v=req.headers.get('x-csrf-token')||'';return !!(t&&v&&equal(await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||''),v))}
@@ -196,7 +191,9 @@ export async function onRequest(ctx){
   }
 
   if(u.pathname==='/api/bootstrap/admin'&&request.method==='POST'){
-   const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
+   if(!isAuthJson(request))return reply({error:'Use a JSON request.'},415);
+   if(!hasCsrfSecret(env))return reply({error:'Administrator setup is temporarily unavailable.'},503);
+   const x=await readBody(request,16384),name=String(x.username||'').trim(),password=String(x.password||'');
    if(!/^[A-Za-z0-9_.-]{3,40}$/.test(name))return reply({error:'Username must be 3-40 characters and use letters, numbers, dot, underscore or hyphen'},400);
    if(password.length<12||password.length>1024)return reply({error:'Password must be between 12 and 1,024 characters'},400);
    if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
@@ -226,6 +223,8 @@ export async function onRequest(ctx){
      await audit(db,{id:usr.id,username:usr.username,role:'Admin'},'BOOTSTRAP_ADMIN_PROMOTE','Existing account promoted to first Administrator',request);
      return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
    }
+   // Do not create another spelling of a legacy account during owner setup.
+   if(await usernameExists(db,name))return reply({error:'A differently capitalized account exists. Contact the deployment owner for review.'},409);
    const salt=hex(random(16)),id=crypto.randomUUID();
    try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)])}
    catch(e){if(e?.code==='23505'||/unique|duplicate/i.test(String(e?.message||'')))return reply({error:'The setup account was created concurrently. Sign in instead.'},409);throw e}
@@ -242,28 +241,59 @@ export async function onRequest(ctx){
   }
 
   if(u.pathname==='/api/auth/register'&&request.method==='POST'){
-   if(await rateLimited(db,request,'REGISTER',10,"interval '1 hour'"))return reply({error:'Registration limit reached. Please try again later.'},429,{'Retry-After':'3600'});
-   const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');
-   if(!/^[A-Za-z0-9_.-]{3,40}$/.test(name))return reply({error:'Username must be 3–40 characters and use letters, numbers, dot, underscore or hyphen'},400);
-   if(password.length<12||password.length>1024)return reply({error:'Password must be at least 12 characters'},400);
+   if(!isAuthJson(request))return reply({error:'Use a JSON request.'},415);
+   const ip=request.headers.get('CF-Connecting-IP')||'';
+   if(!ip||!hasCsrfSecret(env))return reply({error:'Account creation is temporarily unavailable. Please try again later.',code:'AUTH_UNAVAILABLE'},503);
+   let permitted=false;
+   // Count every attempt atomically, even when auditing is unavailable. A
+   // missing limiter must never turn public registration into unlimited sign-up.
+   try{permitted=await consumeRateLimit(db,'register',ip,10,360)}catch{return reply({error:'Account creation is temporarily unavailable. Please try again later.',code:'AUTH_UNAVAILABLE'},503)}
+   if(!permitted)return reply({error:'Too many account creation attempts. Please wait a few minutes and try again.'},429,{'Retry-After':'360'});
+   const x=await readBody(request,16384),inputName=String(x.username||'').trim(),password=String(x.password||'');
+   if(!/^[A-Za-z0-9_.-]{3,40}$/.test(inputName))return reply({error:'Username must be 3–40 characters and use letters, numbers, dot, underscore or hyphen'},400);
+   if(password.length<12||password.length>1024)return reply({error:'Password must be between 12 and 1,024 characters'},400);
    if(!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must contain letters and numbers'},400);
-   const exists=await db.query('SELECT id FROM app_users WHERE lower(username)=lower($1) LIMIT 1',[name]);if(exists.length)return reply({error:'That username is already registered'},409);
-   const salt=hex(random(16)),id=crypto.randomUUID();
-   try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Viewer',$3,$4)",[id,name,salt,await pass(password,salt)])}catch(e){if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'That username is already registered'},409);throw e}
-   const token=hex(random(48));await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
+   // New public and Admin-created accounts use the same lowercase spelling so
+   // the existing username UNIQUE constraint resolves simultaneous sign-ups.
+   // Existing names are not rewritten and are checked case-insensitively.
+   const name=inputName.toLowerCase(),seed=configuredSeedAdmin(env);
+   if((seed&&seed.username.toLowerCase()===name)||await usernameExists(db,name))return reply({error:'That username is already registered or unavailable'},409);
+   const salt=hex(random(16)),id=crypto.randomUUID(),token=hex(random(48));
+   const [hash,tokenHash]=await Promise.all([pass(password,salt),digest(token)]);
+   // One SQL statement makes account and initial session atomic: if creating
+   // the session fails, the user insert rolls back instead of stranding an account.
+   const created=await db.query(`WITH new_user AS (
+     INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Viewer',$3,$4)
+     ON CONFLICT(username) DO NOTHING RETURNING id
+   ), new_session AS (
+     INSERT INTO sessions(id,user_id,token_hash,expires_at)
+     SELECT $5,id,$6,$7 FROM new_user RETURNING user_id
+   ) SELECT user_id FROM new_session`,[id,name,salt,hash,crypto.randomUUID(),tokenHash,new Date(Date.now()+TTL).toISOString()]);
+   if(!created.length)return reply({error:'That username is already registered or unavailable'},409);
    await audit(db,{id,username:name,role:'Viewer'},'REGISTER','Account created',request);
    return reply({user:{id,username:name,role:'Viewer'},session:'httpOnly-cookie'},201,{'Set-Cookie':sessionCookie(token,env)});
   }
   if(u.pathname==='/api/auth/login'&&request.method==='POST'){
-   const x=await readBody(request),name=String(x.username||'').trim(),password=String(x.password||'');if(!name||!password||name.length>200||password.length>1024)return reply({error:'Username and password are required'},400);
-   const loginIp=request.headers.get('CF-Connecting-IP')||'';if(!loginIp||!await consumeRateLimit(db,'login',loginIp,10,90))return reply({error:'Too many login attempts. Please wait before trying again.'},429,{'Retry-After':'90'});
+   if(!isAuthJson(request))return reply({error:'Use a JSON request.'},415);
+   if(!hasCsrfSecret(env))return reply({error:'Sign-in is temporarily unavailable. Please try again later.',code:'AUTH_UNAVAILABLE'},503);
+   const x=await readBody(request,16384),name=String(x.username||'').trim(),password=String(x.password||'');if(!name||!password||name.length>200||password.length>1024)return reply({error:'Username and password are required'},400);
+   const loginIp=request.headers.get('CF-Connecting-IP')||'';
+   if(!loginIp)return reply({error:'Sign-in is temporarily unavailable. Please try again later.',code:'AUTH_UNAVAILABLE'},503);
+   let permitted=false;try{permitted=await consumeRateLimit(db,'login',loginIp,10,90)}catch{return reply({error:'Sign-in is temporarily unavailable. Please try again later.',code:'AUTH_UNAVAILABLE'},503)}
+   if(!permitted)return reply({error:'Too many login attempts. Please wait before trying again.'},429,{'Retry-After':'90'});
+   // Always prefer an exact legacy spelling. Only allow a case-insensitive
+   // lookup when there is one matching account in total, including inactive
+   // accounts; ambiguous historical names must use their exact spelling.
    let found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
    if(!found.length){
+    const candidates=await db.query('SELECT id,username,role,salt,password_hash,active FROM app_users WHERE lower(username)=lower($1) LIMIT 2',[name]);
+    if(candidates.length===1&&candidates[0].active)found=[candidates[0]];
     // Never create a seed account merely because an unrelated or wrong login
     // was attempted. Initial creation requires the explicit setup switch, the
     // configured identity and matching secret, and no Admin (even inactive).
+    // A legacy case-variant (active or inactive) also blocks seed creation.
     const seed=configuredInitialSetup(env);
-    if(seed&&name===seed.username&&equal(await digest(password),await digest(seed.password))){
+    if(!found.length&&!candidates.length&&seed&&name===seed.username&&equal(await digest(password),await digest(seed.password))){
      const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin'"))[0]?.n||0);
      if(admins===0){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),seed.username,salt,await pass(password,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}
     }
@@ -271,7 +301,7 @@ export async function onRequest(ctx){
    const usr=found[0];if(!usr){await pass(password,'00000000000000000000000000000000');await audit(db,null,'LOGIN_FAILED','Unknown user',request);return reply({error:'Invalid credentials'},401)}
    if(!equal(await pass(password,usr.salt),usr.password_hash)){
     const seedName=String(env.SEED_ADMIN_USERNAME||''),seedPassword=String(env.SEED_ADMIN_PASSWORD||'');
-    const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword&&seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword);
+    const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword&&usr.username===seedName&&seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword);
     if(!mayRecover){await audit(db,usr,'LOGIN_FAILED','Bad password',request);return reply({error:'Invalid credentials'},401)}
     const salt=hex(random(16)),hash=await pass(password,salt);
     const rotated=await db.query("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id",[salt,hash,usr.id]);
@@ -463,12 +493,14 @@ export async function onRequest(ctx){
   if(u.pathname==='/api/admin/users'&&['GET','POST'].includes(request.method)){
    if(me.role!=='Admin')return reply({error:'Admin role required'},403);
    if(request.method==='GET'){const rows=await db.query('SELECT id,username,role,active,created_at FROM app_users ORDER BY created_at DESC LIMIT 500');return reply({users:rows.map(x=>({id:x.id,username:x.username,role:x.role,active:x.active,createdAt:x.created_at}))})}
-   const x=await readBody(request),username=String(x.username||'').trim(),password=String(x.password||''),role=String(x.role||'Viewer');
-   if(!/^[A-Za-z0-9_.-]{3,40}$/.test(username))return reply({error:'Username must be 3–40 safe characters'},400);
+   const x=await readBody(request),inputName=String(x.username||'').trim(),password=String(x.password||''),role=String(x.role||'Viewer');
+   if(!/^[A-Za-z0-9_.-]{3,40}$/.test(inputName))return reply({error:'Username must be 3–40 safe characters'},400);
    if(password.length<12||password.length>1024||!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return reply({error:'Password must be at least 12 characters and include letters and numbers'},400);
    if(!['Admin','Manager','Data Operator','Viewer'].includes(role))return reply({error:'Invalid role'},400);
+   const username=inputName.toLowerCase();
+   if(await usernameExists(db,username))return reply({error:'Username already exists'},409);
    const salt=hex(random(16)),id=crypto.randomUUID();
-   try{await db.query('INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,$3,$4,$5)',[id,username,role,salt,await pass(password,salt)])}catch(e){if(String(e?.message||'').toLowerCase().includes('unique'))return reply({error:'Username already exists'},409);throw e}
+   try{await db.query('INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,$3,$4,$5)',[id,username,role,salt,await pass(password,salt)])}catch(e){if(e?.code==='23505'||/unique|duplicate/i.test(String(e?.message||'')))return reply({error:'Username already exists'},409);throw e}
    await audit(db,me,'ADMIN_USER_CREATE',username+' · '+role,request);return reply({user:{id,username,role,active:true,createdAt:new Date().toISOString()}},201);
   }
   if(p[1]==='admin'&&p[2]==='users'&&p.length===4&&request.method==='PATCH'){

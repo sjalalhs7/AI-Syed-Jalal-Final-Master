@@ -240,11 +240,14 @@ body.aj-workspace .modal{z-index:2147483000}
     </div>
     <form id="loginForm" class="login-form">
       <div class="login-form-head"><div><div class="eyebrow">Secure workspace</div><h2>Welcome back</h2></div><span class="secure-badge">● READY</span></div>
-      <p class="muted login-copy">Sign in with an account registered in the central database. Demo login has been removed.</p>
-      <div class="field"><label>API base URL <span>(optional)</span></label><input id="loginApiUrl" placeholder="https://your-api.example.com" inputmode="url"></div>
-      <div class="field"><label>Username</label><input id="username" autocomplete="username" placeholder="operator" required></div>
-      <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></div>
+      <p class="muted login-copy">Sign in with your username and password. No account yet? Create one free on this website.</p>
+      <div class="field"><label for="loginApiUrl">API base URL <span>(optional)</span></label><input id="loginApiUrl" placeholder="https://your-api.example.com" inputmode="url" autocomplete="url"></div>
+      <div class="field"><label for="username">Username</label><input id="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="operator" required></div>
+      <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></div>
+      <p id="loginMessage" role="status" aria-live="assertive" style="color:#ffaaa0;font-size:12px"></p>
       <button class="btn primary login-submit" type="submit"><span>Enter Workspace</span><b>→</b></button>
+      <p class="muted login-copy">New here? <a href="index.html?signup=1&amp;next=workspace.html">Create a free account on this website →</a></p>
+      <p class="muted login-copy">Free sign-ups are Viewers who can read existing shared records. There is no self-service password reset; keep your password safe.</p>
       <div class="login-divider"><span>V75</span></div>
       <div class="login-note"><span class="note-icon">✓</span><p>Live mode uses the central API and HttpOnly session cookies. Use HTTPS in production.</p></div>
     </form>
@@ -622,7 +625,30 @@ async function repairSchema(){
 function nav(view,push=true){if(['operations','users'].includes(view)&&state.role!=='Admin')view='home';if(view==='approvals'&&!['Admin','Manager'].includes(state.role)){toast('Manager or Admin role required');view='home';}if(!document.getElementById('view-'+view))view='home';state.view=view;state.page=1;localStorage.setItem('aj-v47-view',view);if(push&&location.hash.slice(1)!==view)history.pushState({view},'',location.pathname+location.search+'#'+view);$$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));$$('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===view));if(view==='data')renderData();if(view==='audit'){renderAudit();checkServiceHealth()};if(view==='connection')loadConnection();if(view==='operations')renderOperations();if(view==='users')renderUsers();if(view==='approvals')renderApprovals();if(view==='ai-command')renderAICommand();if(view==='control'){if($('#roleValue'))$('#roleValue').textContent=state.role;$('#syncState').textContent=remoteMode()?'LIVE API':'LOCAL'}window.scrollTo({top:0,behavior:'smooth'})}
 $$('[data-nav]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.nav)));window.addEventListener('popstate',()=>nav(location.hash.slice(1)||'home',false));window.addEventListener('hashchange',()=>nav(location.hash.slice(1)||'home',false));
 function showApp(){ $('#login').classList.add('hidden');$('#app').classList.remove('hidden');if($('#operatorName'))$('#operatorName').textContent=state.user||'Operator';$('#settingsUser').textContent=(state.user||'Operator')+' · '+state.role;if($('#roleValue'))$('#roleValue').textContent=state.role;const isAdmin=state.role==='Admin';$$('[data-nav="operations"],[data-nav="users"]').forEach(b=>{b.hidden=!isAdmin;const card=b.closest('.card');if(card)card.hidden=!isAdmin});const canApprove=['Admin','Manager'].includes(state.role);$$('[data-nav="approvals"]').forEach(b=>{b.hidden=!canApprove});const canWrite=['Admin','Manager','Data Operator'].includes(state.role);['#addBtn','#importBtn'].forEach(q=>{if($(q))$(q).hidden=!canWrite});if($('#backupBtn'))$('#backupBtn').hidden=!isAdmin;const mb=$('#modeBanner');if(mb){mb.classList.remove('hidden','live');mb.textContent=remoteMode()?(window.ajLocalPreview?'● LOCAL PREVIEW — PERSISTENT LOCAL DATABASE':'● LIVE API — CENTRAL DATABASE CONNECTED'):'⚠ API CONNECTION REQUIRED';if(remoteMode())mb.classList.add('live')}applyTheme();nav(state.view)}
-$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();if(window.AJ_STATIC_HOST){toast('Static website preview: sign-in needs the secure application server or local preview. See Setup options.');return}const enteredApiUrl=$('#loginApiUrl').value.trim();const apiUrl=enteredApiUrl||location.origin;if(!/^https?:\/\//i.test(apiUrl)){toast('Enter a valid API URL.');return}state.apiUrl=apiUrl;try{const x=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#username').value.trim(),password:$('#password').value})});state.token='';state.user=x.user.username;state.role=x.user.role;localStorage.setItem('aj-v31-api',apiUrl);try{const c=await fetch(apiUrl.replace(/\/$/,'')+'/api/csrf',{credentials:'include'});if(c.ok)state.csrf=(await c.json()).token||''}catch{}toast('Live command center connected');showApp()}catch(err){toast(err.message||'Sign in failed')}});async function logout(){try{if(remoteMode())await api('/api/auth/logout',{method:'POST'})}catch{}state.user='';state.token='';state.csrf='';location.reload()}$('#logoutBtn').onclick=logout;$('#settingsLogout').onclick=logout;
+$('#loginForm').addEventListener('submit',async e=>{
+ e.preventDefault();const out=$('#loginMessage'),button=$('#loginForm button[type="submit"]');out.textContent='';
+ if(window.AJ_STATIC_HOST){out.textContent='Static website preview: sign-in needs the secure application server or local preview. See Setup options.';return}
+ let apiUrl;
+ try{
+  const target=new URL($('#loginApiUrl').value.trim()||location.origin);
+  const localHttp=target.protocol==='http:'&&target.origin===location.origin&&['localhost','127.0.0.1','[::1]'].includes(target.hostname);
+  if((target.protocol!=='https:'&&!localHttp)||target.username||target.password||target.search||target.hash)throw Error();
+  apiUrl=target.href.replace(/\/$/,'');
+ }catch{out.textContent='Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).';return}
+ button.disabled=true;
+ try{
+  // Finish the initial session check before replacing its connection details.
+  try{await window.workspaceReady}catch{}
+  state.apiUrl=apiUrl;state.csrf='';
+  const signal=timeoutSignal(25000);
+  const x=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#username').value.trim(),password:$('#password').value}),signal});
+  const session=await api('/api/me',{signal});
+  if(!x.user?.id||session.authenticated!==true||session.user?.id!==x.user.id)throw new Error('Your session could not be verified. Check cookies and try again.');
+  state.token='';state.user=session.user.username;state.role=session.user.role;state.csrf=session.csrfToken||'';localStorage.setItem('aj-v31-api',apiUrl);toast('Workspace connected');showApp();
+ }catch(err){out.textContent=['TimeoutError','AbortError'].includes(err?.name)?'Sign-in timed out. Check your connection and try again.':(err.message||'Sign in failed');}
+ finally{button.disabled=false}
+});
+async function logout(){try{if(remoteMode())await api('/api/auth/logout',{method:'POST'})}catch{}state.user='';state.token='';state.csrf='';location.reload()}$('#logoutBtn').onclick=logout;$('#settingsLogout').onclick=logout;
 function toggleTheme(){window.AJTheme?.open()}$('#themeBtn').onclick=toggleTheme;$('#settingsTheme').onclick=toggleTheme;
 let dataReadGeneration=0,dataPages=0;
 function setDataPagination(page,pages){
