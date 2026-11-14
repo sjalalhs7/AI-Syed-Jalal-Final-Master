@@ -60,7 +60,8 @@ Provider secrets stay server-side. Do not commit API keys or production credenti
 - **GitHub Pages website:** https://sjalalhs7.github.io/AI-Syed-Jalal-Final-Master/ is the configured static website address; live reachability must be checked separately. `.github/workflows/pages.yml` publishes `source/AI-Syed-Jalal-FINAL-RECOVERED/frontend` when the repository Pages source is set to GitHub Actions; the root `index.html` also provides a legacy-Pages launcher to the same frontend.
 - **Important:** GitHub Pages is static hosting. It can display the login page and public guides, but it cannot run the login API, database, saved conversations or server-side AI. The site detects this and shows setup guidance instead of pretending sign-in succeeded.
 - **Full application:** use the secure Cloudflare Pages + Neon deployment, or run locally from `source/AI-Syed-Jalal-FINAL-RECOVERED` with `npm ci` and `npm run dev`, then open `/guide.html`.
-- Production sign-in still requires owner-controlled `DATABASE_URL`, `CSRF_SECRET`, applied migrations and provider keys. No credentials are stored in this repository.
+- Production sign-in requires an owner-configured `DATABASE_URL`, `CSRF_SECRET` and the relevant database tables and constraints. An AI provider key is **not** required for account creation or sign-in; optional cloud AI and hosting may have separate costs. No credentials belong in this repository.
+- Free username/password registration creates a **Viewer** who can read existing shared workspace records; it is not a private workspace. No email or payment details are needed, and self-service password reset is not available. See [deployment guidance](source/AI-Syed-Jalal-FINAL-RECOVERED/frontend/API-DEPLOYMENT.md) and [current status](docs/CURRENT-STATUS.md) before production changes.
 
 ## Runnable application and quick start (November 2026)
 
