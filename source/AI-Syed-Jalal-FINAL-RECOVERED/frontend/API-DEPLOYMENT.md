@@ -32,6 +32,20 @@ The optional OmniRoute adapter requires **both** a server-side key and an HTTPS 
 
 Never put credentials in source control, frontend JavaScript, screenshots, issue reports, or build logs. Do not copy production secret values into documentation.
 
+## Free accounts and shared access
+
+The first-party username/password sign-up has no authentication-provider subscription, email verification, or payment step. It still requires a working database and a `CSRF_SECRET`; hosting, database capacity and optional AI services can have separate costs. Social sign-in and self-service password recovery are **not implemented**. Users should save their username and password securely. Password changes require the current password; there is no general reset flow for a forgotten Viewer password.
+
+**Public sign-ups become Viewers of the existing shared workspace.** They can read existing active records, including record notes, not just records they created. Anyone able to register can receive that access. Viewer accounts cannot write records or use Admin endpoints, but this is not private-account isolation. Review the sensitivity of existing data before making the deployment publicly available. Assistant tasks and notes have their own account-scoped routes; do not assume every feature is private merely because some are account-scoped.
+
+Viewer access to configured cloud AI is unchanged. Provider requests may charge the owner. Per-user request limits and the per-IP registration limiter are not a spending cap and do not prevent distributed sign-ups. Set and monitor provider-side budgets and quotas separately; local tools do not need a provider key. No email, social or paid authentication provider is contacted by sign-up.
+
+Registration counts every attempt using the database-backed token bucket, independent of best-effort audit writes: an initial burst of 10 attempts per trusted edge IP, then one attempt replenished every 360 seconds. Missing trusted IP, unavailable limiter, or missing session/CSRF secret fails closed. Login has its own limiter. Shared networks can hit these limits and should wait before retrying; they are not comprehensive bot protection. Sign-up, sign-in and first-Admin setup POSTs require JSON rather than accepting cross-site HTML form submissions.
+
+New public and Admin-created usernames are stored in lowercase. The API rejects case-insensitive matches to existing names, including inactive accounts; its existing case-sensitive unique constraint arbitrates simultaneous new API sign-ups. Login first tries the exact spelling, then permits a case-insensitive match only if exactly one account (active or inactive) has that spelling ignoring case. Ambiguous legacy accounts continue to require their exact capitalization. A valid configured seed username is reserved against public sign-up, and seed recovery remains exact. Existing usernames and roles are not rewritten. This is not a database-wide case-insensitive uniqueness constraint: direct database writes, older servers, or concurrent configuration changes can still introduce case variants. Any proposed unique index requires collision review, backup, isolated rehearsal, and explicit operator authorization; these source changes do not apply one.
+
+Account creation and the initial session are inserted in one database statement so a failed session insert does not leave an unusable new account. A lost response can still leave the outcome unknown: try signing in before attempting to register the same username again. The browser confirms the resulting session before navigating.
+
 ## Implemented API surface
 
 The current Pages Function contains these routes:
