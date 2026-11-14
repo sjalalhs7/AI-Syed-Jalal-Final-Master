@@ -1,0 +1,51 @@
+name: Inspect public authentication validation
+
+on:
+  push:
+    branches: ['arena/045c7459-ai-syed-jalal-final-master']
+    paths: ['.github/workflows/auth-validation-diagnostics.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check validation paths without credentials or account creation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://ai-syed-jalal-live.pages.dev'
+          # Empty payloads stop at request validation before a login rate-limit,
+          # audit, session, or account write. Text-only registration stops at
+          # the content-type guard before the registration limiter.
+          login_type=$(curl --silent --show-error --max-time 20 -o "$RUNNER_TEMP/login-type.json" -w '%{http_code}' -H 'Content-Type: text/plain' --data '{}' "$base/api/auth/login")
+          login_empty=$(curl --silent --show-error --max-time 20 -o "$RUNNER_TEMP/login-empty.json" -w '%{http_code}' -H 'Content-Type: application/json' --data '{}' "$base/api/auth/login")
+          register_type=$(curl --silent --show-error --max-time 20 -o "$RUNNER_TEMP/register-type.json" -w '%{http_code}' -H 'Content-Type: text/plain' --data '{}' "$base/api/auth/register")
+          export login_type login_empty register_type
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          def payload(name):
+              try:
+                  value = json.loads((Path(os.environ['RUNNER_TEMP']) / name).read_text())
+                  return value if isinstance(value, dict) else {}
+              except (ValueError, OSError):
+                  return {}
+          login_type = payload('login-type.json')
+          login_empty = payload('login-empty.json')
+          register_type = payload('register-type.json')
+          result = {
+              'loginNonJsonStatus': os.environ['login_type'],
+              'loginNonJsonRejected': os.environ['login_type'] == '415' and login_type.get('error') == 'Use a JSON request.',
+              'loginEmptyJsonStatus': os.environ['login_empty'],
+              'loginEmptyJsonRejected': os.environ['login_empty'] == '400' and login_empty.get('error') == 'Username and password are required',
+              'registrationNonJsonStatus': os.environ['register_type'],
+              'registrationNonJsonRejected': os.environ['register_type'] == '415' and register_type.get('error') == 'Use a JSON request.',
+          }
+          print('::notice title=Production auth validation::' + json.dumps(result, separators=(',', ':')))
+          if not all(result[key] for key in ('loginNonJsonRejected', 'loginEmptyJsonRejected', 'registrationNonJsonRejected')):
+              raise SystemExit('At least one authentication validation response needs investigation.')
+          PY
