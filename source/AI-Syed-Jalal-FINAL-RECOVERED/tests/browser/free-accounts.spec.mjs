@@ -8,26 +8,39 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
   test.setTimeout(120000);
   const owner = await browser.newContext({ baseURL: 'http://127.0.0.1:3100' });
   const id = `PHONE-${Date.now()}`, username = `PhoneUser${Date.now()}`;
+  let approvalId, requester;
   try {
     expect((await owner.request.post('/api/demo', { data: {} })).status()).toBe(200);
     const me = await (await owner.request.get('/api/me')).json();
     expect(me.user.role).toBe('Admin');
+    requester = me.user.username;
     expect((await owner.request.post('/api/records', { headers: { 'X-CSRF-Token': me.csrfToken }, data: { id, name: 'Shared phone signup record', notes: 'Existing shared note' } })).status()).toBe(201);
+    const approval = await owner.request.post('/api/approvals', { headers: { 'X-CSRF-Token': me.csrfToken }, data: { action: 'Synthetic phone approval', description: 'Existing shared approval description' } });
+    expect(approval.status()).toBe(201);
+    approvalId = (await approval.json()).approval.id;
   } finally { await owner.close(); }
 
   await page.setViewportSize({ width: 320, height: 568 });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/guide.html');
+  await expect(page.locator('#free-account')).toContainText('pending approvals through the API');
+  await expect(page.locator('#free-account')).toContainText('descriptions and requester names');
   await page.goto('/workspace.html');
   await page.evaluate(() => window.workspaceReady);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
   await expect(page.locator('#loginForm')).toBeVisible();
+  await expect(page.locator('#loginForm')).toContainText('Pending approvals');
+  await expect(page.locator('#loginForm')).toContainText('descriptions and requester names');
+  await expect(page.locator('#loginForm')).toContainText('readable through the API');
   await expect(page.getByRole('link', { name: 'Create a free account on this website' })).toBeVisible();
   await page.getByRole('link', { name: 'Create a free account on this website' }).click();
   await expect(page).toHaveURL(/index\.html\?signup=1&next=workspace\.html/);
   await expect(page.getByRole('dialog', { name: 'Create a free account' })).toBeVisible();
   await expect(page.locator('#signupDetails')).toContainText('No email or payment');
-  await expect(page.locator('#signupDetails')).toContainText('read existing shared workspace records');
+  await expect(page.locator('#signupDetails')).toContainText('read existing active shared workspace records');
+  await expect(page.locator('#signupDetails')).toContainText('pending approvals through the API');
+  await expect(page.locator('#signupDetails')).toContainText('descriptions and requester names');
   await expect(page.locator('#signupDetails')).toContainText('not private');
   await expect(page.locator('#signupDetails')).toContainText('no self-service password reset');
   await expect(page.locator('#signupDetails')).toContainText('cloud AI may cost the workspace owner');
@@ -51,9 +64,14 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
   await expect(page.locator('#addBtn')).toBeHidden();
   await expect(page.locator('#backupBtn')).toBeHidden();
   await expect(page.locator('.side [data-nav="users"]')).toBeHidden();
+  await expect(page.locator('.side [data-nav="approvals"]')).toBeHidden();
   const read = await page.request.get('/api/records/' + id);
   expect(read.status()).toBe(200); expect((await read.json()).record.notes).toBe('Existing shared note');
+  const approvals = await page.request.get('/api/approvals');
+  expect(approvals.status()).toBe(200);
+  expect((await approvals.json()).approvals.find(item => item.id === approvalId)).toMatchObject({ description: 'Existing shared approval description', requestedBy: requester });
   const session = await (await page.request.get('/api/me')).json();
+  expect((await page.request.patch('/api/approvals/' + approvalId, { headers: { 'X-CSRF-Token': session.csrfToken }, data: { status: 'approved' } })).status()).toBe(403);
   expect((await page.request.post('/api/records', { headers: { 'X-CSRF-Token': session.csrfToken }, data: { name: 'Not permitted' } })).status()).toBe(403);
   expect((await page.request.get('/api/admin/users')).status()).toBe(403);
   await page.locator('#logoutBtn').click();

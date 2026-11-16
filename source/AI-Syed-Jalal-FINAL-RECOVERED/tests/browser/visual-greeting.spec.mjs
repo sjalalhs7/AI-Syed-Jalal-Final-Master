@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v175-free-accounts'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v176-shared-approvals'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -249,6 +249,8 @@ test('updating the service worker replaces the old greeting cache but keeps unre
     await priorRelease.put('/assets/jalalai.js?v=171', new Response('window.__staleJalalAiRan = true;'));
     const priorAccounts = await caches.open('aj-v174-voice-reliability');
     await priorAccounts.put('/index.html', new Response('old sign-up screen'));
+    const priorSignup = await caches.open('aj-v175-free-accounts');
+    await priorSignup.put('/index.html', new Response('old shared-access disclosure'));
   });
   await page.goto('/');
   await expect(page.locator('#aj-welcome-status')).toContainText('speaking');
@@ -267,7 +269,10 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).not.toContain('aj-v171-voice-providers');
   expect(names).not.toContain('aj-v172-voice-providers');
   expect(names).not.toContain('aj-v174-voice-reliability');
-  expect(names).toContain('aj-v175-free-accounts');
+  expect(names).not.toContain('aj-v175-free-accounts');
+  expect(names).toContain('aj-v176-shared-approvals');
+  const cachedSignup = await page.evaluate(async () => (await (await caches.open('aj-v176-shared-approvals')).match('/index.html'))?.text());
+  expect(cachedSignup).toContain('pending approvals');
   expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jarvis.js?v=174')))).toBe(true);
   expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jalalai.js?v=174')))).toBe(true);
   expect(await page.evaluate(async () => Boolean(await caches.match('/assets/arena.js?v=172')))).toBe(true);
