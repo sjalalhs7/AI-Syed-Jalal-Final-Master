@@ -4,8 +4,10 @@ import { providerConfiguration } from './provider-settings.mjs';
 import { pageStatus } from './page-inventory.mjs';
 import skillIndex from '../config/agent-skill-index.json';
 
-// V133/V134 agent routes: skill library + durable self-check evidence.
-// Every response is account-scoped, rate limited and audited by the caller.
+// V133/V134 agent routes: shared skill library + account-scoped self-check evidence.
+// The parent allows public static capabilities, authenticates other routes and
+// checks CSRF on POST/PUT/PATCH/DELETE; POSTs here have per-user rate limits.
+// A skill GET can also synchronize the shared index.
 const POLICY_VERSION = 'V150';
 
 async function syncSkills(db) {

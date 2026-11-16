@@ -49,7 +49,7 @@
         <h2 id="runTitle">Review run</h2>
         <span class="pill" id="runState" role="status">Not run yet</span>
       </header>
-      <p class="hint" id="runHint">The review reads the database connected to this deployment and checks page responses only when an asset binding is available. Saving needs the review table. It cannot see CDN logs, billing or physical devices.</p>
+      <p class="hint" id="runHint">The review reads the database connected to this deployment and checks page responses only when an asset binding is available. Any signed-in role may request a review; it needs the required tables and may be rate-limited. Its observations can include workspace-wide totals for audit events, session rows and failed runs, as well as aggregate run timings; saved review history is account-scoped. Saving needs the review table. It cannot see CDN logs, billing or physical devices.</p>
       <p class="hint" id="runMessage" role="status" aria-live="polite"></p>
     </section>
 

@@ -25,6 +25,8 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await page.goto('/guide.html');
     await expect(page.locator('#free-account')).toContainText('pending approvals through the API');
     await expect(page.locator('#free-account')).toContainText('descriptions and requester names');
+    await expect(page.locator('#free-account')).toContainText('active account and audit-event counts');
+    await expect(page.locator('#free-account')).toContainText('additional aggregate diagnostics');
     await page.goto('/workspace.html');
     await page.evaluate(() => window.workspaceReady);
     await page.evaluate(() => navigator.serviceWorker.ready);
@@ -33,6 +35,8 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await expect(page.locator('#loginForm')).toContainText('Pending approvals');
     await expect(page.locator('#loginForm')).toContainText('descriptions and requester names');
     await expect(page.locator('#loginForm')).toContainText('readable through the API');
+    await expect(page.locator('#loginForm')).toContainText('active account and audit-event counts');
+    await expect(page.locator('#loginForm')).toContainText('additional aggregate diagnostics');
     await expect(page.getByRole('link', { name: 'Create a free account on this website' })).toBeVisible();
     await page.getByRole('link', { name: 'Create a free account on this website' }).click();
     await expect(page).toHaveURL(/index\.html\?signup=1&next=workspace\.html/);
@@ -41,6 +45,8 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await expect(page.locator('#signupDetails')).toContainText('read existing active shared workspace records');
     await expect(page.locator('#signupDetails')).toContainText('pending approvals through the API');
     await expect(page.locator('#signupDetails')).toContainText('descriptions and requester names');
+    await expect(page.locator('#signupDetails')).toContainText('active account and audit-event counts');
+    await expect(page.locator('#signupDetails')).toContainText('additional aggregate diagnostics');
     await expect(page.locator('#signupDetails')).toContainText('not private');
     await expect(page.locator('#signupDetails')).toContainText('no self-service password reset');
     await expect(page.locator('#signupDetails')).toContainText('cloud AI may cost the workspace owner');
@@ -70,6 +76,11 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     const approvals = await page.request.get('/api/approvals');
     expect(approvals.status()).toBe(200);
     expect((await approvals.json()).approvals.find(item => item.id === approvalId)).toMatchObject({ description: 'Existing shared approval description', requestedBy: requester });
+    const stats = await page.request.get('/api/stats');
+    expect(stats.status()).toBe(200);
+    const totals = await stats.json();
+    expect(totals.activeUsers).toBeGreaterThanOrEqual(2);
+    expect(totals.auditCount).toBeGreaterThan(0);
     const session = await (await page.request.get('/api/me')).json();
     expect((await page.request.patch('/api/approvals/' + approvalId, { headers: { 'X-CSRF-Token': session.csrfToken }, data: { status: 'approved' } })).status()).toBe(403);
     expect((await page.request.post('/api/records', { headers: { 'X-CSRF-Token': session.csrfToken }, data: { name: 'Not permitted' } })).status()).toBe(403);
