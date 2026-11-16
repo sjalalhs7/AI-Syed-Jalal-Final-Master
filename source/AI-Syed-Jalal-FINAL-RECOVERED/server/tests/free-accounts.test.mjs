@@ -89,6 +89,95 @@ test('free registration creates a Viewer session with access to existing shared 
   assert.equal(signedIn.status, 200); assert.equal(signedIn.data.user.id, created.data.user.id); assert.equal(signedIn.data.user.role, 'Viewer');
 });
 
+test('pending approvals are shared while tested tasks, notes, conversations and sessions stay account-scoped', async () => {
+  const owner = await admin();
+  const ownerMe = await request('/me', { cookie: owner.cookie });
+  const ownerWrite = { method: 'POST', cookie: owner.cookie, csrf: owner.csrf };
+  const open = await request('/approvals', { ...ownerWrite, body: { action: 'Synthetic shared approval', description: 'Synthetic approval description' } });
+  const resolved = await request('/approvals', { ...ownerWrite, body: { action: 'Synthetic resolved approval', description: 'Not pending' } });
+  assert.equal(open.status, 201); assert.equal(resolved.status, 201);
+  assert.equal((await request(`/approvals/${resolved.data.approval.id}`, { method: 'PATCH', cookie: owner.cookie, csrf: owner.csrf, body: { status: 'approved' } })).status, 200);
+  const note = await request('/assistant/confirm', { ...ownerWrite, body: { confirmed: true, action: { type: 'create_note', content: 'Synthetic owner-only note' } } });
+  const task = await request('/assistant/confirm', { ...ownerWrite, body: { confirmed: true, action: { type: 'create_task', title: 'Synthetic owner-only task' } } });
+  const conversation = await request('/platform/conversations', { ...ownerWrite, body: { title: 'Synthetic owner-only conversation' } });
+  assert.equal(note.status, 200); assert.equal(task.status, 200); assert.equal(conversation.status, 201);
+
+  const viewer = await register('sharing-viewer');
+  assert.equal(viewer.status, 201); assert.equal(viewer.data.user.role, 'Viewer');
+  const viewerMe = await request('/me', { cookie: viewer.cookie });
+  const viewerWrite = { cookie: viewer.cookie, csrf: viewerMe.data.csrfToken };
+  const approvals = await request('/approvals', { cookie: viewer.cookie });
+  assert.equal(approvals.status, 200);
+  const shared = approvals.data.approvals.find(item => item.id === open.data.approval.id);
+  assert.equal(shared?.action, 'Synthetic shared approval');
+  assert.equal(shared.description, 'Synthetic approval description');
+  assert.equal(shared.requestedBy, ownerMe.data.user.username);
+  assert.ok(!approvals.data.approvals.some(item => item.id === resolved.data.approval.id));
+  assert.equal((await request('/approvals', { ...viewerWrite, method: 'POST', body: { action: 'Forbidden approval' } })).status, 403);
+  assert.equal((await request(`/approvals/${shared.id}`, { ...viewerWrite, method: 'PATCH', body: { status: 'approved' } })).status, 403);
+  assert.ok((await request('/approvals', { cookie: owner.cookie })).data.approvals.some(item => item.id === shared.id), 'denied action must leave the approval pending');
+
+  const viewerNote = await request('/assistant/confirm', { ...viewerWrite, method: 'POST', body: { confirmed: true, action: { type: 'create_note', content: 'Synthetic Viewer note' } } });
+  assert.equal(viewerNote.status, 200);
+  const notes = await request('/assistant/notes', { cookie: viewer.cookie });
+  assert.deepEqual(notes.data.notes.map(item => item.id), [viewerNote.data.note.id]);
+  assert.deepEqual((await request('/assistant/tasks', { cookie: viewer.cookie })).data.tasks, []);
+  assert.equal((await request(`/assistant/notes/${note.data.note.id}`, { ...viewerWrite, method: 'DELETE', body: {} })).status, 404);
+  assert.equal((await request(`/assistant/tasks/${task.data.task.id}`, { ...viewerWrite, method: 'DELETE', body: {} })).status, 404);
+  assert.ok((await request('/assistant/notes', { cookie: owner.cookie })).data.notes.some(item => item.id === note.data.note.id));
+  assert.ok((await request('/assistant/tasks', { cookie: owner.cookie })).data.tasks.some(item => item.id === task.data.task.id));
+  const conversationPath = `/platform/conversations/${conversation.data.conversation.id}`;
+  assert.deepEqual((await request('/platform/conversations', { cookie: viewer.cookie })).data.conversations, []);
+  assert.equal((await request(conversationPath, { cookie: viewer.cookie })).status, 404);
+  assert.equal((await request(conversationPath, { ...viewerWrite, method: 'DELETE', body: {} })).status, 404);
+  assert.equal((await request(conversationPath, { cookie: owner.cookie })).status, 200);
+  const ownerSessions = (await request('/auth/sessions', { cookie: owner.cookie })).data.sessions;
+  const viewerSessions = (await request('/auth/sessions', { cookie: viewer.cookie })).data.sessions;
+  assert.ok(ownerSessions.length && viewerSessions.length);
+  assert.ok(viewerSessions.every(session => ownerSessions.every(other => other.id !== session.id)));
+});
+
+test('new Viewers cannot use administrative routes or modify shared records', async () => {
+  const owner = await admin();
+  const ownerMe = await request('/me', { cookie: owner.cookie });
+  const record = await request('/records', { method: 'POST', cookie: owner.cookie, csrf: owner.csrf, body: { id: 'BOUNDARY-1', name: 'Synthetic shared record' } });
+  assert.equal(record.status, 201);
+  const viewer = await register('boundary-viewer');
+  assert.equal(viewer.status, 201); assert.equal(viewer.data.user.role, 'Viewer');
+  const me = await request('/me', { cookie: viewer.cookie });
+  assert.equal((await request('/records/BOUNDARY-1', { cookie: viewer.cookie })).status, 200);
+
+  const adminReads = [
+    '/admin/users', '/admin/providers', '/admin/diagnostics', '/admin/ai/overview',
+    '/admin/ai/provider-health', '/admin/audit', '/admin/metrics', '/admin/data-integrity',
+    '/admin/system-snapshot', '/admin/permissions', '/admin/content-reports', '/security/events', '/backup'
+  ];
+  for (const path of adminReads) {
+    assert.equal((await request(path, { cookie: owner.cookie })).status, 200, `Admin positive control: ${path}`);
+    assert.equal((await request(path, { cookie: viewer.cookie })).status, 403, `Viewer denied: ${path}`);
+  }
+  const adminAndRecordWrites = [
+    ['POST', '/admin/providers', { provider: 'gemini', key: 'synthetic-provider-key' }],
+    ['POST', '/admin/schema/repair', { confirm: 'apply-schema-repair' }],
+    ['POST', '/admin/users', { username: 'unauthorized-admin', password, role: 'Admin' }],
+    ['PATCH', `/admin/users/${ownerMe.data.user.id}`, { active: false }],
+    ['POST', `/admin/content-reports/${crypto.randomUUID()}/review`, { confirm: true }],
+    ['POST', '/restore', { format: 'alsyed-jalal-backup', version: 1, records: [{ id: 'BOUNDARY-1', name: 'Overwritten' }] }],
+    ['POST', '/records', { name: 'Unauthorized record' }],
+    ['POST', '/records/bulk', { records: [{ id: 'BOUNDARY-1', name: 'Overwritten' }] }],
+    ['PUT', '/records/BOUNDARY-1', { name: 'Overwritten' }],
+    ['DELETE', '/records/BOUNDARY-1', {}]
+  ];
+  for (const [method, path, body] of adminAndRecordWrites) {
+    const result = await request(path, { method, body, cookie: viewer.cookie, csrf: me.data.csrfToken, override: { SCHEMA_REPAIR_ENABLED: 'true' } });
+    assert.equal(result.status, 403, `Viewer denied: ${method} ${path}`);
+  }
+  const unchanged = await request('/records/BOUNDARY-1', { cookie: owner.cookie });
+  assert.equal(unchanged.data.record.name, 'Synthetic shared record');
+  assert.equal((await request('/me', { cookie: owner.cookie })).data.user.role, 'Admin');
+  assert.equal(Number((await db.query('SELECT count(*)::int AS n FROM app_users')).rows[0].n), 2);
+});
+
 test('legacy case variants keep exact sign-in and ambiguous fallbacks fail, even if one account is inactive', async () => {
   const first = await register('legacy-first');
   const second = await register('legacy-second', { body: { username: 'legacy-second', password: 'Other-local-password-456' } });

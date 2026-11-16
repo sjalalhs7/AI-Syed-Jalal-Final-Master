@@ -8,65 +8,94 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
   test.setTimeout(120000);
   const owner = await browser.newContext({ baseURL: 'http://127.0.0.1:3100' });
   const id = `PHONE-${Date.now()}`, username = `PhoneUser${Date.now()}`;
+  let approvalId, requester, ownerCsrf;
   try {
     expect((await owner.request.post('/api/demo', { data: {} })).status()).toBe(200);
     const me = await (await owner.request.get('/api/me')).json();
     expect(me.user.role).toBe('Admin');
+    requester = me.user.username;
+    ownerCsrf = me.csrfToken;
     expect((await owner.request.post('/api/records', { headers: { 'X-CSRF-Token': me.csrfToken }, data: { id, name: 'Shared phone signup record', notes: 'Existing shared note' } })).status()).toBe(201);
-  } finally { await owner.close(); }
+    const approval = await owner.request.post('/api/approvals', { headers: { 'X-CSRF-Token': me.csrfToken }, data: { action: 'Synthetic phone approval', description: 'Existing shared approval description' } });
+    expect(approval.status()).toBe(201);
+    approvalId = (await approval.json()).approval.id;
 
-  await page.setViewportSize({ width: 320, height: 568 });
-  const errors = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/workspace.html');
-  await page.evaluate(() => window.workspaceReady);
-  await page.evaluate(() => navigator.serviceWorker.ready);
-  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
-  await expect(page.locator('#loginForm')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Create a free account on this website' })).toBeVisible();
-  await page.getByRole('link', { name: 'Create a free account on this website' }).click();
-  await expect(page).toHaveURL(/index\.html\?signup=1&next=workspace\.html/);
-  await expect(page.getByRole('dialog', { name: 'Create a free account' })).toBeVisible();
-  await expect(page.locator('#signupDetails')).toContainText('No email or payment');
-  await expect(page.locator('#signupDetails')).toContainText('read existing shared workspace records');
-  await expect(page.locator('#signupDetails')).toContainText('not private');
-  await expect(page.locator('#signupDetails')).toContainText('no self-service password reset');
-  await expect(page.locator('#signupDetails')).toContainText('cloud AI may cost the workspace owner');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(await page.locator('#u').getAttribute('autocomplete')).toBe('username');
-  expect(await page.locator('#p').getAttribute('autocomplete')).toBe('new-password');
-  await page.locator('#u').fill(username);
-  await page.locator('#p').fill(validPassword);
-  await page.locator('#confirm-p').fill('Different-password-456');
-  await expect(page.locator('#go')).toBeEnabled();
-  await page.locator('#go').click();
-  await expect(page.locator('#err')).toContainText('Passwords do not match');
-  await page.locator('#confirm-p').fill(validPassword);
-  await page.locator('#go').click(); // Scrolls naturally; no force click or greeting dismissal.
-  await expect(page).toHaveURL(/workspace\.html/);
-  await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#settingsUser')).toContainText(`${username.toLowerCase()} · Viewer`);
-  await page.goto('/workspace.html#data');
-  await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#dataBody')).toContainText('Shared phone signup record');
-  await expect(page.locator('#addBtn')).toBeHidden();
-  await expect(page.locator('#backupBtn')).toBeHidden();
-  await expect(page.locator('.side [data-nav="users"]')).toBeHidden();
-  const read = await page.request.get('/api/records/' + id);
-  expect(read.status()).toBe(200); expect((await read.json()).record.notes).toBe('Existing shared note');
-  const session = await (await page.request.get('/api/me')).json();
-  expect((await page.request.post('/api/records', { headers: { 'X-CSRF-Token': session.csrfToken }, data: { name: 'Not permitted' } })).status()).toBe(403);
-  expect((await page.request.get('/api/admin/users')).status()).toBe(403);
-  await page.locator('#logoutBtn').click();
-  await expect(page.locator('#loginForm')).toBeVisible();
-  await page.locator('#username').fill(username.toUpperCase());
-  await page.locator('#password').fill('Wrong-password-123');
-  await page.locator('#loginForm button[type="submit"]').click();
-  await expect(page.locator('#loginMessage')).toContainText('Invalid credentials');
-  await page.locator('#password').fill(validPassword);
-  await page.locator('#loginForm button[type="submit"]').click();
-  await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#settingsUser')).toContainText(`${username.toLowerCase()} · Viewer`);
-  expect(errors).toEqual([]);
+    await page.setViewportSize({ width: 320, height: 568 });
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto('/guide.html');
+    await expect(page.locator('#free-account')).toContainText('pending approvals through the API');
+    await expect(page.locator('#free-account')).toContainText('descriptions and requester names');
+    await page.goto('/workspace.html');
+    await page.evaluate(() => window.workspaceReady);
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
+    await expect(page.locator('#loginForm')).toBeVisible();
+    await expect(page.locator('#loginForm')).toContainText('Pending approvals');
+    await expect(page.locator('#loginForm')).toContainText('descriptions and requester names');
+    await expect(page.locator('#loginForm')).toContainText('readable through the API');
+    await expect(page.getByRole('link', { name: 'Create a free account on this website' })).toBeVisible();
+    await page.getByRole('link', { name: 'Create a free account on this website' }).click();
+    await expect(page).toHaveURL(/index\.html\?signup=1&next=workspace\.html/);
+    await expect(page.getByRole('dialog', { name: 'Create a free account' })).toBeVisible();
+    await expect(page.locator('#signupDetails')).toContainText('No email or payment');
+    await expect(page.locator('#signupDetails')).toContainText('read existing active shared workspace records');
+    await expect(page.locator('#signupDetails')).toContainText('pending approvals through the API');
+    await expect(page.locator('#signupDetails')).toContainText('descriptions and requester names');
+    await expect(page.locator('#signupDetails')).toContainText('not private');
+    await expect(page.locator('#signupDetails')).toContainText('no self-service password reset');
+    await expect(page.locator('#signupDetails')).toContainText('cloud AI may cost the workspace owner');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.locator('#u').getAttribute('autocomplete')).toBe('username');
+    expect(await page.locator('#p').getAttribute('autocomplete')).toBe('new-password');
+    await page.locator('#u').fill(username);
+    await page.locator('#p').fill(validPassword);
+    await page.locator('#confirm-p').fill('Different-password-456');
+    await expect(page.locator('#go')).toBeEnabled();
+    await page.locator('#go').click();
+    await expect(page.locator('#err')).toContainText('Passwords do not match');
+    await page.locator('#confirm-p').fill(validPassword);
+    await page.locator('#go').click(); // Scrolls naturally; no force click or greeting dismissal.
+    await expect(page).toHaveURL(/workspace\.html/);
+    await expect(page.locator('#app')).toBeVisible();
+    await expect(page.locator('#settingsUser')).toContainText(`${username.toLowerCase()} · Viewer`);
+    await page.goto('/workspace.html#data');
+    await expect(page.locator('#app')).toBeVisible();
+    await expect(page.locator('#dataBody')).toContainText('Shared phone signup record');
+    await expect(page.locator('#addBtn')).toBeHidden();
+    await expect(page.locator('#backupBtn')).toBeHidden();
+    await expect(page.locator('.side [data-nav="users"]')).toBeHidden();
+    await expect(page.locator('.side [data-nav="approvals"]')).toBeHidden();
+    const read = await page.request.get('/api/records/' + id);
+    expect(read.status()).toBe(200); expect((await read.json()).record.notes).toBe('Existing shared note');
+    const approvals = await page.request.get('/api/approvals');
+    expect(approvals.status()).toBe(200);
+    expect((await approvals.json()).approvals.find(item => item.id === approvalId)).toMatchObject({ description: 'Existing shared approval description', requestedBy: requester });
+    const session = await (await page.request.get('/api/me')).json();
+    expect((await page.request.patch('/api/approvals/' + approvalId, { headers: { 'X-CSRF-Token': session.csrfToken }, data: { status: 'approved' } })).status()).toBe(403);
+    expect((await page.request.post('/api/records', { headers: { 'X-CSRF-Token': session.csrfToken }, data: { name: 'Not permitted' } })).status()).toBe(403);
+    expect((await page.request.get('/api/admin/users')).status()).toBe(403);
+    await page.locator('#logoutBtn').click();
+    await expect(page.locator('#loginForm')).toBeVisible();
+    await page.locator('#username').fill(username.toUpperCase());
+    await page.locator('#password').fill('Wrong-password-123');
+    await page.locator('#loginForm button[type="submit"]').click();
+    await expect(page.locator('#loginMessage')).toContainText('Invalid credentials');
+    await page.locator('#password').fill(validPassword);
+    await page.locator('#loginForm button[type="submit"]').click();
+    await expect(page.locator('#app')).toBeVisible();
+    await expect(page.locator('#settingsUser')).toContainText(`${username.toLowerCase()} · Viewer`);
+    expect(errors).toEqual([]);
+  } finally {
+    try {
+      // Avoid leaving a pending fixture that could affect later browser tests.
+      if (approvalId) {
+        const cleanup = await owner.request.patch(`/api/approvals/${approvalId}`, { headers: { 'X-CSRF-Token': ownerCsrf }, data: { status: 'approved' } });
+        expect(cleanup.status()).toBe(200);
+        const remaining = await (await owner.request.get('/api/approvals')).json();
+        expect(remaining.approvals.some(item => item.id === approvalId)).toBe(false);
+      }
+    } finally { await owner.close(); }
+  }
 });
 
 test.describe('connection and form safeguards', () => {

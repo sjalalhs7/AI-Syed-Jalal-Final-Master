@@ -102,7 +102,8 @@ test('Connection page cannot locally assign server roles or fake a tenant', () =
   assert.equal(workspace.includes('GitHub Pages remains the static frontend'), false);
   assert.ok(workspace.includes('Account roles are assigned by the server'));
   assert.ok(workspace.includes('Sign in with your username and password.'));
-  assert.ok(workspace.includes('Free sign-ups are Viewers who can read existing shared records.'));
+  assert.ok(workspace.includes('Free sign-ups are Viewers who can read shared active records and their notes.'));
+  assert.ok(workspace.includes('Pending approvals, including descriptions and requester names, are readable through the API.'));
 });
 
 test('Workspace cloud provider selection follows the API metadata', () => {
