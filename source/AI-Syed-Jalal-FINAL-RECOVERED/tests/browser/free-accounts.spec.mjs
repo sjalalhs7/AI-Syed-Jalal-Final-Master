@@ -163,13 +163,21 @@ test.describe('connection and form safeguards', () => {
     await expect(page).toHaveURL(/signup=1/);
   });
 
-  test('a success response without a matching browser session does not navigate', async ({ page }) => {
+  test('a success response without a matching browser session does not navigate or retarget other pages', async ({ page }) => {
     await page.route('**/api/auth/register', route => route.fulfill({ status: 201, json: { user: { id: 'unissued-session-id', username: 'fixture', role: 'Viewer' } } }));
     await page.goto('/index.html?signup=1'); await expect(page.locator('#go')).toBeEnabled();
+    await page.evaluate(() => {
+      localStorage.setItem('aj-v31-api', 'https://retired.example.invalid');
+      localStorage.setItem('aj-next-api', 'https://staged.example.invalid');
+      sessionStorage.setItem('aj-workspace-verified-api', 'https://retired.example.invalid');
+    });
     await page.locator('#u').fill('no-cookie'); await page.locator('#p').fill(validPassword); await page.locator('#confirm-p').fill(validPassword);
     await page.locator('#go').click();
     await expect(page.locator('#err')).toContainText('could not confirm whether your account was created');
     await expect(page).toHaveURL(/signup=1/);
+    expect(await page.evaluate(() => localStorage.getItem('aj-v31-api'))).toBe('https://retired.example.invalid');
+    expect(await page.evaluate(() => localStorage.getItem('aj-next-api'))).toBe('https://staged.example.invalid');
+    expect(await page.evaluate(() => sessionStorage.getItem('aj-workspace-verified-api'))).toBe('https://retired.example.invalid');
   });
 
   test('timeout leaves signup outcome unknown and restores the form', async ({ page }) => {
@@ -201,14 +209,22 @@ test.describe('connection and form safeguards', () => {
     expect(writes).toEqual([]);
   });
 
-  test('signup never follows an untrusted next URL', async ({ page }) => {
+  test('signup ignores an untrusted next URL and replaces a stale shared API only after session verification', async ({ page }) => {
     const username = `safe${Date.now()}`;
     await page.goto('/index.html?signup=1&next=https%3A%2F%2Fexample.invalid%2Fsteal');
     await expect(page.locator('#go')).toBeEnabled();
+    await page.evaluate(() => {
+      localStorage.setItem('aj-v31-api', 'https://retired.example.invalid');
+      localStorage.setItem('aj-next-api', 'https://staged.example.invalid');
+      sessionStorage.setItem('aj-workspace-verified-api', 'https://retired.example.invalid');
+    });
     await page.locator('#u').fill(username); await page.locator('#p').fill(validPassword); await page.locator('#confirm-p').fill(validPassword);
     await page.locator('#go').click();
     await expect(page).toHaveURL(/dashboard\.html/);
     expect(new URL(page.url()).origin).toBe('http://127.0.0.1:3100');
+    expect(await page.evaluate(() => localStorage.getItem('aj-v31-api'))).toBe('http://127.0.0.1:3100');
+    expect(await page.evaluate(() => localStorage.getItem('aj-next-api'))).toBe(null);
+    expect(await page.evaluate(() => sessionStorage.getItem('aj-workspace-verified-api'))).toBe('http://127.0.0.1:3100');
     expect(page.url()).not.toContain(validPassword);
   });
 });

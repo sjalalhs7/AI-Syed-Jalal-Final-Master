@@ -270,7 +270,7 @@ body.aj-workspace .modal{z-index:2147483000}
   </nav>
   <div class="top-actions">
     <button class="icon-btn" id="themeBtn" data-aj-theme-open title="Choose visual theme" aria-label="Choose visual theme">☼</button>
-    <button class="profile-chip" data-nav="settings"><span class="profile-avatar">AJ</span><span><b id="topOperator">Operator</b><small>Administrator</small></span><i>⌄</i></button>
+    <button class="profile-chip" data-nav="settings"><span class="profile-avatar">AJ</span><span><b id="topOperator">Operator</b><small id="topRole">Account</small></span><i>⌄</i></button>
     <button class="btn logout-btn" id="logoutBtn">Exit</button>
   </div>
 </header>
@@ -331,9 +331,9 @@ body.aj-workspace .modal{z-index:2147483000}
 </section>
 
 <section class="view" id="view-connection">
-<div class="hero"><div><div class="eyebrow">Connection settings</div><h1>Connect the production API.</h1><p>Set and test the Cloudflare Pages API endpoint used for sign-in and central data. Account roles are assigned by the server, not by this page.</p></div></div>
+<div class="hero"><div><div class="eyebrow">Connection settings</div><h1>Connect the production API.</h1><p>Choose a trusted API endpoint for the next sign-in. Your current session keeps using its existing endpoint. Account roles are assigned by the server, not by this page.</p></div></div>
 <div class="grid g2">
-<div class="card"><div class="card-head"><h3>Cloudflare API endpoint</h3><span class="tag" id="apiStatus">NOT CONNECTED</span></div><div class="field"><label>API base URL</label><input id="apiUrl" placeholder="https://ai-syed-jalal-live.pages.dev"></div><button class="btn primary" id="saveConnection">Save API URL</button> <button class="btn" id="testConnection">Test endpoint</button><p class="muted" id="connectionMessage" style="margin-top:12px">The current website origin is used by default.</p></div>
+<div class="card"><div class="card-head"><h3>Cloudflare API endpoint</h3><span class="tag" id="apiStatus">NOT CONNECTED</span></div><div class="field"><label for="apiUrl">API base URL for next sign-in</label><input id="apiUrl" placeholder="https://ai-syed-jalal-live.pages.dev"></div><button class="btn primary" id="saveConnection">Save API URL</button> <button class="btn" id="testConnection">Test endpoint</button><p class="muted" id="connectionMessage" role="status" aria-live="polite" style="margin-top:12px">The current website origin is used by default.</p><p class="muted">A verified Workspace endpoint is remembered in this tab. Some other pages use the last verified shared endpoint. Custom APIs need compatible cross-origin permissions and cookies.</p></div>
 <div class="card"><h3>Server access control</h3><p class="muted">Sign-in is verified against Neon PostgreSQL. Your actual role—Admin, Manager, Data Operator or Viewer—comes from the server account. Changing a local selector cannot grant permissions.</p><p class="muted">Provider API keys remain server-side secrets in Cloudflare. Do not paste them into this page.</p></div>
 </div>
 </section>
@@ -377,7 +377,30 @@ body.aj-workspace .modal{z-index:2147483000}
 <p class="muted" id="providerResult" role="status" aria-live="polite" style="margin-top:8px"></p>
 </div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Runtime Telemetry</h3><span class="tag">LIVE</span></div><div id="opsTelemetry" class="muted">Loading telemetry…</div></div><div class="card"><div class="card-head"><h3>Permission Matrix</h3><span class="tag">ADMIN</span></div><div id="opsPermissions" class="muted">Loading permissions…</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Next-Gen Diagnostics</h3><span class="tag">LIVE</span></div><div id="opsDiagnostics" class="muted">Check the database connection and required table names. Pool metrics and live cloud-provider behavior are unavailable here.</div><div class="toolbar" style="margin-top:10px"><button class="btn" id="opsDiagnosticsBtn">Run Diagnostics</button><button class="btn" id="opsIntegrityBtn">Check Data Integrity</button></div></div><div class="card"><div class="card-head"><h3>Integrity Snapshot</h3><span class="tag">CONTROL</span></div><div id="opsIntegrity" class="muted">Backup integrity metadata will appear here after export.</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Live System Snapshot</h3><span class="tag">LIVE</span></div><div id="opsSnapshot" class="muted">Loading system snapshot…</div></div><div class="card"><div class="card-head"><h3>Data Distribution</h3><span class="tag">ANALYTICS</span></div><div id="opsDistribution" class="muted">Region and sector distribution will appear here.</div></div></div><div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-head"><h3>Recovery</h3><span class="tag">ADMIN</span></div><p class="muted">Export active records only. This is not a full database backup: it does not include accounts, deleted records, documents or other tables. A merge overwrites matching active IDs and is not a database restore. Files above 20 MiB or with unsupported values cannot be merged in this UI.</p><div class="toolbar"><button class="btn primary" id="opsBackupBtn">Export Records Backup</button><button class="btn" id="opsRestoreBtn">Merge Records Backup</button><input id="opsRestoreFile" type="file" accept="application/json" class="hidden"></div><label class="muted"><input id="opsRestoreDeleted" type="checkbox"> Also reactivate matching deleted records from the export</label><div id="opsRestoreStatus" class="muted" role="status" aria-live="polite">Ready.</div><div id="opsMessage" class="muted"></div></div><div class="card"><div class="card-head"><h3>Security Events</h3><span class="tag">LIVE</span></div><div id="opsSecurityList" class="muted">Open Operations Center to load events.</div></div></div></section>
 <section class="view" id="view-users"><div class="hero"><div><div class="eyebrow">Identity & Access</div><h1>Manage users.</h1><p>Create, activate, deactivate and change roles for application operators.</p></div><button class="btn primary" id="addUserBtn">+ Add User</button></div><div class="card"><div class="toolbar"><button class="btn" id="refreshUsersBtn">↻ Refresh</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody id="usersBody"></tbody></table></div></div></section>
-<section class="view" id="view-settings"><div class="hero"><div><div class="eyebrow">System</div><h1>Settings</h1><p>Control local preferences and session behavior.</p></div></div><div class="grid g2"><div class="card"><h3>Interface</h3><button class="btn" id="settingsTheme" data-aj-theme-open>Choose visual theme</button><p class="muted" style="margin-top:12px">Theme preference is saved locally.</p></div><div class="card"><h3>Session</h3><p class="muted">Current operator</p><strong id="settingsUser">Operator</strong><div style="margin-top:14px"><button class="btn danger" id="settingsLogout">Sign out</button></div></div></div><div class="card" style="margin-top:16px"><h3>Security Operations</h3><p class="muted">Session controls are available when connected to the current API.</p><div class="toolbar"><button class="btn" id="revokeSessionsBtn">Revoke other sessions</button><button class="btn" id="changePasswordBtn">Change password</button></div><p id="securityMessage" class="muted" style="margin:10px 0 0">No security action run.</p></div><div class="card" style="margin-top:16px"><h3>Production note</h3><p class="muted">Shared authentication and central records are served by Cloudflare Pages Functions and Neon PostgreSQL. Interface themes and learning progress are saved locally in this browser.</p></div></section>
+<section class="view" id="view-settings">
+ <div class="hero"><div><div class="eyebrow">System</div><h1>Settings</h1><p>Control local preferences and session behavior.</p></div></div>
+ <div class="grid g2"><div class="card"><h3>Interface</h3><button class="btn" id="settingsTheme" data-aj-theme-open>Choose visual theme</button><p class="muted" style="margin-top:12px">Theme preference is saved locally.</p></div><div class="card"><h3>Session</h3><p class="muted">Current operator</p><strong id="settingsUser">Operator</strong><div style="margin-top:14px"><button class="btn danger" id="settingsLogout">Sign out</button></div></div></div>
+ <div class="card" style="margin-top:16px"><h3>Security Operations</h3><p class="muted">These controls use the connected account. They do not sign out this session. New sign-ins can create new sessions; requests already running may still finish.</p>
+  <div class="grid g2">
+   <div><h4>Your sessions</h4><p class="muted">Shows up to the latest 100 sessions for this account, including revoked sessions. Device and location details are not recorded here.</p>
+    <div class="toolbar"><button class="btn" id="refreshSessionsBtn" type="button">Refresh sessions</button><button class="btn" id="revokeSessionsBtn" type="button">Revoke other sessions</button></div>
+    <p id="securityMessage" class="muted" role="status" aria-live="polite">No security action run.</p>
+    <div id="securitySessions" class="muted" aria-live="polite">Refresh to load your sessions.</div>
+   </div>
+   <form id="passwordForm" method="post" action="/api/auth/change-password" novalidate>
+    <h4>Change password</h4><p class="muted" id="passwordRequirements">Use 12–1,024 characters with at least one letter and one number. Choose a different password and save it securely; there is no self-service reset.</p>
+    <div class="field"><label for="securityCurrentPassword">Current password</label><input id="securityCurrentPassword" name="currentPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" maxlength="1024" required aria-describedby="passwordRequirements passwordMessage"></div>
+    <div class="field"><label for="securityNewPassword">New password</label><input id="securityNewPassword" name="newPassword" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="12" maxlength="1024" required aria-describedby="passwordRequirements passwordMessage"></div>
+    <div class="field"><label for="securityConfirmPassword">Confirm new password</label><input id="securityConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" minlength="12" maxlength="1024" required aria-describedby="passwordMessage"></div>
+    <div class="toolbar"><button class="btn primary" id="changePasswordBtn" type="submit">Change password</button><button class="btn" id="clearPasswordBtn" type="reset">Clear</button></div>
+    <p id="passwordMessage" class="muted" role="status" aria-live="polite">No password change requested.</p>
+    <button class="btn" id="passwordReviewBtn" type="button" hidden>I checked the outcome</button>
+    <p class="muted">A configured seed Administrator recovery credential can still restore that account after a password change. Ask the deployment owner about recovery. Local preview demo accounts have generated passwords.</p>
+   </form>
+  </div>
+ </div>
+ <div class="card" style="margin-top:16px"><h3>Production note</h3><p class="muted">Shared authentication and central records are served by Cloudflare Pages Functions and Neon PostgreSQL. Interface themes and learning progress are saved locally in this browser.</p></div>
+</section>
 <div class="footer"><span>AI-Syed Jalal · Professional AI Workspace · V75</span><small>Design by: Syed Jalal Hussain Shah</small></div>
 </main></div><nav class="mobile-nav" id="mobileNav"><button data-nav="home">⌂<br>Home</button><button data-nav="data">▤<br>Data</button><button data-nav="documents">▱<br>Print</button><button data-nav="operations">⚙<br>Ops</button><button data-nav="settings">⚙<br>More</button></nav></section>
 <div id="modal" class="modal hidden"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Data record</div><h3 id="modalTitle">Add record</h3></div><button class="btn" id="closeModal">✕</button></div><form id="recordForm"><input type="hidden" id="recordId"><div class="grid g2"><div class="field"><label for="fName">Name</label><input id="fName" required maxlength="500"></div><div class="field"><label for="fRegion">Region</label><input id="fRegion" maxlength="200"></div><div class="field"><label for="fSector">Sector</label><input id="fSector" maxlength="200"></div><div class="field"><label for="fStatus">Status</label><select id="fStatus"><option>Active</option><option>Pending</option><option>Verified</option><option>Archived</option></select></div></div><div class="field"><label for="fNotes">Notes</label><textarea id="fNotes" rows="4" maxlength="10000"></textarea></div><div id="recordFormStatus" class="muted" role="status" aria-live="polite"></div><button class="btn primary" type="submit">Save record</button></form></div></div>
@@ -386,8 +409,9 @@ body.aj-workspace .modal{z-index:2147483000}
 <style>
 /* Keep the floating assistant from obscuring the Data Vault page controls. */
 .data-pagination{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:16px;margin-top:12px;scroll-margin-bottom:calc(54vh + 28px)}
-#view-data{padding-bottom:calc(54vh + 28px)}
-body:has(#ajDockToggle[aria-expanded="false"]) #view-data{padding-bottom:12px}
+#view-data,#view-settings{padding-bottom:calc(54vh + 28px)}
+#view-settings .field,#view-settings .toolbar{scroll-margin-top:84px}
+body:has(#ajDockToggle[aria-expanded="false"]) #view-data,body:has(#ajDockToggle[aria-expanded="false"]) #view-settings{padding-bottom:12px}
 #ajUniversalDock{position:fixed;z-index:9998;right:18px;bottom:18px;width:min(430px,calc(100vw - 24px));max-height:54vh;overflow:auto;background:rgba(5,14,28,.97);border:1px solid #47718f;border-radius:18px;box-shadow:0 12px 48px #0009;padding:12px;color:#eef6ff;backdrop-filter:blur(18px)}
 #ajUniversalDock textarea{box-sizing:border-box;width:100%;resize:vertical;min-height:62px;max-height:150px;background:#081323;color:#fff;border:1px solid #38536b;border-radius:10px;padding:10px;font:inherit}
 #ajDockBody[hidden]{display:none}
@@ -397,7 +421,13 @@ body:has(#ajDockToggle[aria-expanded="false"]) #view-data{padding-bottom:12px}
  #ajUniversalDock.is-collapsed{width:auto;padding:5px}
  #ajUniversalDock.is-collapsed .aj-dock-title,#ajUniversalDock.is-collapsed [data-ai-report-open]{display:none}
  #ajUniversalDock.is-collapsed #ajDockToggle{min-height:44px}
- #ajUniversalDock textarea{min-height:48px}#view-data{padding-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}.data-pagination{scroll-margin-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}
+ #ajUniversalDock textarea{min-height:48px}#view-data,#view-settings{padding-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}.data-pagination{scroll-margin-bottom:calc(var(--aj-dock-max,45vh) + 150px + env(safe-area-inset-bottom,0px))}
+ /* Keep the greeting available but compact when account-security controls are in use. */
+ body:has(#view-settings.active) #aj-welcome-notice{max-height:min(24vh,138px);padding:8px 10px;bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+ body:has(#view-settings.active) #aj-welcome-notice .aj-welcome-notice-icon{display:none}
+ body:has(#view-settings.active) #aj-welcome-notice .aj-welcome-notice-actions{margin:4px 0 0;gap:4px}
+ body:has(#view-settings.active) #aj-welcome-notice .aj-welcome-notice-close{width:30px;height:30px}
+ body:has(#view-settings.active) #aj-welcome-notice .aj-welcome-notice-copy p{font-size:11px}
 }
 </style>
 <aside id="ajUniversalDock" aria-label="Universal AI chat">
@@ -408,7 +438,14 @@ body:has(#ajDockToggle[aria-expanded="false"]) #view-data{padding-bottom:12px}
 </aside>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const state={view:location.hash.slice(1)||localStorage.getItem('aj-v47-view')||'home',user:'',token:'',theme:localStorage.getItem('aj-v31-theme')||'dark',page:1,query:'',region:'',sector:'',role:'Admin',apiUrl:window.AJ_STATIC_HOST?'':location.origin,csrf:''};
+function initialWorkspaceApiUrl(){
+ if(window.AJ_STATIC_HOST)return '';
+ // Only a target verified in this tab is restored. Never use an old shared
+ // localStorage override to silently redirect a first-party session.
+ try{const saved=sessionStorage.getItem('aj-workspace-verified-api');if(saved)return validatedApiUrl(saved)}catch{}
+ return location.origin;
+}
+const state={view:location.hash.slice(1)||localStorage.getItem('aj-v47-view')||'home',user:'',token:'',theme:localStorage.getItem('aj-v31-theme')||'dark',page:1,query:'',region:'',sector:'',role:'Admin',apiUrl:initialWorkspaceApiUrl(),csrf:''};
 let db;
 const DB='AJ_V35_DB', STORE='records', AUD='audit';
 localStorage.removeItem('aj-v31-user');localStorage.removeItem('aj-v31-token');localStorage.removeItem('aj-v31-demo');
@@ -624,17 +661,19 @@ async function repairSchema(){
 }
 function nav(view,push=true){if(['operations','users'].includes(view)&&state.role!=='Admin')view='home';if(view==='approvals'&&!['Admin','Manager'].includes(state.role)){toast('Manager or Admin role required');view='home';}if(!document.getElementById('view-'+view))view='home';state.view=view;state.page=1;localStorage.setItem('aj-v47-view',view);if(push&&location.hash.slice(1)!==view)history.pushState({view},'',location.pathname+location.search+'#'+view);$$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));$$('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===view));if(view==='data')renderData();if(view==='audit'){renderAudit();checkServiceHealth()};if(view==='connection')loadConnection();if(view==='operations')renderOperations();if(view==='users')renderUsers();if(view==='approvals')renderApprovals();if(view==='ai-command')renderAICommand();if(view==='control'){if($('#roleValue'))$('#roleValue').textContent=state.role;$('#syncState').textContent=remoteMode()?'LIVE API':'LOCAL'}window.scrollTo({top:0,behavior:'smooth'})}
 $$('[data-nav]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.nav)));window.addEventListener('popstate',()=>nav(location.hash.slice(1)||'home',false));window.addEventListener('hashchange',()=>nav(location.hash.slice(1)||'home',false));
-function showApp(){ $('#login').classList.add('hidden');$('#app').classList.remove('hidden');if($('#operatorName'))$('#operatorName').textContent=state.user||'Operator';$('#settingsUser').textContent=(state.user||'Operator')+' · '+state.role;if($('#roleValue'))$('#roleValue').textContent=state.role;const isAdmin=state.role==='Admin';$$('[data-nav="operations"],[data-nav="users"]').forEach(b=>{b.hidden=!isAdmin;const card=b.closest('.card');if(card)card.hidden=!isAdmin});const canApprove=['Admin','Manager'].includes(state.role);$$('[data-nav="approvals"]').forEach(b=>{b.hidden=!canApprove});const canWrite=['Admin','Manager','Data Operator'].includes(state.role);['#addBtn','#importBtn'].forEach(q=>{if($(q))$(q).hidden=!canWrite});if($('#backupBtn'))$('#backupBtn').hidden=!isAdmin;const mb=$('#modeBanner');if(mb){mb.classList.remove('hidden','live');mb.textContent=remoteMode()?(window.ajLocalPreview?'● LOCAL PREVIEW — PERSISTENT LOCAL DATABASE':'● LIVE API — CENTRAL DATABASE CONNECTED'):'⚠ API CONNECTION REQUIRED';if(remoteMode())mb.classList.add('live')}applyTheme();nav(state.view)}
+function showApp(){ $('#login').classList.add('hidden');$('#app').classList.remove('hidden');if($('#operatorName'))$('#operatorName').textContent=state.user||'Operator';$('#topOperator').textContent=state.user||'Operator';$('#topRole').textContent=state.role;$('#settingsUser').textContent=(state.user||'Operator')+' · '+state.role;if($('#roleValue'))$('#roleValue').textContent=state.role;const isAdmin=state.role==='Admin';$$('[data-nav="operations"],[data-nav="users"]').forEach(b=>{b.hidden=!isAdmin;const card=b.closest('.card');if(card)card.hidden=!isAdmin});const canApprove=['Admin','Manager'].includes(state.role);$$('[data-nav="approvals"]').forEach(b=>{b.hidden=!canApprove});const canWrite=['Admin','Manager','Data Operator'].includes(state.role);['#addBtn','#importBtn'].forEach(q=>{if($(q))$(q).hidden=!canWrite});if($('#backupBtn'))$('#backupBtn').hidden=!isAdmin;const mb=$('#modeBanner');if(mb){mb.classList.remove('hidden','live');mb.textContent=remoteMode()?(window.ajLocalPreview?'● LOCAL PREVIEW — PERSISTENT LOCAL DATABASE':'● LIVE API — CENTRAL DATABASE CONNECTED'):'⚠ API CONNECTION REQUIRED';if(remoteMode())mb.classList.add('live')}applyTheme();nav(state.view)}
+function validatedApiUrl(value){
+ const target=new URL(value.trim()||location.origin);
+ const localHttp=target.protocol==='http:'&&target.origin===location.origin&&['localhost','127.0.0.1','[::1]'].includes(target.hostname);
+ if((target.protocol!=='https:'&&!localHttp)||target.username||target.password||target.search||target.hash)throw new Error('Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).');
+ return target.href.replace(/\/$/,'');
+}
 $('#loginForm').addEventListener('submit',async e=>{
  e.preventDefault();const out=$('#loginMessage'),button=$('#loginForm button[type="submit"]');out.textContent='';
  if(window.AJ_STATIC_HOST){out.textContent='Static website preview: sign-in needs the secure application server or local preview. See Setup options.';return}
  let apiUrl;
- try{
-  const target=new URL($('#loginApiUrl').value.trim()||location.origin);
-  const localHttp=target.protocol==='http:'&&target.origin===location.origin&&['localhost','127.0.0.1','[::1]'].includes(target.hostname);
-  if((target.protocol!=='https:'&&!localHttp)||target.username||target.password||target.search||target.hash)throw Error();
-  apiUrl=target.href.replace(/\/$/,'');
- }catch{out.textContent='Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).';return}
+ try{apiUrl=validatedApiUrl($('#loginApiUrl').value)}
+ catch{out.textContent='Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).';return}
  button.disabled=true;
  try{
   // Finish the initial session check before replacing its connection details.
@@ -644,7 +683,11 @@ $('#loginForm').addEventListener('submit',async e=>{
   const x=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#username').value.trim(),password:$('#password').value}),signal});
   const session=await api('/api/me',{signal});
   if(!x.user?.id||session.authenticated!==true||session.user?.id!==x.user.id)throw new Error('Your session could not be verified. Check cookies and try again.');
-  state.token='';state.user=session.user.username;state.role=session.user.role;state.csrf=session.csrfToken||'';localStorage.setItem('aj-v31-api',apiUrl);toast('Workspace connected');showApp();
+  state.token='';state.user=session.user.username;state.role=session.user.role;state.csrf=session.csrfToken||'';
+  // A verified custom endpoint survives a reload in this tab only. Other pages
+  // may use the shared setting, so update that only after verifying the session.
+  try{sessionStorage.setItem('aj-workspace-verified-api',apiUrl)}catch{}
+  localStorage.setItem('aj-v31-api',apiUrl);localStorage.removeItem('aj-next-api');toast(x.seedRecovery===true?'Account recovered; earlier sessions were revoked.':'Workspace connected');showApp();
  }catch(err){out.textContent=['TimeoutError','AbortError'].includes(err?.name)?'Sign-in timed out. Check your connection and try again.':(err.message||'Sign in failed');}
  finally{button.disabled=false}
 });
@@ -1010,12 +1053,105 @@ async function renderAICommand(){
   toast(e.message);
  }
 }
-function loadConnection(){$('#apiUrl').value=state.apiUrl;$('#apiStatus').textContent=state.apiUrl?'CONFIGURED':'NOT CONNECTED';$('#connectionMessage').textContent='This endpoint is used for sign-in and central records. Test it before signing in.'}
-$('#saveConnection').onclick=()=>{state.apiUrl=$('#apiUrl').value.trim();if(state.apiUrl.endsWith('/'))state.apiUrl=state.apiUrl.slice(0,-1);if(!state.apiUrl.startsWith('https://')&&!state.apiUrl.startsWith('http://')){toast('Enter a valid HTTPS API URL.');return}localStorage.setItem('aj-v31-api',state.apiUrl);$('#apiStatus').textContent='CONFIGURED';$('#connectionMessage').textContent='API URL saved in this browser. Sign in again to use the selected endpoint.';toast('API URL saved')};
-$('#testConnection').onclick=async()=>{if(!state.apiUrl){toast('Enter an API base URL first');return}$('#connectionMessage').textContent='Testing endpoint…';try{const r=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/health',{method:'GET',mode:'cors'});const x=await r.json();$('#connectionMessage').textContent='API healthy: '+x.service+' · '+x.version;toast('Backend reachable')}catch(e){$('#connectionMessage').textContent='Endpoint could not be reached from this browser. Check HTTPS, CORS and the API URL.';toast('Connection test failed')}}
-$('#loginApiUrl').value=state.apiUrl;if(window.AJ_STATIC_HOST){$('#loginApiUrl').placeholder='Secure app server required';}
-$('#revokeSessionsBtn')?.addEventListener('click',async()=>{try{await api('/api/auth/sessions',{method:'DELETE'});$('#securityMessage').textContent='Other sessions revoked.';toast('Other sessions revoked')}catch(e){$('#securityMessage').textContent=e.message}});
-$('#changePasswordBtn')?.addEventListener('click',async()=>{const current=prompt('Current password:');if(current===null)return;const next=prompt('New password (minimum 12 characters, letters and numbers):');if(next===null)return;try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:current,newPassword:next})});state.token='';state.user='';toast('Password changed. Please sign in again.');setTimeout(()=>location.reload(),500)}catch(e){$('#securityMessage').textContent=e.message}});
+function loadConnection(){
+ $('#apiUrl').value=localStorage.getItem('aj-next-api')||state.apiUrl;
+ $('#apiStatus').textContent=state.apiUrl?'SESSION CONNECTED':'NOT CONNECTED';
+ $('#connectionMessage').textContent='The current session keeps its existing endpoint. Only sign in to an API you trust.';
+}
+$('#saveConnection').onclick=()=>{
+ let target;
+ try{target=validatedApiUrl($('#apiUrl').value)}catch{$('#connectionMessage').textContent='Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).';return}
+ // Do not retarget an already authenticated session or other pages. A new
+ // endpoint is only committed to the shared API setting after a verified login.
+ localStorage.setItem('aj-next-api',target);$('#loginApiUrl').value=target;$('#apiUrl').value=target;$('#apiStatus').textContent='NEXT SIGN-IN';
+ $('#connectionMessage').textContent='Saved for the next sign-in. The current session keeps its existing endpoint; sign out before choosing another account.';
+ toast('API URL saved for next sign-in');
+};
+$('#testConnection').onclick=async()=>{
+ let target;
+ try{target=validatedApiUrl($('#apiUrl').value)}catch{$('#connectionMessage').textContent='Use an HTTPS API URL without credentials or query parameters (local preview may use its own local address).';return}
+ $('#connectionMessage').textContent='Testing endpoint without account credentials…';
+ try{const r=await fetch(target+'/api/health',{method:'GET',mode:'cors',credentials:'omit',signal:timeoutSignal(10000)});const x=await r.json();if(!r.ok||x?.ok!==true||typeof x.service!=='string')throw Error('Unverified health response');$('#connectionMessage').textContent='API responded: '+x.service+' · '+(x.version||'version unavailable')+'. This does not verify sign-in or data access.'}
+ catch{$('#connectionMessage').textContent='Endpoint could not be verified from this browser. Check HTTPS, CORS and the API URL.'}
+};
+$('#loginApiUrl').value=localStorage.getItem('aj-next-api')||state.apiUrl;if(window.AJ_STATIC_HOST){$('#loginApiUrl').placeholder='Secure app server required';}
+let securityPending=false,passwordReviewRequired=false,sessionReadGeneration=0;
+function setSecurityPending(pending){
+ securityPending=pending;
+ for(const id of ['#revokeSessionsBtn','#refreshSessionsBtn','#securityCurrentPassword','#securityNewPassword','#securityConfirmPassword','#clearPasswordBtn','#passwordReviewBtn'])$(id).disabled=pending;
+ $('#changePasswordBtn').disabled=pending||passwordReviewRequired;
+}
+function invalidateSessionList(){++sessionReadGeneration;$('#securitySessions').textContent='Refresh to load your sessions.'}
+async function refreshSecuritySessions(){
+ if(securityPending)return;
+ const out=$('#securitySessions'),button=$('#refreshSessionsBtn'),generation=++sessionReadGeneration;
+ if(!remoteMode()){out.textContent='Sign in to view your sessions.';return}
+ button.disabled=true;out.textContent='Loading sessions…';
+ try{
+  const data=await api('/api/auth/sessions',{signal:timeoutSignal(10000)});
+  if(generation!==sessionReadGeneration)return;
+  const rows=data?.sessions;
+  if(!Array.isArray(rows)||rows.length>100||rows.some(row=>typeof row?.id!=='string'||!row.id||typeof row.active!=='boolean'||typeof row.current!=='boolean'||typeof row.createdAt!=='string'||!Number.isFinite(Date.parse(row.createdAt))||typeof row.expiresAt!=='string'||!Number.isFinite(Date.parse(row.expiresAt))||(row.revokedAt!==null&&(typeof row.revokedAt!=='string'||!Number.isFinite(Date.parse(row.revokedAt))))||(row.active&&row.revokedAt!==null))||rows.filter(row=>row.current).length>1||new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error('Invalid sessions');
+  if(!rows.length){out.textContent='No sessions returned. Refresh again if your session has changed.';return}
+  const list=document.createElement('ul');
+  for(const row of rows){
+   const item=document.createElement('li'),status=row.revokedAt?'Revoked':row.active?'Active':'Expired';
+   item.textContent=(row.current?'This session':'Other session')+' · '+status+' · Started '+new Date(row.createdAt).toLocaleString()+' · '+(row.revokedAt?'Revoked '+new Date(row.revokedAt).toLocaleString():'Expires '+new Date(row.expiresAt).toLocaleString());
+   list.appendChild(item);
+  }
+  out.replaceChildren(list);
+ }catch{if(generation===sessionReadGeneration)out.textContent='Session list unavailable. Refresh after checking your connection.'}
+ finally{if(generation===sessionReadGeneration&&!securityPending)button.disabled=false}
+}
+$('#refreshSessionsBtn').addEventListener('click',refreshSecuritySessions);
+$('#revokeSessionsBtn').addEventListener('click',async()=>{
+ if(securityPending)return;
+ const out=$('#securityMessage');
+ if(!remoteMode()){out.textContent='Sign in before managing sessions; no request was sent.';return}
+ setSecurityPending(true);invalidateSessionList();out.textContent='Revoking other sessions…';let refresh=false;
+ try{
+  const result=await api('/api/auth/sessions',{method:'DELETE',signal:timeoutSignal(25000)});
+  if(result?.ok!==true)throw new Error('Unverified response');
+  out.textContent='Other sessions found by the request were revoked. This session was not revoked by this action; new sign-ins can create sessions.';
+  toast('Other sessions revoked');refresh=true;
+ }catch{out.textContent='Could not confirm whether other sessions were revoked. The server may still finish; refresh the list after it settles. New sign-ins can create sessions.'}
+ finally{setSecurityPending(false)}
+ if(refresh)await refreshSecuritySessions();
+});
+$('#passwordForm').addEventListener('reset',()=>{if(!passwordReviewRequired&&!securityPending)$('#passwordMessage').textContent='No password change requested.'});
+$('#passwordReviewBtn').addEventListener('click',()=>{
+ if(securityPending||!passwordReviewRequired)return;
+ passwordReviewRequired=false;$('#passwordReviewBtn').hidden=true;setSecurityPending(false);
+ $('#passwordMessage').textContent='Use the password you confirmed is current. An earlier request that is still running could change it later.';
+ $('#securityCurrentPassword').focus();
+});
+$('#passwordForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(securityPending||passwordReviewRequired)return;
+ const out=$('#passwordMessage'),current=$('#securityCurrentPassword').value,next=$('#securityNewPassword').value,confirmation=$('#securityConfirmPassword').value;
+ if(!remoteMode()){out.textContent='Sign in before changing your password; no request was sent.';return}
+ if(!current||current.length>1024){out.textContent='Enter your current password (at most 1,024 characters).';$('#securityCurrentPassword').focus();return}
+ if(next.length<12||next.length>1024||!/[A-Za-z]/.test(next)||!/[0-9]/.test(next)){out.textContent='New password must be 12–1,024 characters and include a letter and a number.';$('#securityNewPassword').focus();return}
+ if(current===next){out.textContent='Choose a new password different from your current password.';$('#securityNewPassword').focus();return}
+ if(next!==confirmation){out.textContent='New passwords do not match.';$('#securityConfirmPassword').focus();return}
+ setSecurityPending(true);invalidateSessionList();out.textContent='Changing password…';let refresh=false;
+ try{
+  const result=await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:current,newPassword:next}),signal:timeoutSignal(25000)});
+  if(result?.ok!==true||result.otherSessionsRevoked!==true)throw new Error('Unverified response');
+  $('#passwordForm').reset();out.textContent='Password changed and other sessions were revoked. This session was not revoked by this action. Save your new password securely.';
+  toast('Password changed');refresh=true;
+ }catch(error){
+  const known=(error?.status===400&&['PASSWORD_CURRENT_INVALID','PASSWORD_INVALID','PASSWORD_UNCHANGED'].includes(error.code))||(error?.status===401&&error.code==='PASSWORD_CURRENT_INVALID')||(error?.status===409&&error.code==='PASSWORD_CHANGE_STALE')||(error?.status===429&&error.code==='PASSWORD_CHANGE_RATE_LIMIT')||(error?.status===503&&error.code==='PASSWORD_CHANGE_UNAVAILABLE');
+  if(known){
+   const messages={PASSWORD_CURRENT_INVALID:'The current password was not accepted.',PASSWORD_INVALID:'The new password did not meet the requirements.',PASSWORD_UNCHANGED:'Choose a new password different from your current password.',PASSWORD_CHANGE_STALE:'The session, account or password changed during this request; check your session and use the latest password before trying again.',PASSWORD_CHANGE_RATE_LIMIT:'Too many password change attempts. Wait five minutes before trying again.',PASSWORD_CHANGE_UNAVAILABLE:'Password changes are temporarily unavailable.'};
+   out.textContent=messages[error.code]+' No change was made by this request.';
+  }else{
+   passwordReviewRequired=true;$('#passwordReviewBtn').hidden=false;
+   out.textContent='Could not confirm whether your password changed. The server may still finish. Keep the new password safe and check it by signing in from a separate private window; if unsure, wait and contact the workspace owner. Do not submit another change until you have checked. A configured seed Admin credential can itself restore that account.';
+  }
+ }finally{setSecurityPending(false)}
+ if(refresh)await refreshSecuritySessions();
+});
 
 /* Current interaction layer: lightweight pointer parallax, 3D cards, safe reduced-motion support. Legacy motion contract: initV52Motion. */
 (function initMotionV76(){

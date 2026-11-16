@@ -18,6 +18,23 @@ const PAGES = [
   ['workspace.html', 'Workspace', 'body']
 ];
 
+test('static Workspace ignores an old verified endpoint and never sends credentials', async ({ page }) => {
+  const apiRequests = [];
+  await page.addInitScript(() => {
+    localStorage.setItem('aj-v31-api', 'https://stale.example.invalid');
+    sessionStorage.setItem('aj-workspace-verified-api', 'https://stale.example.invalid');
+  });
+  page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url()); });
+  await page.route('**/api/**', route => route.abort('failed'));
+  await page.goto('/workspace.html?static=1');
+  await page.evaluate(() => window.workspaceReady);
+  await expect(page.locator('#ajStaticHostBanner')).toBeVisible();
+  await page.locator('#username').fill('example');
+  await page.locator('#password').fill('Synthetic-password-123');
+  await page.locator('#loginForm').evaluate(form => form.requestSubmit());
+  expect(apiRequests).toEqual([]);
+});
+
 for (const [file, label, indicator] of PAGES) {
   test(`static host: ${file} explains itself and never hangs`, async ({ page }) => {
     test.setTimeout(60000);

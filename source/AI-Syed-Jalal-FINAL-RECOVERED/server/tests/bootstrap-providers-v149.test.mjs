@@ -64,7 +64,7 @@ test('first-run bootstrap requires an operator-configured seed and a shared limi
   const source = api();
   const i = source.indexOf("u.pathname==='/api/bootstrap/admin'");
   assert.ok(i > -1, 'bootstrap route missing');
-  const route = source.slice(i, source.indexOf('async function bootstrapLoginSession', i));
+  const route = source.slice(i, source.indexOf("u.pathname==='/api/auth/register'", i));
   assert.match(route, /count\(\*\)::int AS n FROM app_users/);
   assert.match(route, /An Administrator already exists/, 'must refuse once an Admin exists');
   assert.match(route, /configuredInitialSetup/, 'setup must require the explicit switch and an owner seed');

@@ -184,7 +184,7 @@ body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   <strong id="firstRunTitle">First-run setup</strong>
   <p id="firstRunText" class="muted" style="margin:6px 0 10px;font-size:13px">This deployment has no accounts yet.</p>
   <button type="button" class="btn primary" id="firstRunBtn">Create the Administrator account</button>
-  <p id="firstRunResult" class="muted" style="margin:8px 0 0;font-size:13px"></p>
+  <p id="firstRunResult" class="muted" role="status" aria-live="polite" style="margin:8px 0 0;font-size:13px"></p>
 </div>
 <form class="lf" id="f" autocomplete="on"><button type="button" class="x" id="close" aria-label="Close">×</button><h3>Sign in</h3>
 <label for="u">Username</label><input id="u" required autocomplete="username" maxlength="200" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="usernameHelp">
@@ -235,7 +235,7 @@ async function checkAuthConnection(){
   if(data.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();return}
   if(!response.ok||data.databaseConnected!==true){$('authConnectionMessage').textContent='The database connection could not be verified. Sign-in may be unavailable.';}else{$('authConnection').hidden=true;}
  }catch{if(request!==authConnectionRequest)return;$('authConnection').hidden=false;$('authConnectionMessage').textContent='Could not check the connection. Check your internet if sign-in fails.';}finally{clearTimeout(timer)}
- if(request===authConnectionRequest){authConnectionState='unknown';$('go').disabled=false;if(previousState==='unavailable')checkFirstRun();}
+ if(request===authConnectionRequest){authConnectionState='unknown';$('go').disabled=authPending;if(previousState==='unavailable')checkFirstRun();}
 }
 const show=(mode='login')=>{setAuthMode(mode);m.classList.add('show');$('u').focus();checkAuthConnection()};
 $('authRetry').onclick=checkAuthConnection;
@@ -270,12 +270,39 @@ window.AJNavigateAfterSignIn=()=>{switch(requestedPage){
  default:location.href='dashboard.html';
 }};
 if(returnPages.includes(requestedPage)||signupRequested){show(signupRequested?'signup':'login');checkFirstRun()}
-$('firstRunBtn')?.addEventListener('click',async()=>{const out=$('firstRunResult'),btn=$('firstRunBtn');if(authConnectionState==='checking'){out.textContent='Checking the connection. Please wait.';return}if(authConnectionState==='unavailable'){showDatabaseUnavailable();return}out.textContent='Creating…';btn.disabled=true;
- try{const r=await fetch('/api/bootstrap/admin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value})});
+function rememberFirstPartyApi(){
+ // Both settings are written only after the browser confirms the session.
+ // The Workspace keeps its active endpoint per tab; some other pages use the
+ // shared setting. This form always authenticates against this website.
+ try{localStorage.setItem('aj-v31-api',location.origin);localStorage.removeItem('aj-next-api')}catch{}
+ try{sessionStorage.setItem('aj-workspace-verified-api',location.origin)}catch{}
+}
+$('firstRunBtn')?.addEventListener('click',async()=>{
+ const out=$('firstRunResult'),btn=$('firstRunBtn');
+ if(authPending)return;
+ if(window.AJ_STATIC_HOST){out.textContent='Administrator setup needs the secure application server.';return}
+ if(authConnectionState==='checking'){out.textContent='Checking the connection. Please wait.';return}
+ if(authConnectionState==='unavailable'){showDatabaseUnavailable();return}
+ const localHttp=location.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(location.hostname);
+ if(location.protocol!=='https:'&&!localHttp){out.textContent='Please open the secure HTTPS website for Administrator setup.';return}
+ authPending=true;btn.disabled=true;$('go').disabled=true;$('signup-note').disabled=true;out.textContent='Creating…';
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+ const uncertain='Could not confirm whether Administrator setup finished. The server may still finish; try signing in with the configured credentials and check the account before trying setup again.';
+ try{
+  const r=await fetch('/api/bootstrap/admin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('u').value.trim(),password:$('p').value}),signal:controller.signal});
   const d=await r.json().catch(()=>({}));
-  if(!r.ok){if(d.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();return}out.textContent=d.error||('Could not create the account ('+r.status+').');return}
-  out.textContent='Administrator created. Opening your application…';window.AJNavigateAfterSignIn();
- }catch(e){out.textContent='Could not reach the server: '+(e.message||e)}finally{btn.disabled=false}});
+  if(!r.ok){
+   if(d.code==='DATABASE_NOT_CONFIGURED'){showDatabaseUnavailable();return}
+   out.textContent=r.status>=500?uncertain:(d.error||('Administrator setup was not accepted ('+r.status+').'));return;
+  }
+  if(d.ok!==true||!d.user?.id)throw new Error(uncertain);
+  const verified=await fetch('/api/me',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+  const session=await verified.json().catch(()=>({}));
+  if(!verified.ok||session.authenticated!==true||session.user?.id!==d.user.id||session.user?.role!=='Admin')throw new Error(uncertain);
+  rememberFirstPartyApi();out.textContent='Administrator created. Opening your application…';window.AJNavigateAfterSignIn();
+ }catch{out.textContent=uncertain}
+ finally{clearTimeout(timer);authPending=false;btn.disabled=false;$('signup-note').disabled=false;$('go').disabled=authConnectionState==='unavailable'||authConnectionState==='checking'}
+});
 $('f').onsubmit=async e=>{
  e.preventDefault();const b=$('go'),er=$('err'),mode=authMode,name=$('u').value.trim(),password=$('p').value;er.textContent='';
  if(authPending)return;
@@ -289,7 +316,7 @@ $('f').onsubmit=async e=>{
  }
  const localHttp=location.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(location.hostname);
  if(location.protocol!=='https:'&&!localHttp){er.textContent='Please open the secure HTTPS website to sign in.';return}
- authPending=true;b.disabled=true;$('signup-note').disabled=true;b.textContent=mode==='signup'?'Creating account…':'Signing in…';
+ authPending=true;b.disabled=true;$('firstRunBtn').disabled=true;$('signup-note').disabled=true;b.textContent=mode==='signup'?'Creating account…':'Signing in…';
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
  const uncertain='We could not confirm whether your account was created. Try signing in with this username and password before trying to create it again.';
  try{
@@ -307,11 +334,12 @@ $('f').onsubmit=async e=>{
   const sessionResponse=await fetch('/api/me',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
   const session=await sessionResponse.json().catch(()=>({}));
   if(!sessionResponse.ok||session.authenticated!==true||session.user?.id!==d.user.id)throw new Error(mode==='signup'?uncertain:'Your session could not be verified. Check cookies and try again.');
+  rememberFirstPartyApi();
   window.AJNavigateAfterSignIn();
  }catch(x){
   er.textContent=(x.name==='AbortError'||x instanceof TypeError)?(mode==='signup'?uncertain:'Cannot reach the application server. Check your connection and try again.'):x.message;
  }finally{
-  clearTimeout(timer);authPending=false;$('signup-note').disabled=false;b.disabled=authConnectionState==='unavailable'||authConnectionState==='checking';b.textContent=mode==='signup'?'Create free account':'Sign in';
+  clearTimeout(timer);authPending=false;$('signup-note').disabled=false;$('firstRunBtn').disabled=false;b.disabled=authConnectionState==='unavailable'||authConnectionState==='checking';b.textContent=mode==='signup'?'Create free account':'Sign in';
  }
 };
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
