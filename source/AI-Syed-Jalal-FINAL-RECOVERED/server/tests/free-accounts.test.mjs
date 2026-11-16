@@ -137,6 +137,40 @@ test('pending approvals are shared while tested tasks, notes, conversations and 
   assert.ok(viewerSessions.every(session => ownerSessions.every(other => other.id !== session.id)));
 });
 
+test('pending approvals remain readable by every signed-in role, but only Admins and Managers may change them', async () => {
+  const owner = await admin();
+  const pending = await request('/approvals', { method: 'POST', cookie: owner.cookie, csrf: owner.csrf, body: { action: 'Shared role fixture', description: 'Visible to all roles' } });
+  assert.equal(pending.status, 201);
+  const viewer = await register('role-viewer');
+  assert.equal(viewer.status, 201);
+  const sessions = [{ role: 'Admin', cookie: owner.cookie, csrf: owner.csrf }, { role: 'Viewer', cookie: viewer.cookie }];
+  for (const [username, role] of [['role-manager', 'Manager'], ['role-operator', 'Data Operator']]) {
+    const created = await request('/admin/users', { method: 'POST', cookie: owner.cookie, csrf: owner.csrf, body: { username, password, role } });
+    assert.equal(created.status, 201); assert.equal(created.data.user.role, role);
+    const signedIn = await login(username);
+    assert.equal(signedIn.status, 200); assert.equal(signedIn.data.user.role, role);
+    sessions.push({ role, cookie: signedIn.cookie });
+  }
+  assert.equal((await request('/approvals')).status, 401);
+  for (const session of sessions) {
+    session.csrf ||= (await request('/me', { cookie: session.cookie })).data.csrfToken;
+    const list = await request('/approvals', { cookie: session.cookie });
+    assert.equal(list.status, 200, session.role);
+    assert.ok(list.data.approvals.some(item => item.id === pending.data.approval.id && item.description === 'Visible to all roles'), session.role);
+    assert.equal((await request('/stats', { cookie: session.cookie })).status, 200, session.role);
+  }
+  for (const role of ['Viewer', 'Data Operator']) {
+    const session = sessions.find(item => item.role === role);
+    const write = { cookie: session.cookie, csrf: session.csrf, body: { action: 'Forbidden action' } };
+    assert.equal((await request('/approvals', { ...write, method: 'POST' })).status, 403, role);
+    assert.equal((await request(`/approvals/${pending.data.approval.id}`, { ...write, method: 'PATCH', body: { status: 'approved' } })).status, 403, role);
+  }
+  const manager = sessions.find(item => item.role === 'Manager');
+  const decision = await request(`/approvals/${pending.data.approval.id}`, { method: 'PATCH', cookie: manager.cookie, csrf: manager.csrf, body: { status: 'approved' } });
+  assert.equal(decision.status, 200);
+  assert.equal(decision.data.approval.status, 'approved');
+});
+
 test('new Viewers cannot use administrative routes or modify shared records', async () => {
   const owner = await admin();
   const ownerMe = await request('/me', { cookie: owner.cookie });
@@ -343,6 +377,16 @@ test('signup and sign-in work in a disposable fixture with the reported incomple
     const records = await request('/records', { cookie: created.cookie, dbAdapter: fixtureAdapter });
     assert.equal(records.status, 200);
     assert.ok(records.data.records.some(row => row.id === 'FIXTURE-1' && row.notes === 'Shared fixture note'));
+    // This repository-defined fixture also shows which shared aggregates can
+    // work without the missing agent/critic tables. It is not a live DB clone.
+    const stats = await request('/stats', { cookie: created.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(stats.status, 200);
+    assert.equal(stats.data.activeUsers, 2);
+    assert.ok(stats.data.auditCount > 0);
+    const skills = await request('/agent/skills', { cookie: created.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(skills.status, 503); assert.equal(skills.data.code, 'SKILLS_NOT_MIGRATED');
+    const critic = await request('/assistant/critic/review', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: {} });
+    assert.equal(critic.status, 503); assert.equal(critic.data.code, 'CRITIC_EVIDENCE_UNAVAILABLE');
     assert.equal((await request('/admin/users', { cookie: created.cookie, dbAdapter: fixtureAdapter })).status, 403);
     assert.equal((await request('/records', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: { name: 'Forbidden fixture write' } })).status, 403);
     assert.equal((await request('/auth/logout', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: {} })).status, 200);

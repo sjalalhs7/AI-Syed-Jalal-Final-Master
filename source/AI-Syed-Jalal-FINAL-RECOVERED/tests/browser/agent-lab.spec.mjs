@@ -73,6 +73,8 @@ test('Agent Lab discloses test writes and uncertain results after a lost respons
   await page.goto('/agent-lab.html');
   await expect(page.locator('#selfCheckEffects')).toContainText('create, read and delete a test audit entry');
   await expect(page.locator('#selfCheckEffects')).toContainText('may leave a test entry');
+  await expect(page.locator('#skillSyncEffects')).toContainText('browsing as any signed-in role can synchronize built-in skill fields');
+  await expect(page.locator('#skillSyncEffects')).toContainText('later browsing may repeat the write');
   await expect(page.locator('.honesty')).toContainText('columns and data are not checked');
   await page.getByRole('button', { name: 'Try the local preview' }).click();
   await expect(page.locator('#runStatus')).toContainText('Ready · signed in');

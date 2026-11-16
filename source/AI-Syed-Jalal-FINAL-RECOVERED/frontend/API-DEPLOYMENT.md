@@ -36,7 +36,15 @@ Never put credentials in source control, frontend JavaScript, screenshots, issue
 
 The first-party username/password sign-up has no authentication-provider subscription, email verification, or payment step. It still requires a working database and a `CSRF_SECRET`; hosting, database capacity and optional AI services can have separate costs. Social sign-in and self-service password recovery are **not implemented**. Users should save their username and password securely. Password changes require the current password; there is no general reset flow for a forgotten Viewer password.
 
-**Public sign-ups become Viewers of the existing shared workspace.** They can read existing active records, including record notes, and pending approvals, including their actions, descriptions and requester names—not just items they created. Any signed-in role can list up to 100 pending approvals, oldest first, through the API; only Admins and Managers can create or resolve them. The Workspace approvals screen is limited to Admins and Managers, but hiding that screen does not restrict API access. The owner chose to keep that shared access. Anyone able to register can receive it. Viewer accounts cannot write records or use Admin endpoints, but this is not private-account isolation. Review the sensitivity of existing records and pending approvals before making the deployment publicly available. Assistant tasks and notes have their own account-scoped routes; do not assume every feature is private merely because some are account-scoped.
+**Public sign-ups become Viewers of the existing shared workspace.** They can read existing active records, including record notes, and pending approvals, including their actions, descriptions and requester names—not just items they created. Any signed-in role can list up to 100 pending approvals, oldest first, through the API; only Admins and Managers can create or resolve them. The Workspace approvals screen is limited to Admins and Managers, but hiding that screen does not restrict API access. The owner chose to keep that shared access. Anyone able to register can receive it. Viewer accounts cannot write Data Vault records or use Admin endpoints, but this is not private-account isolation. Review the sensitivity of existing records and pending approvals. Assistant tasks and notes have their own account-scoped routes; do not assume every feature is private merely because some are account-scoped.
+
+**Other existing shared behavior needs an operator decision; no new policy was selected.** Disposable tests of this source found:
+
+- Any signed-in role can read `/api/stats`, which includes record breakdowns, the number of accounts marked active and the total number of audit events. It does not return the audit-event list. The account count is not a count of active sessions.
+- When its required tables exist, any signed-in role can run Expert Critic, including through its chat entry point. It returns deployment-wide aggregates such as audit-event and session-row counts, rate-limit buckets, run and failure totals, and recent aggregate timings. Saved review history and the tested individual agent-run route are account-scoped; the aggregate observations are not. The review POST requires CSRF. Do not assume these are the only shared data paths.
+- When skill storage exists and its row count differs from the bundled catalogue, authenticated `GET /api/agent/skills` synchronizes built-in entries, updating their names, domains, families, capabilities and timestamps. It is a database write on a GET, without the CSRF check or a route-specific limiter. A persistent count mismatch (for example, an extra row) can cause repeated upserts. A signed-in user can also explicitly trigger the built-in sync with a CSRF-protected, per-user rate-limited POST. A self-check can also sync that index and attempts an insert/read/delete audit probe; an interrupted probe may leave a test row. It stores its result on the requesting account. None of these operations allows a Viewer to submit arbitrary Data Vault record changes.
+
+Review the sensitivity and load implications of these existing behaviors before relying on public registration. The owner’s decision to share pending approvals does not by itself decide the policy for diagnostics or catalogue synchronization. The isolated 13-table-name fixture returned the shared statistics but could not run the skill or Critic routes; this is not a live schema clone or proof of production behavior.
 
 Viewer access to configured cloud AI is unchanged. Provider requests may charge the owner. Per-user request limits and the per-IP registration limiter are not a spending cap and do not prevent distributed sign-ups. Set and monitor provider-side budgets and quotas separately; local tools do not need a provider key. No email, social or paid authentication provider is contacted by sign-up.
 
@@ -72,13 +80,15 @@ The current Pages Function contains these routes:
 | `/api/records` | GET, POST | Record listing and creation |
 | `/api/records/:id` | GET, PUT, DELETE | Record retrieval, update, and soft deletion |
 | `/api/meta` | GET | Record filter metadata |
-| `/api/stats` | GET | Record statistics |
+| `/api/stats` | GET | Shared record statistics, active-account and audit-event totals for signed-in roles |
+| `/api/agent/skills` | GET, POST | Shared skill catalogue; GET can synchronize built-in fields and POST explicitly synchronizes them |
+| `/api/assistant/critic/review` | GET, POST | Account-scoped saved review; new review contains deployment-wide aggregates |
 | `/api/approvals` | GET, POST | List pending approvals; Admin/Manager may request a recorded decision |
 | `/api/approvals/:id` | PATCH, POST | Admin/Manager may approve or reject a pending decision |
 | `/api/assistant/*` | GET, POST, PATCH, DELETE | Authenticated local/cloud assistant, confirmed tasks/notes and state |
 | `/api/platform/*` | GET, POST, PATCH, DELETE | Agent Studio conversations, messages, transient history and compare votes |
 
-Unknown or unmigrated routes return HTTP 501 with `ROUTE_NOT_IMPLEMENTED`. A route appearing in the recovered source tree is not proof that it is deployed or production-ready.
+Unimplemented routes return HTTP 501 with `ROUTE_NOT_IMPLEMENTED`; routes whose storage is missing may return 503 or another error. A route appearing in the recovered source tree is not proof that it is deployed or production-ready.
 
 ## AI capability boundaries
 
@@ -89,7 +99,7 @@ The recovered agent catalogue and skill metadata do not mean that every listed a
 ## Security and operational behavior
 
 - Sessions use an HTTP-only, Secure, SameSite=Lax cookie.
-- Mutating authenticated requests require a valid CSRF token.
+- Protected POST, PUT, PATCH and DELETE requests require a valid CSRF token. This does not make every GET read-only: the skill-catalogue synchronization exception is described above.
 - Passwords are stored as derived hashes; never log or return passwords, tokens, or secret values.
 - Registration and AI execution have server-side rate limits.
 - Request bodies are size-limited and JSON parsing errors are handled.
