@@ -589,12 +589,59 @@ export async function onRequest(ctx){
   }
   if(p[1]==='admin'&&p[2]==='users'&&p.length===4&&request.method==='PATCH'){
    if(me.role!=='Admin')return reply({error:'Admin role required'},403);
-   const id=decodeURIComponent(p[3]),x=await readBody(request);if(typeof x.active!=='boolean')return reply({error:'active must be true or false'},400);
-   if(id===me.id&&!x.active)return reply({error:'You cannot deactivate your own account'},400);
-   if(!x.active){const target=await db.query('SELECT role,active FROM app_users WHERE id=$1',[id]);if(!target[0])return reply({error:'User not found'},404);if(target[0].role==='Admin'&&target[0].active){const n=await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true");if(Number(n[0]?.n||0)<=1)return reply({error:'Cannot deactivate the last active administrator'},409)}}
-   const rows=await db.query('UPDATE app_users SET active=$2,updated_at=now() WHERE id=$1 RETURNING id,username,role,active,created_at',[id,x.active]);if(!rows[0])return reply({error:'User not found'},404);
-   if(!x.active)await db.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[id]);
-   await audit(db,me,'ADMIN_USER_STATUS',rows[0].username+' · '+(x.active?'activated':'deactivated'),request);const z=rows[0];return reply({user:{id:z.id,username:z.username,role:z.role,active:z.active,createdAt:z.created_at}});
+   let id;try{id=decodeURIComponent(p[3]).toLowerCase()}catch{return reply({error:'Invalid user ID',code:'USER_STATUS_INVALID'},400)}
+   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))return reply({error:'Invalid user ID',code:'USER_STATUS_INVALID'},400);
+   const x=await readBody(request);if(typeof x.active!=='boolean')return reply({error:'active must be true or false',code:'USER_STATUS_INVALID'},400);
+   if(id===String(me.id).toLowerCase()&&!x.active)return reply({error:'You cannot deactivate your own account',code:'USER_STATUS_SELF'},400);
+   if(typeof db.transaction!=='function')return reply({error:'User status changes are temporarily unavailable.',code:'USER_STATUS_UNAVAILABLE'},503);
+   // Serialize all status transitions, then lock the actor and session before
+   // rechecking them. Two preauthenticated Admins cannot deactivate each other.
+   // The target lock is a separate statement: a login which committed while we
+   // waited is visible to the following READ COMMITTED statement. The status
+   // update and its dependent session revocation then succeed or roll back as
+   // one statement. Reactivation also clears legacy unrevoked sessions left by
+   // older partial failures; repeating activation of an active user does not.
+   const result=await db.transaction(tx=>[
+    tx.query('SELECT pg_advisory_xact_lock(1095394156,1)'),
+    tx.query('SELECT id FROM app_users WHERE id=$1 FOR SHARE',[me.id]),
+    tx.query('SELECT id FROM sessions WHERE id=$1 AND user_id=$2 FOR SHARE',[me.session_id,me.id]),
+    tx.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[id]),
+    tx.query(`WITH prior AS MATERIALIZED (
+      SELECT id,role,active FROM app_users WHERE id=$1
+     ), authorized AS MATERIALIZED (
+      SELECT u.id FROM app_users u JOIN sessions s ON s.user_id=u.id
+      WHERE u.id=$3 AND u.active=true AND u.role='Admin' AND s.id=$4
+        AND s.revoked_at IS NULL AND s.expires_at>statement_timestamp()
+     ), changed AS (
+      UPDATE app_users AS target SET active=$2::boolean,updated_at=now() FROM prior
+      WHERE target.id=prior.id AND EXISTS (SELECT 1 FROM authorized)
+        AND ($2::boolean OR NOT prior.active OR prior.role<>'Admin'
+          OR (SELECT count(*) FROM app_users WHERE role='Admin' AND active=true)>1)
+      RETURNING target.id,target.username,target.role,target.active,target.created_at,prior.active AS was_active
+     ), revoked AS (
+      UPDATE sessions SET revoked_at=now() WHERE revoked_at IS NULL
+        AND user_id IN (SELECT id FROM changed WHERE NOT $2::boolean OR NOT was_active)
+      RETURNING id
+     )
+     SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM authorized) THEN 'stale'
+       WHEN NOT EXISTS (SELECT 1 FROM prior) THEN 'missing'
+       WHEN EXISTS (SELECT 1 FROM changed) THEN 'updated'
+       WHEN NOT $2::boolean AND EXISTS (SELECT 1 FROM prior WHERE role='Admin' AND active=true)
+         AND (SELECT count(*) FROM app_users WHERE role='Admin' AND active=true)<=1 THEN 'last_admin'
+       ELSE 'not_updated' END AS outcome,
+       changed.id,changed.username,changed.role,changed.active,changed.created_at,changed.was_active,
+       (SELECT count(*)::int FROM revoked) AS revoked_count
+     FROM (SELECT 1) singleton LEFT JOIN changed ON true`,[id,x.active,me.id,me.session_id])
+   ],{isolationLevel:'ReadCommitted'});
+   if(!Array.isArray(result)||result.length!==5||result.some(rows=>!Array.isArray(rows))||result[4].length!==1)throw Error('User status result could not be confirmed');
+   const z=result[4][0];
+   if(z.outcome==='stale')return reply({error:'Your Administrator session or account changed. Sign in again and refresh before retrying.',code:'ADMIN_SESSION_STALE'},409);
+   if(z.outcome==='missing')return reply({error:'User not found',code:'USER_STATUS_NOT_FOUND'},404);
+   if(z.outcome==='last_admin')return reply({error:'Cannot deactivate the last active administrator',code:'USER_STATUS_LAST_ADMIN'},409);
+   if(z.outcome==='not_updated')return reply({error:'User status was not changed. Refresh before retrying.',code:'USER_STATUS_CONFLICT'},409);
+   if(z.outcome!=='updated'||String(z.id).toLowerCase()!==id||z.active!==x.active||typeof z.was_active!=='boolean'||typeof z.username!=='string'||typeof z.role!=='string'||!z.created_at||!Number.isInteger(Number(z.revoked_count))||Number(z.revoked_count)<0)throw Error('User status result could not be confirmed');
+   await audit(db,me,'ADMIN_USER_STATUS',z.username+' · '+(x.active?'activated':'deactivated'),request);
+   return reply({user:{id:z.id,username:z.username,role:z.role,active:z.active,createdAt:z.created_at},sessionsRevoked:!x.active||!z.was_active,revokedSessions:Number(z.revoked_count)});
   }
   if(u.pathname==='/api/records/bulk'&&request.method==='POST'){
    if(!WRITERS.includes(me.role))return reply({error:'Role not permitted'},403);

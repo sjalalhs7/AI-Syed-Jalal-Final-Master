@@ -29,9 +29,10 @@ if (!connectionString) {
       await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
       const result = [];
       for (let i = 0; i < commands.length; i++) {
-        if (i === 0) hooks.beforeFirst?.(client.processID);
+        if (i === 0) await hooks.beforeFirst?.(client.processID);
         result.push((await client.query(commands[i].text, commands[i].params)).rows);
         if (i === 0 && hooks.afterFirst) await hooks.afterFirst();
+        if (hooks.afterCommand) await hooks.afterCommand(i);
       }
       await client.query('COMMIT');
       return result;
@@ -83,6 +84,16 @@ if (!connectionString) {
     const me = await request('/me', { cookie: created.cookie });
     return { cookie: created.cookie, csrf: me.data.csrfToken };
   }
+  async function administrator() {
+    const created = await request('/demo', { method: 'POST', body: {} });
+    assert.equal(created.status, 200);
+    const me = await request('/me', { cookie: created.cookie });
+    assert.equal(me.data.user.role, 'Admin');
+    return { cookie: created.cookie, csrf: me.data.csrfToken, id: me.data.user.id };
+  }
+  const adminStatus = (actor, target, active, dbAdapter = adapter) => request('/admin/users/' + target.id, {
+    method: 'PATCH', cookie: actor.cookie, csrf: actor.csrf, body: { active }, dbAdapter
+  });
   const login = (username, dbAdapter) => request('/auth/login', { method: 'POST', body: { username, password: oldPassword }, dbAdapter });
   const change = (session, dbAdapter, next = newPassword) => request('/auth/change-password', {
     method: 'POST', cookie: session.cookie, csrf: session.csrf, body: { currentPassword: oldPassword, newPassword: next }, dbAdapter
@@ -300,6 +311,26 @@ if (!connectionString) {
     assert.equal((await request('/me', { cookie: second.cookie })).data.authenticated, false);
     assert.equal((await login('pg-revoked-session')).status, 200);
     assert.equal((await request('/auth/login', { method: 'POST', body: { username: 'pg-revoked-session', password: newPassword } })).status, 401);
+  });
+
+  test('cross-deactivation of two preauthenticated Admins cannot remove the last Admin', { timeout: 30000 }, async () => {
+    const first = await administrator(), second = await administrator();
+    let arrivals = 0, release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const racing = { query, transaction: (build, options) => batch(build, options, { beforeFirst: async () => {
+      if (++arrivals === 2) release();
+      await deadline(gate);
+    } }) };
+    const results = await Promise.all([
+      adminStatus(first, second, false, racing), adminStatus(second, first, false, racing)
+    ]);
+    assert.equal(arrivals, 2);
+    assert.deepEqual(results.map(result => result.status).sort(), [200, 409]);
+    assert.equal(results.find(result => result.status === 409).data.code, 'ADMIN_SESSION_STALE');
+    const counts = await query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true");
+    assert.equal(Number(counts[0].n), 1);
+    const authenticated = await Promise.all([first, second].map(async session => (await request('/me', { cookie: session.cookie })).data.authenticated));
+    assert.equal(authenticated.filter(Boolean).length, 1);
   });
 
   test('concurrent changes that verified the same old password have one winner', { timeout: 30000 }, async () => {
