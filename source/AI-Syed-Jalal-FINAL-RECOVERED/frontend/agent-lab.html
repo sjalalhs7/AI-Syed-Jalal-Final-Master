@@ -12,7 +12,7 @@
 <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml"><link rel="icon" href="assets/app-icons/favicon-32.png" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="assets/agent-lab.css">
-<script src="assets/agent-lab.js?v=165" defer></script>
+<script src="assets/agent-lab.js?v=166" defer></script>
 <link rel="stylesheet" href="assets/visual-system.css"><script src="assets/visual-theme.js"></script><link rel="stylesheet" href="assets/compact-navigation.css?v=168"><script src="assets/compact-navigation.js?v=168" defer></script><script src="assets/speech-preferences.js?v=164"></script><link rel="stylesheet" href="assets/jarvis-welcome.css?v=156"><script src="assets/jarvis-welcome.js?v=157" defer></script></head>
 <body>
 <a class="skip-link" href="#runPanel">Skip to self-check</a>
@@ -92,8 +92,9 @@
 
   <section class="panel" aria-labelledby="skillsTitle">
     <div class="split-head">
-      <div><h2 id="skillsTitle">Skill library</h2><p class="hint" id="skillsHint">3,500 indexed skills across 35 domains, searchable and ranked. These are expert prompt profiles, not 3,500 independent AI models.</p><p class="hint" id="skillSyncEffects">When skill storage exists and its row count differs from the bundled index, browsing as any signed-in role can synchronize built-in skill fields in the shared database. If the count still differs, later browsing may repeat the write. This does not write Data Vault records.</p></div>
+      <div><h2 id="skillsTitle">Skill library</h2><p class="hint" id="skillsHint">3,500 indexed skills across 35 domains, searchable and ranked. These are expert prompt profiles, not 3,500 independent AI models.</p><p class="hint" id="skillSyncEffects">Browsing the shared catalogue is read-only. Only an Admin can explicitly sync the bundled skill fields to the shared database; the action requires CSRF protection and is rate-limited. Sync does not write Data Vault records.</p></div>
       <div class="skills-controls">
+        <button class="btn small" id="syncSkillsBtn" type="button" hidden>Sync shared catalogue</button>
         <label class="search"><span class="sr-only">Search skills</span><input id="skillQuery" type="search" placeholder="Search skills, e.g. security review…" autocomplete="off"></label>
         <label class="field"><span>Domain</span><select id="skillDomain"><option value="">All domains</option></select></label>
       </div>

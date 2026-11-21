@@ -26,7 +26,7 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await expect(page.locator('#free-account')).toContainText('pending approvals through the API');
     await expect(page.locator('#free-account')).toContainText('descriptions and requester names');
     await expect(page.locator('#free-account')).toContainText('active account and audit-event counts');
-    await expect(page.locator('#free-account')).toContainText('additional aggregate diagnostics');
+    await expect(page.locator('#free-account')).toContainText('deployment-wide aggregate diagnostics');
     await page.goto('/workspace.html');
     await page.evaluate(() => window.workspaceReady);
     await page.evaluate(() => navigator.serviceWorker.ready);
@@ -36,7 +36,7 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await expect(page.locator('#loginForm')).toContainText('descriptions and requester names');
     await expect(page.locator('#loginForm')).toContainText('readable through the API');
     await expect(page.locator('#loginForm')).toContainText('active account and audit-event counts');
-    await expect(page.locator('#loginForm')).toContainText('additional aggregate diagnostics');
+    await expect(page.locator('#loginForm')).toContainText('deployment-wide aggregate diagnostics');
     await expect(page.getByRole('link', { name: 'Create a free account on this website' })).toBeVisible();
     await page.getByRole('link', { name: 'Create a free account on this website' }).click();
     await expect(page).toHaveURL(/index\.html\?signup=1&next=workspace\.html/);
@@ -46,7 +46,7 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     await expect(page.locator('#signupDetails')).toContainText('pending approvals through the API');
     await expect(page.locator('#signupDetails')).toContainText('descriptions and requester names');
     await expect(page.locator('#signupDetails')).toContainText('active account and audit-event counts');
-    await expect(page.locator('#signupDetails')).toContainText('additional aggregate diagnostics');
+    await expect(page.locator('#signupDetails')).toContainText('deployment-wide aggregate diagnostics');
     await expect(page.locator('#signupDetails')).toContainText('not private');
     await expect(page.locator('#signupDetails')).toContainText('no self-service password reset');
     await expect(page.locator('#signupDetails')).toContainText('cloud AI may cost the workspace owner');
@@ -76,9 +76,10 @@ test('short-phone signup from Workspace, shared records, logout and sign-in work
     const approvals = await page.request.get('/api/approvals');
     expect(approvals.status()).toBe(200);
     expect((await approvals.json()).approvals.find(item => item.id === approvalId)).toMatchObject({ description: 'Existing shared approval description', requestedBy: requester });
-    const stats = await page.request.get('/api/stats');
-    expect(stats.status()).toBe(200);
-    const totals = await stats.json();
+    expect((await page.request.get('/api/stats')).status()).toBe(403);
+    const adminStats = await owner.request.get('/api/stats');
+    expect(adminStats.status()).toBe(200);
+    const totals = await adminStats.json();
     expect(totals.activeUsers).toBeGreaterThanOrEqual(2);
     expect(totals.auditCount).toBeGreaterThan(0);
     const session = await (await page.request.get('/api/me')).json();
@@ -163,13 +164,21 @@ test.describe('connection and form safeguards', () => {
     await expect(page).toHaveURL(/signup=1/);
   });
 
-  test('a success response without a matching browser session does not navigate', async ({ page }) => {
+  test('a success response without a matching browser session does not navigate or retarget other pages', async ({ page }) => {
     await page.route('**/api/auth/register', route => route.fulfill({ status: 201, json: { user: { id: 'unissued-session-id', username: 'fixture', role: 'Viewer' } } }));
     await page.goto('/index.html?signup=1'); await expect(page.locator('#go')).toBeEnabled();
+    await page.evaluate(() => {
+      localStorage.setItem('aj-v31-api', 'https://retired.example.invalid');
+      localStorage.setItem('aj-next-api', 'https://staged.example.invalid');
+      sessionStorage.setItem('aj-workspace-verified-api', 'https://retired.example.invalid');
+    });
     await page.locator('#u').fill('no-cookie'); await page.locator('#p').fill(validPassword); await page.locator('#confirm-p').fill(validPassword);
     await page.locator('#go').click();
     await expect(page.locator('#err')).toContainText('could not confirm whether your account was created');
     await expect(page).toHaveURL(/signup=1/);
+    expect(await page.evaluate(() => localStorage.getItem('aj-v31-api'))).toBe('https://retired.example.invalid');
+    expect(await page.evaluate(() => localStorage.getItem('aj-next-api'))).toBe('https://staged.example.invalid');
+    expect(await page.evaluate(() => sessionStorage.getItem('aj-workspace-verified-api'))).toBe('https://retired.example.invalid');
   });
 
   test('timeout leaves signup outcome unknown and restores the form', async ({ page }) => {
@@ -201,14 +210,22 @@ test.describe('connection and form safeguards', () => {
     expect(writes).toEqual([]);
   });
 
-  test('signup never follows an untrusted next URL', async ({ page }) => {
+  test('signup ignores an untrusted next URL and replaces a stale shared API only after session verification', async ({ page }) => {
     const username = `safe${Date.now()}`;
     await page.goto('/index.html?signup=1&next=https%3A%2F%2Fexample.invalid%2Fsteal');
     await expect(page.locator('#go')).toBeEnabled();
+    await page.evaluate(() => {
+      localStorage.setItem('aj-v31-api', 'https://retired.example.invalid');
+      localStorage.setItem('aj-next-api', 'https://staged.example.invalid');
+      sessionStorage.setItem('aj-workspace-verified-api', 'https://retired.example.invalid');
+    });
     await page.locator('#u').fill(username); await page.locator('#p').fill(validPassword); await page.locator('#confirm-p').fill(validPassword);
     await page.locator('#go').click();
     await expect(page).toHaveURL(/dashboard\.html/);
     expect(new URL(page.url()).origin).toBe('http://127.0.0.1:3100');
+    expect(await page.evaluate(() => localStorage.getItem('aj-v31-api'))).toBe('http://127.0.0.1:3100');
+    expect(await page.evaluate(() => localStorage.getItem('aj-next-api'))).toBe(null);
+    expect(await page.evaluate(() => sessionStorage.getItem('aj-workspace-verified-api'))).toBe('http://127.0.0.1:3100');
     expect(page.url()).not.toContain(validPassword);
   });
 });

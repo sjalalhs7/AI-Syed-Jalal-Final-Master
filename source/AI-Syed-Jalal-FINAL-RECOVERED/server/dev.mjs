@@ -4,6 +4,7 @@ import { resolve, relative, extname, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { buildApi, root } from './build.mjs';
+import { createPgliteAdapter } from './pglite-adapter.mjs';
 import { effectiveEnv, providerConfiguration, aggregateProviderConfiguration } from '../frontend/functions/provider-settings.mjs';
 
 // This server is a local/preview adapter. Production still uses Cloudflare + Neon.
@@ -26,7 +27,7 @@ if (!localSecret) { const secretPath = resolve(root, '.data/session-secret'); tr
 await buildApi();
 const { onRequest } = await import('../.data/api.mjs');
 const env = { ...process.env, LOCAL_PREVIEW: 'true', DATABASE_URL: 'local-pglite', CSRF_SECRET: localSecret, COOKIE_SECURE: 'false' };
-const adapter = { query: async (sql, params = []) => (await db.query(sql, params)).rows };
+const adapter = createPgliteAdapter(db);
 const frontend = resolve(root, 'frontend');
 // The local preview probes the files it actually serves, not a hard-coded
 // "present" list. Production uses its own asset binding when available.

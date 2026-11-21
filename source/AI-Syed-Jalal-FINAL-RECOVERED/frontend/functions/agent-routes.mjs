@@ -7,7 +7,7 @@ import skillIndex from '../config/agent-skill-index.json';
 // V133/V134 agent routes: shared skill library + account-scoped self-check evidence.
 // The parent allows public static capabilities, authenticates other routes and
 // checks CSRF on POST/PUT/PATCH/DELETE; POSTs here have per-user rate limits.
-// A skill GET can also synchronize the shared index.
+// Skill browsing is read-only; only Admins can explicitly synchronize the shared index.
 const POLICY_VERSION = 'V150';
 
 async function syncSkills(db) {
@@ -51,8 +51,9 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
     const domain = String(url.searchParams.get('domain') || '').slice(0, 120);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') || 20)));
     try {
-      const count = await db.query('SELECT count(*)::int AS n FROM agent_skills');
-      if (Number(count[0]?.n || 0) !== skillIndex.count) await syncSkills(db);
+      // Browsing must remain a read-only GET. An Admin may explicitly run the
+      // CSRF-protected sync POST when the shared catalogue needs refreshing.
+      await db.query('SELECT count(*)::int AS n FROM agent_skills');
     } catch (error) {
       // A missing migration must not silently look like an empty catalogue.
       if (!/agent_skills/.test(String(error?.message || ''))) throw error;
@@ -63,19 +64,29 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
       skills = searchSkills(q, skillIndex, limit);
       total = skills.length;
     } else {
-      const rows = await db.query(
-        "SELECT id,name,domain,family,capability FROM agent_skills WHERE ($2='' OR domain=$2) ORDER BY domain,name LIMIT $1",
-        [limit, domain]
-      );
-      skills = rows.map(row => ({ id: row.id, name: row.name, domain: row.domain, family: row.family, capability: row.capability }));
       const count = await db.query('SELECT count(*)::int AS n FROM agent_skills');
       total = Number(count[0]?.n || 0);
+      if (total === 0) {
+        // An empty shared table is still browseable without turning GET into a
+        // write. The bundled index is the read-only fallback until Admin sync.
+        const available = skillIndex.skills.filter(row => !domain || row[2] === domain);
+        total = available.length;
+        skills = available.slice(0, limit).map(([id, name, itemDomain, family, capability]) => ({ id, name, domain: itemDomain, family, capability }));
+      } else {
+        const rows = await db.query(
+          "SELECT id,name,domain,family,capability FROM agent_skills WHERE ($2='' OR domain=$2) ORDER BY domain,name LIMIT $1",
+          [limit, domain]
+        );
+        skills = rows.map(row => ({ id: row.id, name: row.name, domain: row.domain, family: row.family, capability: row.capability }));
+      }
     }
-    const domains = await db.query('SELECT domain,count(*)::int AS n FROM agent_skills GROUP BY domain ORDER BY domain');
-    return reply({ ok: true, version: POLICY_VERSION, query: q || null, domain: domain || null, total, returned: skills.length, domains: domains.map(row => ({ name: row.domain, count: Number(row.n) })), skills });
+    const domainRows = await db.query('SELECT domain,count(*)::int AS n FROM agent_skills GROUP BY domain ORDER BY domain');
+    const domains = domainRows.length ? domainRows.map(row => ({ name: row.domain, count: Number(row.n) })) : skillIndex.domains.map(row => ({ name: row.name, count: Number(row.skillCount) }));
+    return reply({ ok: true, version: POLICY_VERSION, query: q || null, domain: domain || null, total, returned: skills.length, domains, skills });
   }
 
   if (path === '/api/agent/skills' && method === 'POST') {
+    if (me.role !== 'Admin') return reply({ error: 'Admin role required to sync the shared skill catalogue.' }, 403);
     if (!await consumeRateLimit(db, 'agent-sync', me.id, 4, 300)) return reply({ error: 'Skill sync is limited to a few runs every five minutes.' }, 429, { 'Retry-After': '300' });
     const count = await syncSkills(db);
     await audit(db, me, 'AGENT_SKILLS_SYNC', `Skill library synced (${count} skills)`, request);
@@ -112,15 +123,8 @@ export async function agentRoute({ request, env, db, me, url, readBody, reply, a
     const only = Array.isArray(body.only) ? body.only.map(String).slice(0, 30) : undefined;
     const timeoutMs = Math.min(10000, Math.max(500, Number(body.timeoutMs) || 4000));
     const checks = builtInChecks();
-    // The skill library is a derived read model: fill it before grading so a
-    // first run cannot fail for the sole reason that nobody browsed it yet.
-    try {
-      const existing = await db.query('SELECT count(*)::int AS n FROM agent_skills');
-      if (Number(existing[0]?.n || 0) !== skillIndex.count) await syncSkills(db);
-    } catch (error) {
-      // Leave the failure to the catalogue checks, which report the observation.
-      if (!/agent_skills/.test(String(error?.message || ''))) throw error;
-    }
+    // Self-checks do not synchronize shared catalogue rows. If an Admin needs
+    // to refresh that read model, use the explicit, rate-limited sync action.
     const pages = await pageStatus(env);
     const outcome = await runChecks(checks, {
       db, me, env, request, onRequest, pages, index: skillIndex, searchSkills,

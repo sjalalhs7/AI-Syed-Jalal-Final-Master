@@ -57,7 +57,7 @@ test("API route rejects paths outside /api", () => {
 test("admin seed password can recover an existing Admin account only when the configured seed credentials match", () => {
   assert.ok(source.includes("const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword"));
   assert.ok(source.includes("seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword)"));
-  assert.ok(source.includes("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id"));
+  assert.ok(source.includes("AND active=true AND role='Admin' AND username=$4 AND salt=$5 AND password_hash=$6 RETURNING id"));
 });
 
 test("registration uses a role allowed by the database schema", () => {

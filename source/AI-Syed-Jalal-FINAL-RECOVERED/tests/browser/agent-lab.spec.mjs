@@ -7,6 +7,12 @@ test('Agent Lab: preview sign-in, graded self-check, evidence export, history an
   await page.getByRole('button', { name: 'Try the local preview' }).click();
   await expect(page.locator('#runStatus')).toContainText('Ready · signed in');
   await expect(page.locator('#skills .skill').first()).toBeVisible();
+  // A fresh preview is not populated by browsing or self-check; exercise the explicit Admin action.
+  await expect(page.locator('#syncSkillsBtn')).toBeVisible();
+  await page.locator('#syncSkillsBtn').click();
+  await expect(page.locator('#skillsStatus')).toContainText('Admin sync completed:');
+  await page.locator('#skillQuery').fill('');
+  await expect(page.locator('#skills .skill').first()).toBeVisible();
 
   await page.locator('#runBtn').click();
   await expect(page.locator('#verdict')).toHaveText('Passing', { timeout: 30000 });
@@ -73,11 +79,15 @@ test('Agent Lab discloses test writes and uncertain results after a lost respons
   await page.goto('/agent-lab.html');
   await expect(page.locator('#selfCheckEffects')).toContainText('create, read and delete a test audit entry');
   await expect(page.locator('#selfCheckEffects')).toContainText('may leave a test entry');
-  await expect(page.locator('#skillSyncEffects')).toContainText('browsing as any signed-in role can synchronize built-in skill fields');
-  await expect(page.locator('#skillSyncEffects')).toContainText('later browsing may repeat the write');
+  await expect(page.locator('#skillSyncEffects')).toContainText('Browsing the shared catalogue is read-only');
+  await expect(page.locator('#skillSyncEffects')).toContainText('Only an Admin can explicitly sync');
+  await expect(page.locator('#skillSyncEffects')).toContainText('CSRF protection and is rate-limited');
   await expect(page.locator('.honesty')).toContainText('columns and data are not checked');
   await page.getByRole('button', { name: 'Try the local preview' }).click();
   await expect(page.locator('#runStatus')).toContainText('Ready · signed in');
+  await expect(page.locator('#syncSkillsBtn')).toBeVisible();
+  await page.locator('#syncSkillsBtn').click();
+  await expect(page.locator('#skillsStatus')).toContainText('Admin sync completed:');
   await page.route('**/api/agent/self-check', route => route.fulfill({ status: 500, json: { error: 'Request interrupted' } }));
   await page.locator('#runBtn').click();
   await expect(page.locator('#runStatus')).toContainText('response could not be confirmed');

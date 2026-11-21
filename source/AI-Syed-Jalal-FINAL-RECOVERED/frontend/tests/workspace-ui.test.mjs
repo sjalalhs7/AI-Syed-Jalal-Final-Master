@@ -105,7 +105,7 @@ test('Connection page cannot locally assign server roles or fake a tenant', () =
   assert.ok(workspace.includes('Free sign-ups are Viewers who can read shared active records and their notes.'));
   assert.ok(workspace.includes('Pending approvals, including descriptions and requester names, are readable through the API.'));
   assert.ok(workspace.includes('active account and audit-event counts'));
-  assert.ok(workspace.includes('Expert Critic may show additional aggregate diagnostics.'));
+  assert.ok(workspace.includes('Expert Critic includes deployment-wide aggregate diagnostics for Admins; other roles see account-scoped review evidence.'));
 });
 
 test('Workspace cloud provider selection follows the API metadata', () => {
@@ -137,4 +137,17 @@ test('Workspace metadata points to Cloudflare and does not retain GitHub Pages S
   assert.equal(workspace.includes('class=\"seo-discovery\"'), false);
   assert.ok(absoluteUrls.some(url => url.origin === 'https://ai-syed-jalal-live.pages.dev' && url.pathname === '/workspace.html'));
   assert.ok(workspace.includes('central Neon records'));
+});
+
+test('Admin account mutations are single-flight, bounded, and disclose uncertain outcomes', () => {
+  const start = workspace.indexOf('let usersRenderGeneration=0;');
+  const end = workspace.indexOf("$('#opsBackupBtn')?.addEventListener", start);
+  assert.ok(start >= 0 && end > start);
+  const users = workspace.slice(start, end);
+  assert.ok(users.includes("signal:timeoutSignal(15000)"), 'user-list and account mutations have bounded waits');
+  assert.ok(users.includes('let userCreatePending=false') && users.includes('if(userCreatePending)return'));
+  assert.ok(users.includes('const userStatusPending=new Set()') && users.includes('if(userStatusPending.has(id))return'));
+  assert.ok(users.includes('The create result is uncertain') && users.includes('Do not retry yet'));
+  assert.ok(users.includes('Status result uncertain') && users.includes('await renderUsers()'));
+  assert.ok(users.includes('status>=500'), 'server failures after a possible commit are handled as uncertain');
 });

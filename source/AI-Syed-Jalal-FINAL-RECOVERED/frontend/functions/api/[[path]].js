@@ -216,28 +216,37 @@ export async function onRequest(ctx){
      const ok=equal(await pass(password,usr.salt),usr.password_hash);
      if(!ok)return reply({error:'That username exists and the password did not match. Contact the deployment owner.'},401);
      if(usr.role==='Admin')return reply({error:'An Administrator already exists on this deployment.'},409);
-     // A concurrent password or active-status change must not promote a stale account.
-     const promoted=await db.query("UPDATE app_users SET role='Admin' WHERE id=$1 AND active=true AND salt=$2 AND password_hash=$3 RETURNING id",[usr.id,usr.salt,usr.password_hash]);
+     // Promotion and its session share one statement. If credentials, role or
+     // activation changed meanwhile, the stale proof cannot issue an Admin
+     // session. A concurrent password update waits for this row lock and then
+     // revokes the newly committed session, or wins before the promotion.
+     const token=hex(random(48)),tokenHash=await digest(token);
+     const promoted=await db.query(`WITH promoted_user AS (
+       UPDATE app_users SET role='Admin',updated_at=now()
+       WHERE id=$1 AND active=true AND role=$2 AND role<>'Admin' AND salt=$3 AND password_hash=$4 RETURNING id
+     ), new_session AS (
+       INSERT INTO sessions(id,user_id,token_hash,expires_at)
+       SELECT $5,id,$6,$7 FROM promoted_user RETURNING user_id
+     ) SELECT user_id FROM new_session`,[usr.id,usr.role,usr.salt,usr.password_hash,crypto.randomUUID(),tokenHash,new Date(Date.now()+TTL).toISOString()]);
      if(!promoted.length)return reply({error:'Account changed during setup. Please retry after review.'},409);
-     const token=await bootstrapLoginSession(db,usr,env);
      await audit(db,{id:usr.id,username:usr.username,role:'Admin'},'BOOTSTRAP_ADMIN_PROMOTE','Existing account promoted to first Administrator',request);
-     return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
+     return reply({ok:true,user:{id:usr.id,username:usr.username,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':sessionCookie(token,env)});
    }
    // Do not create another spelling of a legacy account during owner setup.
    if(await usernameExists(db,name))return reply({error:'A differently capitalized account exists. Contact the deployment owner for review.'},409);
-   const salt=hex(random(16)),id=crypto.randomUUID();
-   try{await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)",[id,name,salt,await pass(password,salt)])}
-   catch(e){if(e?.code==='23505'||/unique|duplicate/i.test(String(e?.message||'')))return reply({error:'The setup account was created concurrently. Sign in instead.'},409);throw e}
-   const token=await bootstrapLoginSession(db,{id,username:name,role:'Admin'},env);
+   const salt=hex(random(16)),id=crypto.randomUUID(),token=hex(random(48));
+   const [hash,tokenHash]=await Promise.all([pass(password,salt),digest(token)]);
+   const created=await db.query(`WITH new_user AS (
+     INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)
+     ON CONFLICT(username) DO NOTHING RETURNING id
+   ), new_session AS (
+     INSERT INTO sessions(id,user_id,token_hash,expires_at)
+     SELECT $5,id,$6,$7 FROM new_user RETURNING user_id
+   ) SELECT user_id FROM new_session`,[id,name,salt,hash,crypto.randomUUID(),tokenHash,new Date(Date.now()+TTL).toISOString()]);
+   if(!created.length)return reply({error:'The setup account was created concurrently. Sign in instead.'},409);
    try{await db.query("UPDATE app_bootstrap SET completed_at=now(),completed_by=$1 WHERE id=true",[name])}catch{}
    await audit(db,{id,username:name,role:'Admin'},'BOOTSTRAP_ADMIN','First Administrator created',request);
-   return reply({ok:true,user:{id,username:name,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':token});
-  }
-
-  async function bootstrapLoginSession(db,usr,env){
-   const token=hex(random(48));
-   await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),usr.id,await digest(token),new Date(Date.now()+TTL).toISOString()]);
-   return sessionCookie(token,env);
+   return reply({ok:true,user:{id,username:name,role:'Admin'},message:'Administrator created. You can now repair the schema and manage users.'},201,{'Set-Cookie':sessionCookie(token,env)});
   }
 
   if(u.pathname==='/api/auth/register'&&request.method==='POST'){
@@ -295,7 +304,23 @@ export async function onRequest(ctx){
     const seed=configuredInitialSetup(env);
     if(!found.length&&!candidates.length&&seed&&name===seed.username&&equal(await digest(password),await digest(seed.password))){
      const admins=Number((await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin'"))[0]?.n||0);
-     if(admins===0){const salt=hex(random(16));await db.query("INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4) ON CONFLICT(username) DO NOTHING",[crypto.randomUUID(),seed.username,salt,await pass(password,salt)]);found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name])}
+     if(admins===0){
+      const salt=hex(random(16)),id=crypto.randomUUID(),t=hex(random(48));
+      const [hash,tokenHash]=await Promise.all([pass(password,salt),digest(t)]);
+      const created=await db.query(`WITH new_user AS (
+        INSERT INTO app_users(id,username,role,salt,password_hash) VALUES($1,$2,'Admin',$3,$4)
+        ON CONFLICT(username) DO NOTHING RETURNING id
+      ), new_session AS (
+        INSERT INTO sessions(id,user_id,token_hash,expires_at)
+        SELECT $5,id,$6,$7 FROM new_user RETURNING user_id
+      ) SELECT user_id FROM new_session`,[id,seed.username,salt,hash,crypto.randomUUID(),tokenHash,new Date(Date.now()+TTL).toISOString()]);
+      if(created.length){
+       const initial={id,username:seed.username,role:'Admin'};
+       await audit(db,initial,'LOGIN','Successful login after initial seed setup',request);
+       return reply({user:initial,session:'httpOnly-cookie'},200,{'Set-Cookie':sessionCookie(t,env)});
+      }
+      found=await db.query('SELECT id,username,role,salt,password_hash FROM app_users WHERE username=$1 AND active=true LIMIT 1',[name]);
+     }
     }
    }
    const usr=found[0];if(!usr){await pass(password,'00000000000000000000000000000000');await audit(db,null,'LOGIN_FAILED','Unknown user',request);return reply({error:'Invalid credentials'},401)}
@@ -303,12 +328,42 @@ export async function onRequest(ctx){
     const seedName=String(env.SEED_ADMIN_USERNAME||''),seedPassword=String(env.SEED_ADMIN_PASSWORD||'');
     const mayRecover=usr.role==='Admin'&&name===seedName&&password===seedPassword&&usr.username===seedName&&seedPassword.length>=12&&!/change-?me|replace/i.test(seedPassword);
     if(!mayRecover){await audit(db,usr,'LOGIN_FAILED','Bad password',request);return reply({error:'Invalid credentials'},401)}
-    const salt=hex(random(16)),hash=await pass(password,salt);
-    const rotated=await db.query("UPDATE app_users SET salt=$1,password_hash=$2 WHERE id=$3 AND role='Admin' RETURNING id",[salt,hash,usr.id]);
-    if(!rotated.length){await audit(db,usr,'LOGIN_FAILED','Admin recovery did not update account',request);return reply({error:'Invalid credentials'},401)}
-    usr.salt=salt;usr.password_hash=hash;
+    if(typeof db.transaction!=='function')return reply({error:'Administrator recovery is temporarily unavailable.',code:'AUTH_UNAVAILABLE'},503);
+    const salt=hex(random(16)),hash=await pass(password,salt),t=hex(random(48));
+    const tokenHash=await digest(t),sessionId=crypto.randomUUID(),expires=new Date(Date.now()+TTL).toISOString();
+    // Recovery remains available for the exact configured seed Admin. Like a
+    // password change, it must not overwrite a concurrent credential update or
+    // leave sessions issued under the old credentials alive. The fresh login
+    // session is created in the same transaction, or all three writes roll back.
+    const recovered=await db.transaction(tx=>[
+     tx.query(`UPDATE app_users SET salt=$1,password_hash=$2,updated_at=now()
+       WHERE id=$3 AND active=true AND role='Admin' AND username=$4 AND salt=$5 AND password_hash=$6 RETURNING id`,
+       [salt,hash,usr.id,usr.username,usr.salt,usr.password_hash]),
+     tx.query(`UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL
+       AND EXISTS (SELECT 1 FROM app_users WHERE id=$1 AND active=true AND role='Admin' AND username=$2 AND salt=$3 AND password_hash=$4) RETURNING id`,
+       [usr.id,usr.username,salt,hash]),
+     tx.query(`INSERT INTO sessions(id,user_id,token_hash,expires_at)
+       SELECT $1,id,$2,$3 FROM app_users WHERE id=$4 AND active=true AND role='Admin' AND username=$5 AND salt=$6 AND password_hash=$7 RETURNING user_id`,
+       [sessionId,tokenHash,expires,usr.id,usr.username,salt,hash])
+    ],{isolationLevel:'ReadCommitted'});
+    if(!Array.isArray(recovered)||recovered.length!==3||recovered.some(rows=>!Array.isArray(rows)))throw Error('Administrator recovery result could not be confirmed');
+    if(!recovered[0].length&&!recovered[1].length&&!recovered[2].length)return reply({error:'The account credentials changed while signing in. Please try again.',code:'AUTH_CREDENTIALS_CHANGED'},401);
+    if(recovered[0].length!==1||recovered[0][0].id!==usr.id||recovered[2].length!==1||recovered[2][0].user_id!==usr.id)throw Error('Administrator recovery result could not be confirmed');
+    await audit(db,usr,'ADMIN_SEED_RECOVERY','Seed recovery completed; existing sessions revoked',request);
+    await audit(db,usr,'LOGIN','Successful login after seed recovery',request);
+    return reply({user:{id:usr.id,username:usr.username,role:usr.role},session:'httpOnly-cookie',seedRecovery:true,otherSessionsRevoked:true},200,{'Set-Cookie':sessionCookie(t,env)});
    }
-   const t=hex(random(48));await db.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),usr.id,await digest(t),new Date(Date.now()+TTL).toISOString()]);await audit(db,usr,'LOGIN','Successful login',request);return reply({user:{id:usr.id,username:usr.username,role:usr.role},session:'httpOnly-cookie'},200,{'Set-Cookie':sessionCookie(t,env)});
+   // Recheck the verified credentials while holding the account row lock until
+   // this insert commits. A password change using the same lock cannot leave a
+   // session created later from a password that was already replaced.
+   const t=hex(random(48));
+   const issued=await db.query(`WITH verified_user AS (
+     SELECT id FROM app_users WHERE id=$1 AND active=true AND salt=$2 AND password_hash=$3 FOR UPDATE
+   ) INSERT INTO sessions(id,user_id,token_hash,expires_at)
+     SELECT $4,id,$5,$6 FROM verified_user RETURNING user_id`,
+     [usr.id,usr.salt,usr.password_hash,crypto.randomUUID(),await digest(t),new Date(Date.now()+TTL).toISOString()]);
+   if(!issued.length)return reply({error:'The account credentials changed while signing in. Please try again.',code:'AUTH_CREDENTIALS_CHANGED'},401);
+   await audit(db,usr,'LOGIN','Successful login',request);return reply({user:{id:usr.id,username:usr.username,role:usr.role},session:'httpOnly-cookie'},200,{'Set-Cookie':sessionCookie(t,env)});
   }
   if(u.pathname==='/api/csrf'&&request.method==='GET'){const t=rawToken(request);if(!t)return reply({error:'Authentication required'},401);return reply({token:await csrf(t,env.CSRF_SECRET||env.SESSION_SECRET||'')})}
   if(u.pathname==='/api/auth/logout'&&request.method==='POST'){const me=await userFor(db,request);if(!me)return reply({error:'Authentication required'},401);if(!await validCsrf(request,env))return reply({error:'CSRF protection: missing or invalid X-CSRF-Token'},403);await db.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[await digest(rawToken(request))]);await audit(db,me,'LOGOUT','Session revoked',request);return reply({ok:true},200,{'Set-Cookie':C+'=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'+((env.DB_ADAPTER&&env.COOKIE_SECURE==='false')?'':'; Secure')})}
@@ -440,7 +495,7 @@ export async function onRequest(ctx){
    return reply({runs:rows.map(r=>({id:r.id,traceId:r.id,agentId:r.agent_id,provider:r.provider,model:r.model,prompt:r.prompt,output:r.output,status:r.status,createdAt:r.created_at})),count:rows.length});
   }
   if(u.pathname==='/api/auth/me'&&request.method==='GET')return reply({authenticated:true,user:{id:me.id,username:me.username,role:me.role},csrfToken:await csrf(rawToken(request),env.CSRF_SECRET||env.SESSION_SECRET||'')});
-  if(u.pathname==='/api/auth/sessions'&&request.method==='GET'){const rows=await db.query('SELECT id,created_at AS createdat,expires_at AS expiresat,revoked_at AS revokedat FROM sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[me.id]);return reply({sessions:rows.map(x=>({id:x.id,createdAt:x.createdat,expiresAt:x.expiresat,revokedAt:x.revokedat}))})}
+  if(u.pathname==='/api/auth/sessions'&&request.method==='GET'){const rows=await db.query('SELECT id,created_at AS createdat,expires_at AS expiresat,revoked_at AS revokedat,(revoked_at IS NULL AND expires_at>now()) AS active FROM sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[me.id]);return reply({sessions:rows.map(x=>({id:x.id,createdAt:x.createdat,expiresAt:x.expiresat,revokedAt:x.revokedat,active:x.active,current:x.id===me.session_id}))})}
   if(u.pathname==='/api/auth/sessions'&&request.method==='DELETE'){await db.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL',[me.id,me.session_id]);await audit(db,me,'SESSION_REVOKE_ALL','Other active sessions revoked',request);return reply({ok:true})}
   if(u.pathname==='/api/records'&&request.method==='GET'){const page=Math.max(1,Number(u.searchParams.get('page')||1)),limit=Math.min(200,Math.max(1,Number(u.searchParams.get('limit')||100))),term=(u.searchParams.get('q')||'').slice(0,200),like='%'+term+'%',region=(u.searchParams.get('region')||'').slice(0,200),sector=(u.searchParams.get('sector')||'').slice(0,200),off=(page-1)*limit,where="deleted_at IS NULL AND ($1='' OR id ILIKE $2 OR name ILIKE $2 OR region ILIKE $2 OR sector ILIKE $2 OR status ILIKE $2 OR notes ILIKE $2) AND ($3='' OR region=$3) AND ($4='' OR sector=$4)";const [rs,cs]=await Promise.all([db.query('SELECT id,name,region,sector,status,notes,updated_at AS updatedat FROM records WHERE '+where+' ORDER BY updated_at DESC,id ASC LIMIT $5 OFFSET $6',[term,like,region,sector,limit,off]),db.query('SELECT count(*)::int AS n FROM records WHERE '+where,[term,like,region,sector])]);return reply({records:rs.map(r=>({id:r.id,name:r.name,region:r.region,sector:r.sector,status:r.status,notes:r.notes,updatedAt:r.updatedat})),total:Number(cs[0]?.n||0),page,limit,pages:Math.max(1,Math.ceil(Number(cs[0]?.n||0)/limit))})}
   if(u.pathname==='/api/records'&&request.method==='POST'){
@@ -477,17 +532,46 @@ export async function onRequest(ctx){
     await audit(db,me,'SOFT_DELETE',id,request);return reply({ok:true,softDeleted:true});
    }}
   if(u.pathname==='/api/meta'&&request.method==='GET'){const [r,s]=await Promise.all([db.query("SELECT DISTINCT region FROM records WHERE region<>'' AND deleted_at IS NULL ORDER BY region"),db.query("SELECT DISTINCT sector FROM records WHERE sector<>'' AND deleted_at IS NULL ORDER BY sector")]);return reply({regions:r.map(x=>x.region),sectors:s.map(x=>x.sector)})}
-  if(u.pathname==='/api/stats'&&request.method==='GET'){const [t,r,s,a,d]=await Promise.all([db.query('SELECT count(*)::int AS n FROM records WHERE deleted_at IS NULL'),db.query('SELECT region,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY region ORDER BY n DESC'),db.query('SELECT sector,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY sector ORDER BY n DESC'),db.query('SELECT count(*)::int AS n FROM audit_events'),db.query('SELECT count(*)::int AS n FROM app_users WHERE active=true')]);return reply({total:Number(t[0]?.n||0),regions:Object.fromEntries(r.map(x=>[x.region||'Unassigned',Number(x.n)])),sectors:Object.fromEntries(s.map(x=>[x.sector||'Unassigned',Number(x.n)])),auditCount:Number(a[0]?.n||0),activeUsers:Number(d[0]?.n||0)})}
+  if(u.pathname==='/api/stats'&&request.method==='GET'){if(me.role!=='Admin')return reply({error:'Admin role required for workspace-wide statistics'},403);const [t,r,s,a,d]=await Promise.all([db.query('SELECT count(*)::int AS n FROM records WHERE deleted_at IS NULL'),db.query('SELECT region,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY region ORDER BY n DESC'),db.query('SELECT sector,count(*)::int AS n FROM records WHERE deleted_at IS NULL GROUP BY sector ORDER BY n DESC'),db.query('SELECT count(*)::int AS n FROM audit_events'),db.query('SELECT count(*)::int AS n FROM app_users WHERE active=true')]);return reply({total:Number(t[0]?.n||0),regions:Object.fromEntries(r.map(x=>[x.region||'Unassigned',Number(x.n)])),sectors:Object.fromEntries(s.map(x=>[x.sector||'Unassigned',Number(x.n)])),auditCount:Number(a[0]?.n||0),activeUsers:Number(d[0]?.n||0)})}
   if(u.pathname==='/api/approvals'&&request.method==='GET'){const a=await db.query("SELECT id,action,description,status,requested_by AS requestedby,created_at AS createdat,resolved_at AS resolvedat,resolved_by AS resolvedby FROM approvals WHERE status='pending' ORDER BY created_at ASC LIMIT 100");return reply({approvals:a.map(x=>({id:x.id,action:x.action,description:x.description,status:x.status,requestedBy:x.requestedby,createdAt:x.createdat,resolvedAt:x.resolvedat,resolvedBy:x.resolvedby}))})}
   if(u.pathname==='/api/approvals'&&request.method==='POST'){if(!['Admin','Manager'].includes(me.role))return reply({error:'Manager or Admin role required'},403);const x=await readBody(request),action=String(x.action||'').trim(),description=String(x.description||'').trim();if(!action||action.length>200)return reply({error:'action is required (maximum 200 characters)'},400);if(description.length>2000)return reply({error:'description must be at most 2,000 characters'},400);const id=crypto.randomUUID();await db.query('INSERT INTO approvals(id,action,description,requested_by) VALUES($1,$2,$3,$4)',[id,action,description,me.username]);await audit(db,me,'APPROVAL_REQUESTED',action+' · '+description,request);return reply({ok:true,approval:{id,action,description,status:'pending',requestedBy:me.username}},201)}
   if(p[1]==='approvals'&&p.length===3&&['PATCH','POST'].includes(request.method)){if(!['Admin','Manager'].includes(me.role))return reply({error:'Manager or Admin role required'},403);const x=await readBody(request),status=String(x.status||'');if(!['approved','rejected'].includes(status))return reply({error:'status must be approved or rejected'},400);const a=await db.query("UPDATE approvals SET status=$2,resolved_at=now(),resolved_by=$3 WHERE id=$1 AND status='pending' RETURNING id,action,description,status,requested_by AS requestedby,created_at AS createdat,resolved_at AS resolvedat,resolved_by AS resolvedby",[decodeURIComponent(p[2]),status,me.username]);if(!a[0])return reply({error:'Approval not found or already resolved'},404);await audit(db,me,'APPROVAL_'+status.toUpperCase(),a[0].action+' · '+a[0].description,request);const x2=a[0];return reply({ok:true,approval:{id:x2.id,action:x2.action,description:x2.description,status:x2.status,requestedBy:x2.requestedby,createdAt:x2.createdat,resolvedAt:x2.resolvedat,resolvedBy:x2.resolvedby}})}
   if(u.pathname==='/api/auth/change-password'&&request.method==='POST'){
-   const x=await readBody(request),current=String(x.currentPassword||''),next=String(x.newPassword||'');
-   if(next.length<12||next.length>1024||!/[A-Za-z]/.test(next)||!/[0-9]/.test(next))return reply({error:'New password must be at least 12 characters and include letters and numbers'},400);
+   const x=await readBody(request,16384),current=String(x.currentPassword||''),next=String(x.newPassword||'');
+   if(!current||current.length>1024)return reply({error:'Enter your current password (at most 1,024 characters).',code:'PASSWORD_CURRENT_INVALID'},400);
+   if(next.length<12||next.length>1024||!/[A-Za-z]/.test(next)||!/[0-9]/.test(next))return reply({error:'New password must be 12–1,024 characters and include letters and numbers',code:'PASSWORD_INVALID'},400);
+   if(equal(current,next))return reply({error:'Choose a new password different from your current password.',code:'PASSWORD_UNCHANGED'},400);
+   if(typeof db.transaction!=='function')return reply({error:'Password changes are temporarily unavailable.',code:'PASSWORD_CHANGE_UNAVAILABLE'},503);
+   // An authenticated session must not become an unlimited current-password
+   // guessing endpoint. Like sign-in, this counter is independent of audit.
+   let permitted=false;
+   try{permitted=await consumeRateLimit(db,'password-change',me.id,5,300)}catch{return reply({error:'Password changes are temporarily unavailable.',code:'PASSWORD_CHANGE_UNAVAILABLE'},503)}
+   if(!permitted)return reply({error:'Too many password change attempts. Wait five minutes before trying again.',code:'PASSWORD_CHANGE_RATE_LIMIT'},429,{'Retry-After':'300'});
    const row=await db.query('SELECT salt,password_hash FROM app_users WHERE id=$1 AND active=true',[me.id]);
-   if(!row[0]||!equal(await pass(current,row[0].salt),row[0].password_hash))return reply({error:'Current password is incorrect'},401);
-   const salt=hex(random(16));await db.query('UPDATE app_users SET salt=$1,password_hash=$2,updated_at=now() WHERE id=$3',[salt,await pass(next,salt),me.id]);
-   await db.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL',[me.id,me.session_id]);
+   if(!row[0]||!equal(await pass(current,row[0].salt),row[0].password_hash))return reply({error:'Current password is incorrect',code:'PASSWORD_CURRENT_INVALID'},401);
+   // The account update and revocation must either both commit or neither do.
+   // Recheck the requesting session as well as the verified password. This
+   // rejects a revocation committed before this statement's snapshot, but it
+   // does not cancel requests already executing concurrently with revocation.
+   // A fresh READ COMMITTED snapshot for the second statement also catches a
+   // login that held the account lock when this update began. Test adapters
+   // without the same non-interactive transaction capability fail closed.
+   const salt=hex(random(16)),hash=await pass(next,salt);
+   const result=await db.transaction(tx=>[
+    tx.query(`UPDATE app_users SET salt=$1,password_hash=$2,updated_at=now()
+      WHERE id=$3 AND active=true AND salt=$4 AND password_hash=$5
+        AND EXISTS (SELECT 1 FROM sessions WHERE id=$6 AND user_id=$3 AND revoked_at IS NULL AND expires_at>now())
+      RETURNING id,salt,password_hash`,
+      [salt,hash,me.id,row[0].salt,row[0].password_hash,me.session_id]),
+    tx.query(`UPDATE sessions SET revoked_at=now()
+      WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL
+        AND EXISTS (SELECT 1 FROM app_users WHERE id=$1 AND active=true AND salt=$3 AND password_hash=$4)
+      RETURNING id`,[me.id,me.session_id,salt,hash])
+   ],{isolationLevel:'ReadCommitted'});
+   if(!Array.isArray(result)||result.length!==2||!Array.isArray(result[0])||!Array.isArray(result[1]))throw Error('Password change result could not be confirmed');
+   const changed=result[0];
+   if(!changed.length&&!result[1].length)return reply({error:'Your session, account or password changed during this request. Check your session and use the latest password before trying again.',code:'PASSWORD_CHANGE_STALE'},409);
+   if(changed.length!==1||changed[0].id!==me.id||changed[0].salt!==salt||changed[0].password_hash!==hash)throw Error('Password change result could not be confirmed');
    await audit(db,me,'PASSWORD_CHANGED','Password changed; other sessions revoked',request);return reply({ok:true,otherSessionsRevoked:true});
   }
   if(u.pathname==='/api/admin/users'&&['GET','POST'].includes(request.method)){
@@ -505,12 +589,59 @@ export async function onRequest(ctx){
   }
   if(p[1]==='admin'&&p[2]==='users'&&p.length===4&&request.method==='PATCH'){
    if(me.role!=='Admin')return reply({error:'Admin role required'},403);
-   const id=decodeURIComponent(p[3]),x=await readBody(request);if(typeof x.active!=='boolean')return reply({error:'active must be true or false'},400);
-   if(id===me.id&&!x.active)return reply({error:'You cannot deactivate your own account'},400);
-   if(!x.active){const target=await db.query('SELECT role,active FROM app_users WHERE id=$1',[id]);if(!target[0])return reply({error:'User not found'},404);if(target[0].role==='Admin'&&target[0].active){const n=await db.query("SELECT count(*)::int AS n FROM app_users WHERE role='Admin' AND active=true");if(Number(n[0]?.n||0)<=1)return reply({error:'Cannot deactivate the last active administrator'},409)}}
-   const rows=await db.query('UPDATE app_users SET active=$2,updated_at=now() WHERE id=$1 RETURNING id,username,role,active,created_at',[id,x.active]);if(!rows[0])return reply({error:'User not found'},404);
-   if(!x.active)await db.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[id]);
-   await audit(db,me,'ADMIN_USER_STATUS',rows[0].username+' · '+(x.active?'activated':'deactivated'),request);const z=rows[0];return reply({user:{id:z.id,username:z.username,role:z.role,active:z.active,createdAt:z.created_at}});
+   let id;try{id=decodeURIComponent(p[3]).toLowerCase()}catch{return reply({error:'Invalid user ID',code:'USER_STATUS_INVALID'},400)}
+   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))return reply({error:'Invalid user ID',code:'USER_STATUS_INVALID'},400);
+   const x=await readBody(request);if(typeof x.active!=='boolean')return reply({error:'active must be true or false',code:'USER_STATUS_INVALID'},400);
+   if(id===String(me.id).toLowerCase()&&!x.active)return reply({error:'You cannot deactivate your own account',code:'USER_STATUS_SELF'},400);
+   if(typeof db.transaction!=='function')return reply({error:'User status changes are temporarily unavailable.',code:'USER_STATUS_UNAVAILABLE'},503);
+   // Serialize all status transitions, then lock the actor and session before
+   // rechecking them. Two preauthenticated Admins cannot deactivate each other.
+   // The target lock is a separate statement: a login which committed while we
+   // waited is visible to the following READ COMMITTED statement. The status
+   // update and its dependent session revocation then succeed or roll back as
+   // one statement. Reactivation also clears legacy unrevoked sessions left by
+   // older partial failures; repeating activation of an active user does not.
+   const result=await db.transaction(tx=>[
+    tx.query('SELECT pg_advisory_xact_lock(1095394156,1)'),
+    tx.query('SELECT id FROM app_users WHERE id=$1 FOR SHARE',[me.id]),
+    tx.query('SELECT id FROM sessions WHERE id=$1 AND user_id=$2 FOR SHARE',[me.session_id,me.id]),
+    tx.query('SELECT id FROM app_users WHERE id=$1 FOR UPDATE',[id]),
+    tx.query(`WITH prior AS MATERIALIZED (
+      SELECT id,role,active FROM app_users WHERE id=$1
+     ), authorized AS MATERIALIZED (
+      SELECT u.id FROM app_users u JOIN sessions s ON s.user_id=u.id
+      WHERE u.id=$3 AND u.active=true AND u.role='Admin' AND s.id=$4
+        AND s.revoked_at IS NULL AND s.expires_at>statement_timestamp()
+     ), changed AS (
+      UPDATE app_users AS target SET active=$2::boolean,updated_at=now() FROM prior
+      WHERE target.id=prior.id AND EXISTS (SELECT 1 FROM authorized)
+        AND ($2::boolean OR NOT prior.active OR prior.role<>'Admin'
+          OR (SELECT count(*) FROM app_users WHERE role='Admin' AND active=true)>1)
+      RETURNING target.id,target.username,target.role,target.active,target.created_at,prior.active AS was_active
+     ), revoked AS (
+      UPDATE sessions SET revoked_at=now() WHERE revoked_at IS NULL
+        AND user_id IN (SELECT id FROM changed WHERE NOT $2::boolean OR NOT was_active)
+      RETURNING id
+     )
+     SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM authorized) THEN 'stale'
+       WHEN NOT EXISTS (SELECT 1 FROM prior) THEN 'missing'
+       WHEN EXISTS (SELECT 1 FROM changed) THEN 'updated'
+       WHEN NOT $2::boolean AND EXISTS (SELECT 1 FROM prior WHERE role='Admin' AND active=true)
+         AND (SELECT count(*) FROM app_users WHERE role='Admin' AND active=true)<=1 THEN 'last_admin'
+       ELSE 'not_updated' END AS outcome,
+       changed.id,changed.username,changed.role,changed.active,changed.created_at,changed.was_active,
+       (SELECT count(*)::int FROM revoked) AS revoked_count
+     FROM (SELECT 1) singleton LEFT JOIN changed ON true`,[id,x.active,me.id,me.session_id])
+   ],{isolationLevel:'ReadCommitted'});
+   if(!Array.isArray(result)||result.length!==5||result.some(rows=>!Array.isArray(rows))||result[4].length!==1)throw Error('User status result could not be confirmed');
+   const z=result[4][0];
+   if(z.outcome==='stale')return reply({error:'Your Administrator session or account changed. Sign in again and refresh before retrying.',code:'ADMIN_SESSION_STALE'},409);
+   if(z.outcome==='missing')return reply({error:'User not found',code:'USER_STATUS_NOT_FOUND'},404);
+   if(z.outcome==='last_admin')return reply({error:'Cannot deactivate the last active administrator',code:'USER_STATUS_LAST_ADMIN'},409);
+   if(z.outcome==='not_updated')return reply({error:'User status was not changed. Refresh before retrying.',code:'USER_STATUS_CONFLICT'},409);
+   if(z.outcome!=='updated'||String(z.id).toLowerCase()!==id||z.active!==x.active||typeof z.was_active!=='boolean'||typeof z.username!=='string'||typeof z.role!=='string'||!z.created_at||!Number.isInteger(Number(z.revoked_count))||Number(z.revoked_count)<0)throw Error('User status result could not be confirmed');
+   await audit(db,me,'ADMIN_USER_STATUS',z.username+' · '+(x.active?'activated':'deactivated'),request);
+   return reply({user:{id:z.id,username:z.username,role:z.role,active:z.active,createdAt:z.created_at},sessionsRevoked:!x.active||!z.was_active,revokedSessions:Number(z.revoked_count)});
   }
   if(u.pathname==='/api/records/bulk'&&request.method==='POST'){
    if(!WRITERS.includes(me.role))return reply({error:'Role not permitted'},403);

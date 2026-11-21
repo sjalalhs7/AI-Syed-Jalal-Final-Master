@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import { buildApi, root } from '../build.mjs';
+import { createPgliteAdapter } from '../pglite-adapter.mjs';
 import { resolve } from 'node:path';
 
 let db, onRequest;
@@ -18,7 +19,7 @@ before(async () => {
 after(async () => { await db?.close(); });
 function client(cookie = '') {
   return async (path, method = 'GET', body, token = '') => {
-    const response = await onRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.10', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env: { DB_ADAPTER: { query: async (sql, params = []) => (await db.query(sql, params)).rows }, LOCAL_PREVIEW: 'true', CSRF_SECRET: 'integration-test-secret-at-least-32-characters', COOKIE_SECURE: 'false' } });
+    const response = await onRequest({ request: new Request('https://preview.test/api' + path, { method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.10', ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), env: { DB_ADAPTER: createPgliteAdapter(db), LOCAL_PREVIEW: 'true', CSRF_SECRET: 'integration-test-secret-at-least-32-characters', COOKIE_SECURE: 'false' } });
     return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || '' };
   };
 }

@@ -42,3 +42,39 @@ jobs:
             source/AI-Syed-Jalal-FINAL-RECOVERED/test-results/
             source/AI-Syed-Jalal-FINAL-RECOVERED/playwright-report/
           retention-days: 7
+  password-postgres:
+    # The race suite must use separate PostgreSQL connections; PGlite alone
+    # serializes queries. This service is a disposable fixture with no secrets.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aj_password_test
+          POSTGRES_PASSWORD: disposable-local-password
+          POSTGRES_DB: aj_password_race_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aj_password_test -d aj_password_race_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: source/AI-Syed-Jalal-FINAL-RECOVERED
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: source/AI-Syed-Jalal-FINAL-RECOVERED/package-lock.json
+      - run: npm ci
+      - name: Disposable PostgreSQL password and session races
+        run: node --test server/tests/postgres-password-concurrency.test.mjs
+        env:
+          AJ_PASSWORD_PG_TEST_URL: postgresql://aj_password_test:disposable-local-password@127.0.0.1:5432/aj_password_race_test
+          AJ_PASSWORD_PG_TEST_CONTAINER: 'true'
+          AJ_PASSWORD_PG_TEST_REQUIRED: 'true'

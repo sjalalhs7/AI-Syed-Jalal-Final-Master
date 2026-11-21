@@ -33,14 +33,18 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
   assert.ok(jalalaiJs.includes('if (window.AJ_STATIC_HOST)'));
   assert.ok(guideJs.includes('if (window.AJ_STATIC_HOST)'));
   assert.ok(preview.includes('if (window.AJ_STATIC_HOST) return;'));
-  assert.ok(workspace.includes("apiUrl:window.AJ_STATIC_HOST?'':location.origin"));
+  const initializer = workspace.slice(workspace.indexOf('function initialWorkspaceApiUrl()'), workspace.indexOf('const state='));
+  assert.ok(initializer.includes("if(window.AJ_STATIC_HOST)return ''"));
+  assert.ok(initializer.includes("sessionStorage.getItem('aj-workspace-verified-api')"));
+  assert.ok(initializer.includes('return location.origin'));
+  assert.ok(workspace.includes('apiUrl:initialWorkspaceApiUrl()'));
   assert.ok(workspace.includes('Static website preview: sign-in needs'));
   assert.ok(dashboard.includes('Static website preview: this dashboard needs'));
   assert.ok(widget.includes('window.AJ_STATIC_HOST'));
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v177-shared-metrics'"));
+  assert.ok(sw.includes("const CACHE='aj-v178-shared-metrics'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
   assert.ok(sw.includes("'./assets/jarvis.js?v=174'"));
