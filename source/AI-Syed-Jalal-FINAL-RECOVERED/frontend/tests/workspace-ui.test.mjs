@@ -105,7 +105,7 @@ test('Connection page cannot locally assign server roles or fake a tenant', () =
   assert.ok(workspace.includes('Free sign-ups are Viewers who can read shared active records and their notes.'));
   assert.ok(workspace.includes('Pending approvals, including descriptions and requester names, are readable through the API.'));
   assert.ok(workspace.includes('active account and audit-event counts'));
-  assert.ok(workspace.includes('Expert Critic may show additional aggregate diagnostics.'));
+  assert.ok(workspace.includes('Expert Critic includes deployment-wide aggregate diagnostics for Admins; other roles see account-scoped review evidence.'));
 });
 
 test('Workspace cloud provider selection follows the API metadata', () => {

@@ -64,6 +64,8 @@ export function finding({ dimension, severity, title, evidence, fix, status = 'o
  */
 export async function runReview(context) {
   const { db, me, env = {}, runtime = {}, pages = [] } = context;
+  const isAdmin = me?.role === 'Admin';
+  const ownerId = me?.id;
   const started = Date.now();
   const dimensions = [];
   const findings = [];
@@ -87,32 +89,41 @@ export async function runReview(context) {
   /* ---------------- security & access control ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const auditCount = await count(db, 'SELECT count(*)::int AS n FROM audit_events');
-    const sessions = await count(db, 'SELECT count(*)::int AS n FROM sessions');
-    const rateLimits = await count(db, 'SELECT count(*)::int AS n FROM auth_rate_limits');
+    const auditCount = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM audit_events'
+      : 'SELECT count(*)::int AS n FROM audit_events WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    const sessions = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM sessions'
+      : 'SELECT count(*)::int AS n FROM sessions WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    let rateLimits = null;
+    if (isAdmin) rateLimits = await count(db, 'SELECT count(*)::int AS n FROM auth_rate_limits');
     let score = 55;
-    observations.push(`${auditCount} audit event(s) recorded; ${sessions} session row(s); ${rateLimits} rate-limit bucket(s) in use.`);
+    observations.push(isAdmin
+      ? `${auditCount} audit event(s) recorded; ${sessions} session row(s); ${rateLimits} rate-limit bucket(s) in use across this deployment.`
+      : `This account has ${auditCount} audit event(s) and ${sessions} session row(s). Deployment-wide rate-limit usage is restricted to Admins.`);
     if (auditCount === 0) {
       dimensionFindings.push(finding({
         dimension: 'security', severity: 'critical',
-        title: 'No audit events recorded',
-        evidence: 'audit_events is empty, so no privileged action can be reconstructed.',
+        title: isAdmin ? 'No audit events recorded' : 'No audit events recorded for this account',
+        evidence: isAdmin ? 'audit_events is empty, so no privileged action can be reconstructed.' : 'This account has no audit events, so its own writes are not evidenced here.',
         fix: 'Exercise sign-in, task creation and deletion once; every write must land in the audit trail.'
       }));
     } else {
       score += 20;
-      observations.push('Audited writes are present, which is what makes the rest of this review checkable.');
+      observations.push(isAdmin ? 'Audited writes are present, which is what makes the rest of this review checkable.' : 'Audited writes for this account are present.');
     }
-    if (rateLimits === 0) {
-      dimensionFindings.push(finding({
-        dimension: 'security', severity: 'critical',
-        title: 'No rate-limit evidence',
-        evidence: 'auth_rate_limits currently has no rows; expired or removed buckets cannot show past throttling.',
-        fix: 'Confirm the limiter in front of /api/demo, /api/assistant/* and /api/arena/* with a burst test.'
-      }));
-    } else {
-      score += 10;
-      observations.push('The rate limiter has live buckets, not just configured limits.');
+    if (isAdmin) {
+      if (rateLimits === 0) {
+        dimensionFindings.push(finding({
+          dimension: 'security', severity: 'critical',
+          title: 'No rate-limit evidence',
+          evidence: 'auth_rate_limits currently has no rows; expired or removed buckets cannot show past throttling.',
+          fix: 'Confirm the limiter in front of /api/demo, /api/assistant/* and /api/arena/* with a burst test.'
+        }));
+      } else {
+        score += 10;
+        observations.push('The rate limiter has live buckets, not just configured limits.');
+      }
     }
     if (runtime.csrfEnforced === false) {
       dimensionFindings.push(finding({
@@ -133,16 +144,24 @@ export async function runReview(context) {
   /* ---------------- reliability & error handling ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const runs = await count(db, 'SELECT count(*)::int AS n FROM agent_runs');
-    const failedRuns = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE failures > 0');
-    const aiRuns = await count(db, 'SELECT count(*)::int AS n FROM ai_runs');
+    const runs = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM agent_runs'
+      : 'SELECT count(*)::int AS n FROM agent_runs WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    const failedRuns = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM agent_runs WHERE failures > 0'
+      : 'SELECT count(*)::int AS n FROM agent_runs WHERE user_id=$1 AND failures > 0', isAdmin ? [] : [ownerId]);
+    const aiRuns = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM ai_runs'
+      : 'SELECT count(*)::int AS n FROM ai_runs WHERE user_id=$1', isAdmin ? [] : [ownerId]);
     let score = 50;
-    observations.push(`${runs} stored agent run(s), ${failedRuns} with a recorded failure; ${aiRuns} provider run row(s).`);
+    observations.push(isAdmin
+      ? `${runs} stored agent run(s), ${failedRuns} with a recorded failure; ${aiRuns} provider run row(s) across this deployment.`
+      : `This account has ${runs} stored agent run(s), ${failedRuns} with a recorded failure, and ${aiRuns} provider run row(s).`);
     if (runs === 0) {
       dimensionFindings.push(finding({
         dimension: 'reliability', severity: 'critical',
-        title: 'No agent run evidence',
-        evidence: 'agent_runs is empty, so timeout and failure isolation are unproven on this deployment.',
+        title: isAdmin ? 'No agent run evidence' : 'No agent run evidence for this account',
+        evidence: isAdmin ? 'agent_runs is empty, so timeout and failure isolation are unproven on this deployment.' : 'This account has no agent runs, so its timeout and failure evidence is not yet available.',
         fix: 'Run one agent command and one research command; both must store a trace.'
       }));
     } else {
@@ -152,7 +171,7 @@ export async function runReview(context) {
         score += 10;
         observations.push(`${failedRuns} run(s) recorded a tool failure; their answers were not examined by this review.`);
       } else {
-        observations.push('No failed run was recorded yet, so the failure path has not been observed in production data.');
+        observations.push(isAdmin ? 'No failed run was recorded yet, so the failure path has not been observed in this deployment data.' : 'No failed run was recorded for this account yet.');
       }
     }
     if (runtime.toolTimeoutMs && runtime.toolTimeoutMs <= 15000) {
@@ -172,16 +191,24 @@ export async function runReview(context) {
   /* ---------------- honesty & evidence ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks');
-    const battles = await count(db, 'SELECT count(*)::int AS n FROM arena_battles');
-    const scoresWithoutAnswer = await count(db, "SELECT count(*)::int AS n FROM arena_responses WHERE status <> 'ok' AND score > 0");
+    const selfChecks = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM agent_self_checks'
+      : 'SELECT count(*)::int AS n FROM agent_self_checks WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    const battles = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM arena_battles'
+      : 'SELECT count(*)::int AS n FROM arena_battles WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    const scoresWithoutAnswer = await count(db, isAdmin
+      ? "SELECT count(*)::int AS n FROM arena_responses WHERE status <> 'ok' AND score > 0"
+      : "SELECT count(*)::int AS n FROM arena_responses r JOIN arena_battles b ON b.id=r.battle_id WHERE b.user_id=$1 AND r.status <> 'ok' AND r.score > 0", isAdmin ? [] : [ownerId]);
     let score = 45;
-    observations.push(`${selfChecks} stored self-check run(s); ${battles} Arena battle(s); ${scoresWithoutAnswer} non-answer(s) scored above zero.`);
+    observations.push(isAdmin
+      ? `${selfChecks} stored self-check run(s); ${battles} Arena battle(s); ${scoresWithoutAnswer} non-answer(s) scored above zero across this deployment.`
+      : `This account has ${selfChecks} stored self-check run(s), ${battles} Arena battle(s), and ${scoresWithoutAnswer} non-answer(s) scored above zero.`);
     if (selfChecks === 0) {
       dimensionFindings.push(finding({
         dimension: 'honesty', severity: 'critical',
-        title: 'No self-check evidence',
-        evidence: 'agent_self_checks is empty; the claims on the pages are currently supported by tests, not by a shipped verification run.',
+        title: isAdmin ? 'No self-check evidence' : 'No self-check evidence for this account',
+        evidence: isAdmin ? 'agent_self_checks is empty; the claims on the pages are currently supported by tests, not by a shipped verification run.' : 'This account has no stored self-check; that does not establish whether other accounts ran checks.',
         fix: 'Open Agent Lab and run the self-check once; the result is stored on the account.'
       }));
     } else {
@@ -197,7 +224,7 @@ export async function runReview(context) {
       }));
     } else {
       score += 20;
-      observations.push('No non-answer has been given a positive score in Arena.');
+      observations.push(isAdmin ? 'No non-answer has been given a positive score in Arena across this deployment.' : 'No non-answer from this account has been given a positive score in Arena.');
     }
     // The published tool list is a claim; it must match the code.
     if (AGENT_TOOLS.length > 0 && AGENT_TOOLS.every(tool => tool.id && tool.label) && new Set(AGENT_TOOLS.map(tool => tool.id)).size === AGENT_TOOLS.length) {
@@ -218,39 +245,50 @@ export async function runReview(context) {
   {
     const observations = [], dimensionFindings = [];
     const tables = ['app_users', 'records', 'agent_runs', 'agent_self_checks', 'arena_battles', 'assistant_tasks', 'expert_reviews'];
-    // An unavailable catalogue is not evidence that a table is missing. Let
-    // the route report that evidence is unavailable rather than inventing rows.
-    const rows = await db.query(
-      "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN (" + tables.map(t => `'${t}'`).join(',') + ')'
-    );
-    const found = new Set(rows.map(row => row.table_name));
-    const present = tables.filter(table => found.has(table)).length;
-    let score = Math.round((present / tables.length) * 60);
-    observations.push(`${present} of ${tables.length} core tables exist in the catalogue.`);
-    if (present < tables.length) {
-      dimensionFindings.push(finding({
-        dimension: 'data', severity: 'critical',
-        title: 'A core table is missing',
-        evidence: `Only ${present}/${tables.length} core table names were visible in the catalogue; columns and data were not checked.`,
-        fix: 'First verify a restorable full backup and rehearse on an isolated database. An authorized operator can then assess the missing migrations.'
-      }));
-    }
-    const orphans = await count(db, 'SELECT count(*)::int AS n FROM agent_runs r LEFT JOIN app_users u ON u.id = r.user_id WHERE u.id IS NULL');
-    if (orphans > 0) {
-      dimensionFindings.push(finding({
-        dimension: 'data', severity: 'critical',
-        title: 'Ownerless agent runs',
-        evidence: `${orphans} agent run(s) reference a user that no longer exists.`,
-        fix: 'Cascade or anonymise run evidence when an account is deleted.'
-      }));
+    let score = 40;
+    let schemaEvidence = false;
+    if (isAdmin) {
+      // Schema-wide table presence is aggregate deployment evidence, so keep it
+      // with the other workspace-wide diagnostics.
+      const rows = await db.query(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN (" + tables.map(t => `'${t}'`).join(',') + ')'
+      );
+      const found = new Set(rows.map(row => row.table_name));
+      const present = tables.filter(table => found.has(table)).length;
+      schemaEvidence = present > 0;
+      score = Math.round((present / tables.length) * 60);
+      observations.push(`${present} of ${tables.length} core tables exist in the catalogue.`);
+      if (present < tables.length) {
+        dimensionFindings.push(finding({
+          dimension: 'data', severity: 'critical',
+          title: 'A core table is missing',
+          evidence: `Only ${present}/${tables.length} core table names were visible in the catalogue; columns and data were not checked.`,
+          fix: 'First verify a restorable full backup and rehearse on an isolated database. An authorized operator can then assess the missing migrations.'
+        }));
+      }
     } else {
-      score += 20;
-      observations.push('Every stored agent run belongs to an existing account.');
+      observations.push('Deployment-wide schema inventory is restricted to Admins.');
+    }
+    if (isAdmin) {
+      const orphans = await count(db, 'SELECT count(*)::int AS n FROM agent_runs r LEFT JOIN app_users u ON u.id = r.user_id WHERE u.id IS NULL');
+      if (orphans > 0) {
+        dimensionFindings.push(finding({
+          dimension: 'data', severity: 'critical',
+          title: 'Ownerless agent runs',
+          evidence: `${orphans} agent run(s) reference a user that no longer exists.`,
+          fix: 'Cascade or anonymise run evidence when an account is deleted.'
+        }));
+      } else {
+        score += 20;
+        observations.push('Every stored agent run belongs to an existing account.');
+      }
+    } else {
+      observations.push('Cross-account orphan counts are restricted to Admins.');
     }
     const scoped = await count(db, 'SELECT count(*)::int AS n FROM agent_runs WHERE user_id = $1', [me.id]);
     score += 20;
     observations.push(`A query filtered to this account returned ${scoped} run(s); endpoint authorization was not tested.`);
-    push(REVIEW_DIMENSIONS[3], { score, evidenced: present > 0, observations, findings: dimensionFindings });
+    push(REVIEW_DIMENSIONS[3], { score, evidenced: isAdmin ? schemaEvidence : scoped > 0, observations, findings: dimensionFindings });
   }
 
   /* ---------------- voice & accessibility ---------------- */
@@ -290,10 +328,14 @@ export async function runReview(context) {
   {
     const observations = [], dimensionFindings = [];
     let score = 55;
-    const durations = await db.query('SELECT duration_ms FROM agent_runs ORDER BY created_at DESC LIMIT 50');
+    const durations = await db.query(isAdmin
+      ? 'SELECT duration_ms FROM agent_runs ORDER BY created_at DESC LIMIT 50'
+      : 'SELECT duration_ms FROM agent_runs WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50', isAdmin ? [] : [ownerId]);
     const values = durations.map(row => Number(row.duration_ms)).filter(value => Number.isFinite(value));
     const median = values.length ? values.sort((a, b) => a - b)[Math.floor(values.length / 2)] : null;
-    observations.push(values.length ? `Median agent run: ${median} ms across the last ${values.length} run(s).` : 'No agent run timings stored yet.');
+    observations.push(values.length
+      ? `Median ${isAdmin ? 'deployment' : 'account'} agent run: ${median} ms across the last ${values.length} run(s).`
+      : `No ${isAdmin ? 'deployment' : 'account'} agent run timings stored yet.`);
     if (values.length) score += 20;
     const overBudget = values.filter(value => value > 20000).length;
     if (overBudget > 0) {
@@ -315,8 +357,10 @@ export async function runReview(context) {
   /* ---------------- usability & documentation ---------------- */
   {
     const observations = [], dimensionFindings = [];
-    const selfChecks = await count(db, 'SELECT count(*)::int AS n FROM agent_self_checks');
-    const required = ['index.html', 'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html'];
+    const selfChecks = await count(db, isAdmin
+      ? 'SELECT count(*)::int AS n FROM agent_self_checks'
+      : 'SELECT count(*)::int AS n FROM agent_self_checks WHERE user_id=$1', isAdmin ? [] : [ownerId]);
+    const required = ['index.html',  'guide.html', 'jalalai.html', 'jarvis.html', 'agent.html', 'arena.html', 'agent-lab.html', 'workspace.html', 'dashboard.html'];
     const status = file => pages.find(page => page.file === file)?.exists;
     const missing = required.filter(file => status(file) === false);
     const unknown = required.filter(file => status(file) !== true && status(file) !== false);
@@ -339,11 +383,11 @@ export async function runReview(context) {
     }
     if (selfChecks > 0) {
       score += 20;
-      observations.push(`${selfChecks} self-check run(s) are stored; that alone does not establish usability.`);
+      observations.push(`${selfChecks} ${isAdmin ? 'deployment-wide' : 'account'} self-check run(s) are stored; that alone does not establish usability.`);
     } else {
       dimensionFindings.push(finding({
         dimension: 'usability', severity: 'minor', title: 'No stored self-check evidence',
-        evidence: 'agent_self_checks has no stored runs; this does not establish whether anyone used other parts of the site.',
+        evidence: isAdmin ? 'agent_self_checks has no stored runs; this does not establish whether anyone used other parts of the site.' : 'This account has no stored self-check runs; this does not establish whether its user used other parts of the site.',
         fix: 'Run the self-check when the required tables are available, then separately test key journeys.'
       }));
     }
@@ -378,6 +422,7 @@ export async function runReview(context) {
   return {
     ok: true,
     mode: 'critic',
+    scope: isAdmin ? 'deployment' : 'account',
     engine: 'sj-expert-critic',
     simulated: false,
     reviewedAt: new Date().toISOString(),
@@ -399,6 +444,7 @@ export async function runReview(context) {
       summary: buildSummary({ score, verdict, blockers, criticals, findings, dimensions, weakest })
     },
     limits: [
+      isAdmin ? 'Admin review includes deployment-wide aggregate evidence; non-Admin review is scoped to the requesting account.' : 'This review is scoped to the requesting account; deployment-wide session, failure, timing and usage aggregates are restricted to Admins.',
       'This review reads the database connected to this deployment and limited in-process contracts. It cannot see CDN logs, billing or physical devices.',
       'It does not run penetration tests, load tests or legal/compliance review.',
       'A high score means "no finding was produced from the evidence available", not "certified safe".'

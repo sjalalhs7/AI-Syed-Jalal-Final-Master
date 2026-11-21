@@ -34,7 +34,7 @@ test('Viewer changes password on a short phone, retains this session and revokes
     await page.evaluate(() => navigator.serviceWorker.ready);
     await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 20000 }).toBe(true);
     await page.evaluate(async () => {
-      const cache = await caches.open('aj-v177-shared-metrics');
+      const cache = await caches.open('aj-v178-shared-metrics');
       await cache.put('/workspace.html', new Response('stale private workspace', { headers: { 'content-type': 'text/html' } }));
       await cache.put('/api/auth/sessions', Response.json({ sessions: [] }));
     });

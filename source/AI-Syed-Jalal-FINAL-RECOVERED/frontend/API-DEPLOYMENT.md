@@ -38,13 +38,10 @@ The first-party username/password sign-up has no authentication-provider subscri
 
 **Public sign-ups become Viewers of the existing shared workspace.** They can read existing active records, including record notes, and pending approvals, including their actions, descriptions and requester names—not just items they created. Any signed-in role can list up to 100 pending approvals, oldest first, through the API; only Admins and Managers can create or resolve them. The Workspace approvals screen is limited to Admins and Managers, but hiding that screen does not restrict API access. The owner chose to keep that shared access. Anyone able to register can receive it. Viewer accounts cannot write Data Vault records or use Admin endpoints, but this is not private-account isolation. Review the sensitivity of existing records and pending approvals. Assistant tasks and notes have their own account-scoped routes; do not assume every feature is private merely because some are account-scoped.
 
-**Other existing shared behavior needs an operator decision; no new policy was selected.** Disposable tests of this source found:
+**Selected diagnostic and catalogue policy.** Disposable tests of this source verify that `/api/stats` is Admin-only; it includes shared record breakdowns, active-account totals and audit-event counts, but not the audit-event list. The active-account count is not a count of active sessions. Any signed-in role can run Expert Critic, including through its chat entry point, but only Admin reviews include workspace-wide aggregates. Other roles receive account-scoped audit/session, run/failure, self-check, Arena, and timing evidence; cross-account rate-limit and orphan counts are omitted. Saved review history and individual agent-run routes remain account-scoped. The review POST requires CSRF. Do not assume these are the only shared data paths.
+- `GET /api/agent/skills` is read-only: it checks that the catalogue table exists and returns stored entries (or uses the bundled search index), but never writes shared catalogue rows. Only an Admin can explicitly synchronize bundled skill fields through the CSRF-protected, per-user rate-limited `POST /api/agent/skills`; the Agent Lab exposes this as an Admin-only action. Self-checks do not synchronize the catalogue. They still attempt an insert/read/delete audit probe; an interrupted probe may leave a test row, and the result is stored on the requesting account. None of these operations allows a Viewer to submit arbitrary Data Vault record changes.
 
-- Any signed-in role can read `/api/stats`, which includes record breakdowns, the number of accounts marked active and the total number of audit events. It does not return the audit-event list. The account count is not a count of active sessions.
-- When its required tables exist, any signed-in role can run Expert Critic, including through its chat entry point. It returns deployment-wide aggregates such as audit-event and session-row counts, rate-limit buckets, run and failure totals, and recent aggregate timings. Saved review history and the tested individual agent-run route are account-scoped; the aggregate observations are not. The review POST requires CSRF. Do not assume these are the only shared data paths.
-- When skill storage exists and its row count differs from the bundled catalogue, authenticated `GET /api/agent/skills` synchronizes built-in entries, updating their names, domains, families, capabilities and timestamps. It is a database write on a GET, without the CSRF check or a route-specific limiter. A persistent count mismatch (for example, an extra row) can cause repeated upserts. A signed-in user can also explicitly trigger the built-in sync with a CSRF-protected, per-user rate-limited POST. A self-check can also sync that index and attempts an insert/read/delete audit probe; an interrupted probe may leave a test row. It stores its result on the requesting account. None of these operations allows a Viewer to submit arbitrary Data Vault record changes.
-
-Review the sensitivity and load implications of these existing behaviors before relying on public registration. The owner’s decision to share pending approvals does not by itself decide the policy for diagnostics or catalogue synchronization. The isolated 13-table-name fixture returned the shared statistics but could not run the skill or Critic routes; this is not a live schema clone or proof of production behavior.
+Review the sensitivity and load implications of these behaviors before relying on public registration. The owner's decision to share pending approvals remains separate from the diagnostic and catalogue policies above. The isolated 13-table-name fixture was not a live schema clone or proof of production behavior.
 
 Viewer access to configured cloud AI is unchanged. Provider requests may charge the owner. Per-user request limits and the per-IP registration limiter are not a spending cap and do not prevent distributed sign-ups. Set and monitor provider-side budgets and quotas separately; local tools do not need a provider key. No email, social or paid authentication provider is contacted by sign-up.
 
@@ -91,9 +88,9 @@ The current Pages Function contains these routes:
 | `/api/records` | GET, POST | Record listing and creation |
 | `/api/records/:id` | GET, PUT, DELETE | Record retrieval, update, and soft deletion |
 | `/api/meta` | GET | Record filter metadata |
-| `/api/stats` | GET | Shared record statistics, active-account and audit-event totals for signed-in roles |
-| `/api/agent/skills` | GET, POST | Shared skill catalogue; GET can synchronize built-in fields and POST explicitly synchronizes them |
-| `/api/assistant/critic/review` | GET, POST | Account-scoped saved review; new review contains deployment-wide aggregates |
+| `/api/stats` | GET | Admin-only shared record statistics, active-account and audit-event totals |
+| `/api/agent/skills` | GET, POST | Read-only shared catalogue browsing; explicit CSRF-protected POST sync is Admin-only and rate-limited |
+| `/api/assistant/critic/review` | GET, POST | Account-scoped saved review; only Admin-generated reviews contain deployment-wide aggregates |
 | `/api/approvals` | GET, POST | List pending approvals; Admin/Manager may request a recorded decision |
 | `/api/approvals/:id` | PATCH, POST | Admin/Manager may approve or reject a pending decision |
 | `/api/assistant/*` | GET, POST, PATCH, DELETE | Authenticated local/cloud assistant, confirmed tasks/notes and state |
@@ -110,7 +107,7 @@ The recovered agent catalogue and skill metadata do not mean that every listed a
 ## Security and operational behavior
 
 - Sessions use an HTTP-only, Secure, SameSite=Lax cookie.
-- Protected POST, PUT, PATCH and DELETE requests require a valid CSRF token. This does not make every GET read-only: the skill-catalogue synchronization exception is described above.
+- Protected POST, PUT, PATCH and DELETE requests require a valid CSRF token. Skill-catalogue browsing GET is read-only; synchronization uses an explicit Admin-only, CSRF-protected POST.
 - Passwords are stored as derived hashes; never log or return passwords, tokens, or secret values.
 - Registration, login, password changes and AI execution have server-side rate limits.
 - Request bodies are size-limited and JSON parsing errors are handled.

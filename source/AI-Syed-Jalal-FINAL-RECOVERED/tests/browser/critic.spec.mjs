@@ -15,7 +15,8 @@ test('Expert Critic: the verdict follows stored evidence, and every finding cite
 
   await page.goto('/critic.html');
   await expect(page.locator('#runHint')).toContainText('Any signed-in role may request a review');
-  await expect(page.locator('#runHint')).toContainText('workspace-wide totals');
+  await expect(page.locator('#runHint')).toContainText('Admin reviews may include deployment-wide aggregate diagnostics');
+  await expect(page.locator('#runHint')).toContainText('other roles receive evidence scoped to their own account');
   await expect(page.locator('#runHint')).toContainText('saved review history is account-scoped');
   await expect(page.locator('#runState')).not.toContainText('Not run yet', { timeout: 20000 });
   await page.locator('#runBtn').click();

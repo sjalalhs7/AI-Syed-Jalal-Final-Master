@@ -34,7 +34,7 @@ function fakeDb(counts = {}, rows = {}) {
   };
 }
 
-const me = { id: '11111111-1111-4111-8111-111111111111' };
+const me = { id: '11111111-1111-4111-8111-111111111111', role: 'Admin' };
 
 test('a review with no evidence scores zero on those dimensions instead of assuming the best', async () => {
   const review = await runReview({ db: fakeDb({}), me, env: {}, pages: PAGES, runtime: {} });
@@ -47,6 +47,31 @@ test('a review with no evidence scores zero on those dimensions instead of assum
   assert.equal(review.verdict, 'not-ready');
   assert.ok(review.findings.some(item => item.title === 'No audit events recorded'));
   assert.ok(review.findings.some(item => item.title === 'No agent run evidence'));
+});
+
+test('non-Admin Critic reviews scope personal aggregates to their account', async () => {
+  const queries = [];
+  const db = { query: async (sql, params = []) => {
+    queries.push({ sql: sql.replace(/\s+/g, ' ').trim(), params });
+    if (sql.includes('information_schema')) return [];
+    if (sql.includes('duration_ms FROM')) return [];
+    if (sql.includes('count(*)')) return [{ n: 0 }];
+    return [];
+  } };
+  const viewer = { id: '22222222-2222-4222-8222-222222222222', role: 'Viewer' };
+  const review = await runReview({ db, me: viewer, env: {}, pages: PAGES, runtime: { toolTimeoutMs: 9000 } });
+  assert.equal(review.scope, 'account');
+  const sql = queries.map(item => item.sql);
+  for (const table of ['audit_events', 'sessions', 'agent_runs', 'ai_runs', 'agent_self_checks', 'arena_battles']) {
+    const reads = sql.filter(statement => statement.includes(`FROM ${table}`));
+    assert.ok(reads.length > 0, `expected scoped evidence query for ${table}`);
+    assert.ok(reads.every(statement => /WHERE .*user_id\s*=\s*\$1/i.test(statement)), `${table} must be scoped to this account`);
+  }
+  assert.ok(sql.some(statement => /arena_responses r JOIN arena_battles b ON b.id=r.battle_id WHERE b.user_id=\$1/.test(statement)));
+  assert.ok(!sql.some(statement => statement.includes('FROM auth_rate_limits')));
+  const observations = review.dimensions.flatMap(item => item.observations).join(' ');
+  assert.match(observations, /deployment-wide rate-limit usage is restricted to Admins/i);
+  assert.doesNotMatch(observations, /stored agent run\(s\).*across this deployment|Median deployment agent run/i);
 });
 
 test('one blocker forbids a ready verdict however good the average is', async () => {

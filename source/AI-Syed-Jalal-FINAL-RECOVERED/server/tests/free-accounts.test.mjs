@@ -157,7 +157,7 @@ test('pending approvals remain readable by every signed-in role, but only Admins
     const list = await request('/approvals', { cookie: session.cookie });
     assert.equal(list.status, 200, session.role);
     assert.ok(list.data.approvals.some(item => item.id === pending.data.approval.id && item.description === 'Visible to all roles'), session.role);
-    assert.equal((await request('/stats', { cookie: session.cookie })).status, 200, session.role);
+    assert.equal((await request('/stats', { cookie: session.cookie })).status, session.role === 'Admin' ? 200 : 403, session.role);
   }
   for (const role of ['Viewer', 'Data Operator']) {
     const session = sessions.find(item => item.role === role);
@@ -380,9 +380,11 @@ test('signup and sign-in work in a disposable fixture with the reported incomple
     // This repository-defined fixture also shows which shared aggregates can
     // work without the missing agent/critic tables. It is not a live DB clone.
     const stats = await request('/stats', { cookie: created.cookie, dbAdapter: fixtureAdapter });
-    assert.equal(stats.status, 200);
-    assert.equal(stats.data.activeUsers, 2);
-    assert.ok(stats.data.auditCount > 0);
+    assert.equal(stats.status, 403);
+    const adminStats = await request('/stats', { cookie: owner.cookie, dbAdapter: fixtureAdapter });
+    assert.equal(adminStats.status, 200);
+    assert.equal(adminStats.data.activeUsers, 2);
+    assert.ok(adminStats.data.auditCount > 0);
     const skills = await request('/agent/skills', { cookie: created.cookie, dbAdapter: fixtureAdapter });
     assert.equal(skills.status, 503); assert.equal(skills.data.code, 'SKILLS_NOT_MIGRATED');
     const critic = await request('/assistant/critic/review', { method: 'POST', cookie: created.cookie, csrf: me.data.csrfToken, dbAdapter: fixtureAdapter, body: {} });

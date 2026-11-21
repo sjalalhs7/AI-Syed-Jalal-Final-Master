@@ -233,6 +233,7 @@
       csrf = session.csrfToken || '';
       user = session.user || null;
       $('accountBtn').textContent = user ? `Sign out (${user.username})` : 'Sign in';
+      $('syncSkillsBtn').hidden = user?.role !== 'Admin';
       // Probe health first so the preview button is offered even while signed out.
       const health = await api('/health').catch(() => ({}));
       $('demoBtn').hidden = !health.localPreview;
@@ -294,6 +295,18 @@
   };
   $('skillQuery').oninput = () => { clearTimeout(skillsTimer); skillsTimer = setTimeout(loadSkills, 250); };
   $('skillDomain').onchange = loadSkills;
+  $('syncSkillsBtn').onclick = async () => {
+    if (user?.role !== 'Admin' || $('syncSkillsBtn').disabled) return;
+    $('syncSkillsBtn').disabled = true;
+    $('skillsStatus').textContent = 'Synchronizing the shared catalogue…';
+    try {
+      const result = await api('/agent/skills', { method: 'POST', body: '{}' });
+      await loadSkills();
+      $('skillsStatus').textContent = `Admin sync completed: ${result.count} catalogue rows are available across ${result.domains} domains.`;
+    } catch (error) {
+      $('skillsStatus').textContent = error.message + (error.status === 429 ? ' Wait before syncing again.' : '');
+    } finally { $('syncSkillsBtn').disabled = false; }
+  };
   $('accountBtn').onclick = async () => {
     if (!user) { location.href = 'index.html?next=agent-lab.html'; return; }
     if (!window.confirm('Sign out of this device?')) return;

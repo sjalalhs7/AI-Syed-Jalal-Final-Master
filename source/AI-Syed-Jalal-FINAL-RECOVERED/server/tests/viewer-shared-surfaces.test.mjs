@@ -53,7 +53,7 @@ async function accounts() {
   return { owner: { cookie: owner.cookie, ...ownerMe }, viewer: { cookie: viewer.cookie, ...viewerMe } };
 }
 
-test('Viewer sees current shared statistics and Critic aggregates, but not tested Admin logs or another account’s run', async () => {
+test('workspace-wide statistics and Critic aggregates are Admin-only; Viewer Critic evidence stays account-scoped', async () => {
   const { owner, viewer } = await accounts();
   const privateDetail = 'Synthetic owner-only audit detail';
   const privatePrompt = 'Synthetic owner-only agent prompt';
@@ -64,9 +64,12 @@ test('Viewer sees current shared statistics and Critic aggregates, but not teste
 
   assert.equal((await request('/stats')).status, 401);
   const stats = await request('/stats', { cookie: viewer.cookie });
-  assert.equal(stats.status, 200);
-  assert.equal(stats.data.activeUsers, 2);
-  assert.equal(stats.data.auditCount, auditCount);
+  assert.equal(stats.status, 403);
+  assert.equal(stats.data.error, 'Admin role required for workspace-wide statistics');
+  const adminStats = await request('/stats', { cookie: owner.cookie });
+  assert.equal(adminStats.status, 200);
+  assert.equal(adminStats.data.activeUsers, 2);
+  assert.equal(adminStats.data.auditCount, auditCount);
   assert.ok(!JSON.stringify(stats.data).includes(privateDetail));
   assert.equal((await request('/admin/audit', { cookie: owner.cookie })).status, 200);
   assert.equal((await request('/admin/audit', { cookie: viewer.cookie })).status, 403);
@@ -79,21 +82,32 @@ test('Viewer sees current shared statistics and Critic aggregates, but not teste
   assert.equal((await request(criticPath, { method: 'POST', body: {}, cookie: viewer.cookie })).status, 403);
   const review = await request(criticPath, { method: 'POST', body: {}, cookie: viewer.cookie, csrf: viewer.csrfToken });
   assert.equal(review.status, 200);
+  assert.equal(review.data.scope, 'account');
   const dimensions = Object.fromEntries(review.data.dimensions.map(item => [item.id, item.observations]));
-  assert.ok(dimensions.security.some(item => item.includes(`${auditCount} audit event(s) recorded; 2 session row(s)`)));
-  assert.ok(dimensions.reliability.some(item => item.includes('1 stored agent run(s), 1 with a recorded failure')));
-  assert.ok(dimensions.performance.some(item => item.includes('23111 ms across the last 1 run(s)')));
+  assert.ok(dimensions.security.some(text => text.includes('This account has') && text.includes('audit event(s)')));
+  assert.ok(dimensions.reliability.some(item => item.includes('This account has 0 stored agent run(s)')));
+  assert.ok(dimensions.performance.some(item => item.includes('No account agent run timings stored yet')));
+  assert.ok(!JSON.stringify(review.data).includes('23111 ms'));
   assert.ok(!JSON.stringify(review.data).includes(privateDetail));
   assert.ok(!JSON.stringify(review.data).includes(privatePrompt));
+
+  const adminReview = await request(criticPath, { method: 'POST', body: {}, cookie: owner.cookie, csrf: owner.csrfToken });
+  assert.equal(adminReview.status, 200);
+  assert.equal(adminReview.data.scope, 'deployment');
+  const adminDimensions = Object.fromEntries(adminReview.data.dimensions.map(item => [item.id, item.observations]));
+  assert.ok(adminDimensions.reliability.some(item => item.includes('1 stored agent run(s), 1 with a recorded failure')));
+  assert.ok(adminDimensions.performance.some(item => item.includes('23111 ms across the last 1 run(s)')));
   const chat = await request('/assistant/chat', { method: 'POST', body: { message: 'Review this deployment', profile: 'critic' }, cookie: viewer.cookie, csrf: viewer.csrfToken });
   assert.equal(chat.status, 200);
-  assert.ok(chat.data.dimensions.some(item => item.id === 'security' && item.observations.some(text => text.includes('2 session row(s)'))));
+  assert.equal(chat.data.scope, 'account');
+  assert.ok(chat.data.dimensions.some(item => item.id === 'security' && item.observations.some(text => text.includes('This account has'))));
+  assert.ok(!JSON.stringify(chat.data).includes('23111 ms'));
   assert.ok(!JSON.stringify(chat.data).includes(privatePrompt));
-  assert.equal((await request('/assistant/critic/reviews', { cookie: owner.cookie })).data.reviews.length, 0);
+  assert.equal((await request('/assistant/critic/reviews', { cookie: owner.cookie })).data.reviews.length, 1);
   assert.equal((await request('/assistant/critic/reviews', { cookie: viewer.cookie })).data.reviews.length, 1);
 });
 
-test('catalog browsing can synchronize built-in skill fields, including repeatedly when the count differs', async () => {
+test('skill catalogue GET stays read-only and only explicit Admin POST can sync built-in fields', async () => {
   const { owner, viewer } = await accounts();
   const index = JSON.parse(await readFile(new URL('../../frontend/config/agent-skill-index.json', import.meta.url), 'utf8'));
   const [id, name, domain, family, capability] = index.skills[0];
@@ -106,21 +120,26 @@ test('catalog browsing can synchronize built-in skill fields, including repeated
 
   const list = await request('/agent/skills?limit=1', { cookie: viewer.cookie });
   assert.equal(list.status, 200);
-  assert.equal(list.data.total, index.count + 1);
-  assert.equal(skillSyncs, 1, 'authenticated GET triggered a built-in upsert');
-  const stored = (await db.query('SELECT name,objective FROM agent_skills WHERE id=$1', [id])).rows[0];
-  assert.equal(stored.name, name);
+  assert.equal(list.data.total, 2);
+  assert.equal(skillSyncs, 0, 'authenticated GET is read-only even when the count differs from the bundled index');
+  let stored = (await db.query('SELECT name,objective FROM agent_skills WHERE id=$1', [id])).rows[0];
+  assert.equal(stored.name, 'Synthetic override');
   assert.equal(stored.objective, 'Synthetic objective');
   assert.equal((await request('/agent/skills?limit=1', { cookie: viewer.cookie })).status, 200);
-  assert.equal(skillSyncs, 2, 'an extra row keeps the total different and triggers another upsert');
+  assert.equal(skillSyncs, 0, 'repeated catalogue browsing performs no upsert');
   assert.equal((await db.query('SELECT name FROM agent_skills WHERE id=$1', ['synthetic-extra'])).rows[0].name, 'Synthetic extra entry');
-  await db.query('DELETE FROM agent_skills WHERE id=$1', ['synthetic-extra']);
-  assert.equal((await request('/agent/skills?limit=1', { cookie: viewer.cookie })).status, 200);
-  assert.equal(skillSyncs, 2, 'a matching count does not trigger another GET sync');
   assert.equal((await request('/agent/skills', { method: 'POST', body: {}, cookie: viewer.cookie })).status, 403);
-  assert.equal(skillSyncs, 2, 'manual sync without CSRF must not run');
-  assert.equal((await request('/agent/skills', { method: 'POST', body: {}, cookie: viewer.cookie, csrf: viewer.csrfToken })).status, 200);
-  assert.equal(skillSyncs, 3);
+  assert.equal(skillSyncs, 0, 'Viewer cannot explicitly sync, even without CSRF');
+  assert.equal((await request('/agent/skills', { method: 'POST', body: {}, cookie: viewer.cookie, csrf: viewer.csrfToken })).status, 403);
+  assert.equal(skillSyncs, 0, 'CSRF does not grant non-Admins permission to sync');
+  assert.equal((await request('/agent/skills', { method: 'POST', body: {}, cookie: owner.cookie, csrf: owner.csrfToken })).status, 200);
+  assert.equal(skillSyncs, 1, 'only an explicit Admin POST synchronizes the shared index');
+  stored = (await db.query('SELECT name,objective FROM agent_skills WHERE id=$1', [id])).rows[0];
+  assert.equal(stored.name, name);
+  assert.equal(stored.objective, 'Synthetic objective');
+  assert.equal((await db.query('SELECT name FROM agent_skills WHERE id=$1', ['synthetic-extra'])).rows[0].name, 'Synthetic extra entry');
+  assert.equal((await request('/agent/skills?limit=1', { cookie: viewer.cookie })).status, 200);
+  assert.equal(skillSyncs, 1, 'browsing stays read-only after an Admin sync');
   assert.equal((await request('/records/SYNTHETIC-1', { cookie: owner.cookie })).data.record.name, 'Unchanged shared record');
 });
 
@@ -136,7 +155,7 @@ test('Viewer self-check requires CSRF and cleans its synthetic audit probe witho
   assert.equal(check.data.results.length, 1);
   assert.equal(check.data.results[0].id, 'db.roundtrip');
   assert.equal(check.data.results[0].ok, true);
-  assert.equal(skillSyncs, 1, 'self-check can initialize the index even when only the audit probe was selected');
+  assert.equal(skillSyncs, 0, 'self-check performs no implicit shared-catalogue synchronization');
   assert.equal(probeInserts, 1); assert.equal(probeDeletes, 1);
   assert.equal(Number((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE action='V133_SELF_CHECK'")).rows[0].n), 0);
   assert.equal((await db.query('SELECT detail FROM audit_events WHERE id=$1', [eventId])).rows[0].detail, 'Keep this event');

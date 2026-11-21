@@ -104,9 +104,20 @@ test('readiness requires the V136 tables and health reports the current version'
   assert.equal((await client()('/health')).data.version, 'V150');
 });
 
-test('skill catalogue API syncs, lists, searches and is account gated', async () => {
+test('skill catalogue GET is read-only and only an explicit Admin POST syncs it', async () => {
   assert.equal((await client()('/agent/skills')).status, 401);
   const { c, token } = await account();
+  const before = await db.query('SELECT count(*)::int AS n FROM agent_skills');
+  assert.equal(Number(before.rows[0].n), 0);
+  const initial = await c('/agent/skills?limit=5');
+  assert.equal(initial.status, 200);
+  assert.equal(initial.data.total, 3500, 'an empty shared table falls back to the bundled read-only index');
+  assert.equal(initial.data.returned, 5);
+  assert.equal(initial.data.domains.length, 35);
+  assert.equal(Number((await db.query('SELECT count(*)::int AS n FROM agent_skills')).rows[0].n), 0, 'GET must not mutate catalogue rows');
+  assert.equal((await c('/agent/skills', 'POST', {}, '')).status, 403);
+  const synced = await c('/agent/skills', 'POST', {}, token);
+  assert.equal(synced.data.count, 3500);
   const listed = await c('/agent/skills?limit=5');
   assert.equal(listed.status, 200);
   assert.equal(listed.data.total, 3500);
@@ -118,8 +129,6 @@ test('skill catalogue API syncs, lists, searches and is account gated', async ()
   assert.ok(searched.data.skills.length <= 3);
   const domains = await c('/agent/skills?domain=' + encodeURIComponent('Coding & Software') + '&limit=3');
   assert.ok(domains.data.skills.every(skill => skill.domain === 'Coding & Software'));
-  assert.equal((await c('/agent/skills', 'POST', {}, '')).status, 403);
-  assert.equal((await c('/agent/skills', 'POST', {}, token)).data.count, 3500);
 });
 
 test('capabilities advertise real checks and honest providers', async () => {
@@ -134,6 +143,7 @@ test('capabilities advertise real checks and honest providers', async () => {
 
 test('self-check runs every check on a real database and persists evidence', async () => {
   const { c, token } = await account();
+  await c('/agent/skills', 'POST', {}, token); // Catalogue initialization is explicit and Admin-authorized.
   const run = await c('/agent/self-check', 'POST', {}, token);
   assert.equal(run.status, 200);
   assert.equal(run.data.verdict, 'pass', JSON.stringify(run.data.results.filter(item => !item.ok), null, 1));
@@ -177,7 +187,7 @@ test('built-in checks never claim a live provider call', async () => {
   assert.equal(builtInChecks().length >= 14, true);
 });
 
-test('the first self-check on a fresh database fills the skill library itself', async () => {
+test('self-check on a fresh database does not sync the shared skill library', async () => {
   // A fresh database behind the already-built handler: no second buildApi() call,
   // because test files run in parallel and would race on the shared bundle.
   const fresh = new PGlite();
@@ -192,9 +202,12 @@ test('the first self-check on a fresh database fills the skill library itself', 
   assert.equal(Number(before.rows[0].n), 0);
   const data = await (await call('/agent/self-check', 'POST', {}, me.csrfToken, cookie)).json();
   const catalog = data.results.find(item => item.id === 'catalog.skills');
-  assert.equal(catalog.ok, true, catalog.detail);
-  assert.match(catalog.detail, /3500 skills/);
+  assert.equal(catalog.ok, false, catalog.detail);
+  assert.match(catalog.detail, /Database has 0 skills; index has 3500/);
   const after = await fresh.query('SELECT count(*)::int AS n FROM agent_skills');
-  assert.equal(Number(after.rows[0].n), 3500);
+  assert.equal(Number(after.rows[0].n), 0, 'self-check GET/POST path must not silently write the shared catalogue');
+  const synced = await (await call('/agent/skills', 'POST', {}, me.csrfToken, cookie)).json();
+  assert.equal(synced.count, 3500, 'explicit Admin sync remains available');
+  assert.equal(Number((await fresh.query('SELECT count(*)::int AS n FROM agent_skills')).rows[0].n), 3500);
   await fresh.close();
 });

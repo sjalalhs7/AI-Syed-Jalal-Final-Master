@@ -44,7 +44,7 @@ test('assistant, agent, guide, preview, workspace and widget guard static hosts'
 });
 
 test('service worker cache is bumped and includes host-mode helper', () => {
-  assert.ok(sw.includes("const CACHE='aj-v177-shared-metrics'"));
+  assert.ok(sw.includes("const CACHE='aj-v178-shared-metrics'"));
   assert.ok(sw.includes("'./assets/host-mode.js'"));
   assert.ok(sw.includes("'./assets/speech-preferences.js'"));
   assert.ok(sw.includes("'./assets/jarvis.js?v=174'"));
