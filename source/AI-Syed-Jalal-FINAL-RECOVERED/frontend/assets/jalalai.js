@@ -21,10 +21,19 @@
         return {};
       });
       if (request.signal.aborted) throw Object.assign(new Error('Request aborted.'), { name: 'AbortError' });
-      if (!response.ok) { const error = new Error(data?.error || `Request failed (${response.status})`); error.status = response.status; error.code = data?.code; throw error; }
+      if (!response.ok) {
+        const serverMessage = typeof data?.error === 'string' ? data.error : '';
+        const message = response.status === 404
+          ? 'The chat API route was not found (404). Open the secure application or the local preview; static GitHub Pages cannot run the chat API.'
+          : response.status === 500
+            ? `The application hit an internal error (500). Check the API logs and /api/health; retry after the server issue is fixed.${data?.requestId ? ` Reference: ${data.requestId}` : ''}`
+            : serverMessage || `Request failed (${response.status})`;
+        const error = new Error(message); error.status = response.status; error.code = data?.code; error.requestId = data?.requestId; throw error;
+      }
       return data;
     } catch (error) {
       if (timedOut) throw Object.assign(new Error('The request timed out. The server may still finish; check before retrying.'), { name: 'TimeoutError' });
+      if (error?.name === 'TypeError' && !caller?.aborted) throw Object.assign(new Error('Could not reach the chat server. Check your connection, confirm the API is deployed on this site, and make sure /api/health responds.'), { code: 'API_UNREACHABLE' });
       throw error;
     } finally {
       clearTimeout(timer);
@@ -51,6 +60,7 @@
     return $('mode').value === 'cloud' && value !== true && value !== false;
   }
   function updateControls() {
+    $('chatForm').setAttribute('aria-busy', String(busy));
     $('sendBtn').disabled = !user || busy || cloudStatusUnknown() || !$('prompt').value.trim();
     $('micBtn').disabled = !user || busy;
     $('readBtn').disabled = !lastReply;
@@ -80,7 +90,21 @@
   function addMessage(text, role = 'assistant', meta = 'JalalAi · local tools', result = null) {
     const node = document.createElement('div'); node.className = 'message ' + role;
     const label = document.createElement('div'); label.className = 'meta'; label.textContent = meta; node.appendChild(label);
-    const content = document.createElement('span'); content.textContent = text; node.appendChild(content);
+    const content = document.createElement('div'); content.className = 'message-content';
+    if (role === 'user') content.textContent = text;
+    else if (window.AJChatMarkdown?.render) content.innerHTML = window.AJChatMarkdown.render(text);
+    else content.textContent = text;
+    node.appendChild(content);
+    content.querySelectorAll('[data-copy-code]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.parentElement?.querySelector('code')?.textContent || '';
+        try {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied';
+          setTimeout(() => { if (button.isConnected) button.textContent = 'Copy'; }, 1400);
+        } catch { button.textContent = 'Select code to copy'; }
+      });
+    });
     if (role === 'assistant') {
       const actions = document.createElement('div'); actions.className = 'message-actions';
       const read = document.createElement('button'); read.type = 'button'; read.className = 'btn small'; read.textContent = 'Read aloud'; read.onclick = () => speak(text); actions.appendChild(read); if (window.AJReport) actions.appendChild(window.AJReport.button(text, 'jalalai')); node.appendChild(actions);
@@ -113,6 +137,15 @@
       box.append(prompt, confirm, cancel); node.appendChild(box);
     }
     $('chatlog').appendChild(node); $('chatlog').scrollTop = $('chatlog').scrollHeight; updateControls();
+    return node;
+  }
+  function addTypingIndicator() {
+    const node = document.createElement('div'); node.className = 'message assistant typing-message';
+    node.setAttribute('role', 'status'); node.setAttribute('aria-label', 'Assistant is preparing a reply');
+    const label = document.createElement('div'); label.className = 'meta'; label.textContent = 'JalalAi · thinking';
+    const dots = document.createElement('span'); dots.className = 'typing-dots'; dots.setAttribute('aria-hidden', 'true');
+    dots.innerHTML = '<i></i><i></i><i></i>';
+    node.append(label, dots); $('chatlog').appendChild(node); $('chatlog').scrollTop = $('chatlog').scrollHeight;
     return node;
   }
   function renderSavedList(id, items, kind) {
@@ -257,8 +290,9 @@
     if (!user) { setStatus('Please sign in first.'); return; }
     if (busy || !text) return;
     if (cloudStatusUnknown()) { setStatus('Provider configuration is unknown. Choose local tools or retry when settings are available.'); return; }
-    stopVoice(); busy = true; $('prompt').value = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Working… Stop cancels waiting for the reply.');
+    stopVoice(); busy = true; $('prompt').value = ''; $('prompt').style.height = ''; addMessage(text, 'user', 'You'); updateControls(); setStatus('Waiting for the selected assistant… Stop cancels waiting for the reply.');
     const currentRequest = new AbortController(), requestSession = sessionVersion; requestController = currentRequest;
+    const pending = addTypingIndicator();
     let timedOut = false, replyShown = false;
     const timeout = setTimeout(() => { if (!currentRequest.signal.aborted) { timedOut = true; currentRequest.abort(); } }, 60000);
     try {
@@ -276,6 +310,7 @@
       // Keep the reason visible in the conversation, not only in the transient
       // status line, and do not present a local fallback as a Gemini reply.
       const output = result.cloudError ? `${result.cloudError}\n\nLocal response:\n${localOutput || 'No local response was returned.'}` : localOutput;
+      pending.remove();
       const node = addMessage(output, 'assistant', label, result); replyShown = true;
       if (result.mode === 'agent' && Array.isArray(result.steps)) node.appendChild(agentTrace(result));
       const resolved = await runTool(result, currentRequest.signal);
@@ -292,6 +327,7 @@
       setStatus(message);
       if (!cancelled) addMessage(message, 'assistant error', 'Request could not complete');
     } finally {
+      pending.remove();
       clearTimeout(timeout);
       if (requestController === currentRequest) { busy = false; requestController = null; updateControls(); }
     }
@@ -320,7 +356,11 @@
     setStatus('Shared content is in your composer. Press Send when you are ready.');
   }
   $('chatForm').onsubmit = event => { event.preventDefault(); send(); };
-  $('prompt').addEventListener('input', updateControls);
+  $('prompt').addEventListener('input', () => {
+    $('prompt').style.height = 'auto';
+    $('prompt').style.height = `${Math.min($('prompt').scrollHeight, 180)}px`;
+    updateControls();
+  });
   $('prompt').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
   document.querySelectorAll('[data-prompt]').forEach(button => button.onclick = () => send(button.dataset.prompt));
   $('mode').onchange = () => {

@@ -703,8 +703,11 @@ export async function onRequest(ctx){
   }
   return reply({ok:false,error:'Route not yet migrated to Cloudflare API',code:'ROUTE_NOT_IMPLEMENTED'},501)
  }catch(e){const status=Number(e?.status)||500;
-  // Hide internals in production, but never hide them from the local preview —
-  // a bare "Internal server error" made a real failure undiagnosable.
+  // Keep internals and credentials out of production responses and logs, while
+  // correlating an unexpected 500 with the hosting provider's request logs.
+  const requestId=crypto.randomUUID();
+  if(status>=500)console.error('API_UNHANDLED_ERROR',JSON.stringify({requestId,path:u.pathname,method:request.method,name:String(e?.name||'Error')}));
+  // The local preview exposes a bounded message to make development failures diagnosable.
   const detail=env.LOCAL_PREVIEW?String(e?.message||e).slice(0,300):undefined;
-  return reply({ok:false,error:status>=500?'Internal server error':e.message,code:status===500?'INTERNAL_ERROR':'REQUEST_ERROR',...(detail?{detail}:{})},status)}
+  return reply({ok:false,error:status>=500?'Internal server error':e.message,code:status===500?'INTERNAL_ERROR':'REQUEST_ERROR',...(status>=500?{requestId}:{}),...(detail?{detail}:{})},status)}
 }

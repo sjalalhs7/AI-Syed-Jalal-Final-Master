@@ -145,9 +145,16 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
   }
   if (path === '/api/assistant/chat' && method === 'POST') {
     if (!await consumeRateLimit(db, 'assistant-minute', me.id, 30, 2)) return reply({ error: 'Please wait a moment before sending another message.' }, 429, { 'Retry-After': '60' });
-    const body = await readBody(request), message = String(body.message || '').trim(), profile = String(body.profile || 'general');
-    if (!message || message.length > (body.mode === 'cloud' ? 9500 : 10000)) return reply({ error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).' }, 400);
-    if (!PROFILE_IDS.includes(profile)) return reply({ error: 'Choose a supported assistant profile.' }, 400);
+    const body = await readBody(request);
+    if (body.message !== undefined && typeof body.message !== 'string') return reply({ ok: false, error: 'Message must be plain text.', code: 'INVALID_MESSAGE' }, 400);
+    if (body.profile !== undefined && typeof body.profile !== 'string') return reply({ ok: false, error: 'Choose a supported assistant profile.', code: 'INVALID_PROFILE' }, 400);
+    if (body.mode !== undefined && typeof body.mode !== 'string') return reply({ ok: false, error: 'Choose local, cloud, agent, or research mode.', code: 'INVALID_MODE' }, 400);
+    const message = String(body.message || '').trim(), profile = body.profile || 'general';
+    const mode = body.mode === undefined ? 'local' : body.mode;
+    if (!message || message.length > (mode === 'cloud' ? 9500 : 10000)) return reply({ ok: false, error: 'Enter a message between 1 and 10,000 characters (9,500 for cloud mode).', code: 'INVALID_MESSAGE' }, 400);
+    if (!['local', 'cloud', 'agent', 'research'].includes(mode)) return reply({ ok: false, error: 'Choose local, cloud, agent, or research mode.', code: 'INVALID_MODE' }, 400);
+    if (mode === 'cloud' && body.provider !== undefined && (typeof body.provider !== 'string' || !['gemini', 'openai', 'anthropic', 'deepseek', 'omniroute', 'auto', 'openai-compatible'].includes(body.provider.toLowerCase()))) return reply({ ok: false, error: 'Choose a supported cloud provider.', code: 'INVALID_PROVIDER' }, 400);
+    if (!PROFILE_IDS.includes(profile)) return reply({ ok: false, error: 'Choose a supported assistant profile.', code: 'INVALID_PROFILE' }, 400);
 
     const local = localAssistant(message, profile, undefined, {
       supportsCombinedReads: body.supportsCombinedReads === true,
@@ -160,10 +167,10 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
 
     // In Research mode, an explicit local save or saved-data command is still
     // a request for that action, not a Wikipedia search containing its text.
-    if (body.mode === 'research' && (local.action || local.localOnly || ['list_tasks', 'list_notes', 'list_tasks_and_notes', 'search_records'].includes(local.tool))) return reply(local);
+    if (mode === 'research' && (local.action || local.localOnly || ['list_tasks', 'list_notes', 'list_tasks_and_notes', 'search_records'].includes(local.tool))) return reply(local);
 
     // Agent mode: a bounded, multi-step tool run. History is best effort.
-    if (body.mode === 'agent') {
+    if (mode === 'agent') {
       if (!await consumeRateLimit(db, 'assistant-agent', me.id, 12, 5)) return reply({ error: 'Agent runs are limited to twelve per minute.' }, 429, { 'Retry-After': '60' });
       const run = await runAgent({ prompt: message, db, me, env, profile });
       // A cancelled task/note proposal must not leave its contents in agent
@@ -186,7 +193,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     }
 
     // Research: a real, attributed Wikipedia lookup rather than an invented answer.
-    if (body.mode === 'research' || (body.mode !== 'cloud' && !/^search (?:records|workspace)\b/i.test(message) && /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message))) {
+    if (mode === 'research' || (mode !== 'cloud' && !/^search (?:records|workspace)\b/i.test(message) && /^(?:research|look up|search(?: the web)?(?: for)?)\b/i.test(message))) {
       const isRecordCommand = planFor(message, profile).some(step => step.tool === 'records');
       const run = await runAgent({ prompt: /^(?:research|look up|search)/i.test(message) || isRecordCommand ? message : `research: ${message}`, db, me, env, profile });
       try { run.id = await recordRun({ db, me, prompt: message, result: run, surface: 'assistant' }); } catch { run.id = null; }
@@ -196,7 +203,7 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
     }
 
     // V138 — the critic profile reviews this deployment instead of printing a checklist.
-    if (profile === 'critic' && !body.mode) {
+    if (profile === 'critic' && body.mode === undefined) {
       if (!await consumeRateLimit(db, 'assistant-critic', me.id, 6, 30)) return reply({ error: 'Reviews are limited to six per minute.' }, 429, { 'Retry-After': '30' });
       const pages = await pageStatus(env);
       let review;
@@ -216,8 +223,10 @@ export async function assistantRoute({ request, env, db, me, url, readBody, repl
       try { localGreeting = Intl.getCanonicalLocales(body.language.trim())[0]?.split('-')[0] === 'en'; }
       catch { /* cloudPrompt will reject the invalid tag */ }
     }
-    if (body.mode !== 'cloud' || result.action || result.localOnly || (result.tool && !result.needsProvider) || localGreeting) return reply(result);
-    const provider = String(body.provider || 'gemini');
+    if (mode !== 'cloud' || result.action || result.localOnly || (result.tool && !result.needsProvider) || localGreeting) return reply(result);
+    let provider = String(body.provider || 'gemini').toLowerCase();
+    if (provider === 'openai-compatible') provider = 'openai';
+    if (provider === 'auto') provider = ['gemini', 'openai', 'anthropic', 'deepseek', 'omniroute'].find(id => providerConfiguration(env, id) === true) || 'gemini';
     const configured = providerConfiguration(env, provider);
     if (configured !== true) return reply({ ...result, cloudError: configured === null
       ? 'Stored provider settings could not be read, so this provider’s configuration is unknown. The local tool response is shown instead; no cloud request was made.'

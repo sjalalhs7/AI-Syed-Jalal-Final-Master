@@ -177,7 +177,7 @@ test('installed shell retains the selected theme and crowned logo offline', asyn
     expect(await page.locator('.nav .brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.aj-welcome')).toContainText(durood);
     await expect(page.locator('#aj-welcome-status')).toContainText('may require a tap');
-    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v178-shared-metrics'))).toBe(true);
+    expect(await page.evaluate(async () => (await caches.keys()).includes('aj-v179-chat-workspace'))).toBe(true);
   } finally { await context.setOffline(false); }
 });
 
@@ -273,8 +273,8 @@ test('updating the service worker replaces the old greeting cache but keeps unre
   expect(names).not.toContain('aj-v174-voice-reliability');
   expect(names).not.toContain('aj-v175-free-accounts');
   expect(names).not.toContain('aj-v176-shared-approvals');
-  expect(names).toContain('aj-v178-shared-metrics');
-  const cachedSignup = await page.evaluate(async () => (await (await caches.open('aj-v178-shared-metrics')).match('/index.html'))?.text());
+  expect(names).toContain('aj-v179-chat-workspace');
+  const cachedSignup = await page.evaluate(async () => (await (await caches.open('aj-v179-chat-workspace')).match('/index.html'))?.text());
   expect(cachedSignup).toContain('pending approvals');
   expect(cachedSignup).toContain('active account and audit-event counts');
   expect(await page.evaluate(async () => Boolean(await caches.match('/assets/jarvis.js?v=174')))).toBe(true);
