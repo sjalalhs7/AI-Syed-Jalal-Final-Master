@@ -10,7 +10,8 @@ const frontend = join(source, 'frontend');
 const read = file => readFileSync(join(frontend, file), 'utf8');
 
 test('all entry pages load the opening welcome once and retain shared speech preferences', () => {
-  const pages = readdirSync(frontend).filter(name => name.endsWith('.html') && name !== '404.html' && !/^google/.test(name));
+  // The download landing page is a content-only SEO page, not an assistant entry point.
+  const pages = readdirSync(frontend).filter(name => name.endsWith('.html') && name !== '404.html' && name !== 'download.html' && !/^google/.test(name));
   assert.ok(pages.length >= 20);
   for (const page of pages) {
     const html = read(page);
