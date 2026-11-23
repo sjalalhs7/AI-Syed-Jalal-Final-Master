@@ -26,7 +26,7 @@
         const message = response.status === 404
           ? 'The chat API route was not found (404). Open the secure application or the local preview; static GitHub Pages cannot run the chat API.'
           : response.status === 500
-            ? `The application hit an internal error (500). Check the API logs and /api/health; retry after the server issue is fixed.${data?.requestId ? ` Reference: ${data.requestId}` : ''}`
+            ? (typeof data?.detail === 'string' ? data.detail : `The application hit an internal error (500). Check the API logs and /api/health; retry after the server issue is fixed.${data?.requestId ? ` Reference: ${data.requestId}` : ''}`)
             : serverMessage || `Request failed (${response.status})`;
         const error = new Error(message); error.status = response.status; error.code = data?.code; error.requestId = data?.requestId; throw error;
       }
