@@ -11,7 +11,7 @@ const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 
 test('sitemap contains only unique public final URLs with matching canonicals', () => {
   assert.equal(urls.length, new Set(urls).size);
-  assert.equal(urls.length, 7);
+  assert.equal(urls.length, 8);
   for (const address of urls) {
     const url = new URL(address);
     assert.equal(url.origin, base);
@@ -38,6 +38,16 @@ test('sitemap contains only unique public final URLs with matching canonicals', 
   }
   assert.match(read('index.html'), /href="about-jarvis\.html"/);
   assert.match(read('about-jarvis.html'), /href="jarvis\.html"/);
+});
+
+test('public download page is linked from the homepage and serves a source-only ZIP', () => {
+  const page = read('download.html');
+  assert.match(page, /href="downloads\/AI-Syed-Jalal-App-Website\.zip" download/);
+  assert.match(page, /not an APK or one-click hosted application/i);
+  assert.match(read('index.html'), /href="download\.html">Download source package/);
+  const bundle = readFileSync(new URL('downloads/AI-Syed-Jalal-App-Website.zip', root));
+  assert.ok(bundle.length > 1_000_000, 'download package should include the application and website source');
+  assert.equal(bundle.readUInt32LE(0), 0x04034b50, 'download asset must be a ZIP archive');
 });
 
 test('robots permits Google to discover sitemap and read private noindex directives', () => {

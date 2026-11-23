@@ -58,7 +58,8 @@ test('JalalAi reports database, HTTP and network startup failures without mislea
   failure = 'server'; await page.reload();
   await expect(page.locator('#connectionStatus')).toHaveText('Assistant unavailable');
   await expect(page.locator('#loginMessage')).toContainText('application responded');
-  await expect(page.locator('#status')).toHaveText('Session lookup failed');
+  await expect(page.locator('#status')).toContainText('internal error (500)');
+  await expect(page.locator('#status')).toContainText('Check the API logs');
   failure = 'state'; await page.reload();
   await expect(page.locator('#connectionStatus')).toHaveText('Assistant unavailable');
   await expect(page.locator('#loginMessage')).toContainText('assistant could not start');

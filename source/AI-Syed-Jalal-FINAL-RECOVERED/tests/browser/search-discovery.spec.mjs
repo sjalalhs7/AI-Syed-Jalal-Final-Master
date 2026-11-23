@@ -10,7 +10,7 @@ test('public sitemap and its extensionless URLs resolve with matching canonical 
     if (doc.querySelector('parsererror')) throw new Error('Invalid sitemap XML');
     return [...doc.getElementsByTagNameNS('http://www.sitemaps.org/schemas/sitemap/0.9', 'loc')].map(n => n.textContent);
   }, xml);
-  expect(locations).toHaveLength(7);
+  expect(locations).toHaveLength(8);
   for (const location of locations) {
     const target = new URL(location);
     const result = await page.goto(target.pathname);

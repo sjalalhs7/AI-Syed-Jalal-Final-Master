@@ -15,6 +15,7 @@ A visible interface or configured provider is not proof that a live request, log
 - [Intelligence evolution](https://ai-syed-jalal-live.pages.dev/intelligence-evolution): An educational comparison of AI, generative AI, AGI, ASI and organic intelligence.
 - [Learning roadmaps](https://ai-syed-jalal-live.pages.dev/roadmaps): Learning paths and progress stored on the user's device.
 - [Visual styles](https://ai-syed-jalal-live.pages.dev/visual-styles): An overview of workspace design themes.
+- [Download](https://ai-syed-jalal-live.pages.dev/download): Open the live website or download the source package; this is not an Android APK.
 
 ## Site discovery
 

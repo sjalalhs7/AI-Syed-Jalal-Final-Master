@@ -14,7 +14,8 @@ test('the homepage keeps the essentials visible and the other tools reachable in
   if (await notice.isVisible()) await page.locator('#aj-welcome-notice-close').click();
   await expect(page.locator('.acts a[href="jarvis.html"]')).toBeVisible();
   await expect(page.locator('.acts a[href="ai-hub.html"]')).toBeVisible();
-  await expect(page.locator('.acts a')).toHaveCount(2);
+  await expect(page.locator('.acts a')).toHaveCount(3);
+  await expect(page.locator('.acts a[href="download.html"]')).toBeVisible();
   const menu = page.locator('.nav-more');
   const summary = menu.locator('summary');
   await expect(menu.locator('a[href="notes.html"]')).toBeHidden();
