@@ -84,6 +84,24 @@ test('reporting is available in Agent Studio and Arena without sending automatic
   }
 });
 
+test('the report dialog stays within a narrow mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/jalalai.html');
+  await page.evaluate(() => window.AJReport.open('A short test reply'));
+  const dialog = page.locator('.aj-report-dialog');
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.evaluate(element => {
+    const dialogRect = element.getBoundingClientRect();
+    const fieldRect = element.querySelector('textarea[name=excerpt]').getBoundingClientRect();
+    return { left: dialogRect.left, right: dialogRect.right, width: dialogRect.width,
+      fieldLeft: fieldRect.left, fieldRight: fieldRect.right, viewport: document.documentElement.clientWidth };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewport);
+  expect(bounds.fieldLeft).toBeGreaterThanOrEqual(bounds.left);
+  expect(bounds.fieldRight).toBeLessThanOrEqual(bounds.right);
+});
+
 test('Agent Studio and Arena attach a report action to generated replies', async ({ page }) => {
   test.setTimeout(90000);
   await page.goto('/agent.html');
