@@ -1,4 +1,4 @@
-.aj-report-dialog{width:min(92vw,640px);max-height:90vh;overflow:auto;border:1px solid #6483a6;border-radius:16px;padding:22px;background:#101a2a;color:#f4f7fb;box-shadow:0 20px 70px #000a;font:15px/1.5 system-ui,sans-serif}
+.aj-report-dialog{box-sizing:border-box;width:min(640px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);min-width:0;overflow:auto;overscroll-behavior:contain;border:1px solid #6483a6;border-radius:16px;padding:clamp(14px,4vw,22px);background:#101a2a;color:#f4f7fb;box-shadow:0 20px 70px #000a;font:15px/1.5 system-ui,sans-serif}
 .aj-report-dialog::backdrop{background:#020712cc}
 .aj-report-dialog h2{margin:0 0 8px;font-size:22px;color:#fff}
 .aj-report-dialog p{margin:8px 0 14px;color:#d5dfed}
